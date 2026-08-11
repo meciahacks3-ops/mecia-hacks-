@@ -29,7 +29,8 @@ export default function ProjectSubmissionPage() {
   // UI state
   const [showModal, setShowModal] = useState(false);
 
-  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && leaderPhone);
+  const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone);
+  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && isLeaderPhoneValid);
 
   useEffect(() => {
     const savedId = sessionStorage.getItem('studentId');
@@ -68,7 +69,13 @@ export default function ProjectSubmissionPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isLeaderComplete) {
-      alert("Please complete all compulsory Team Leader details first.");
+      alert("Please complete all compulsory Team Leader details first (including a valid 10-digit mobile number).");
+      return;
+    }
+
+    const invalidMembers = members.filter(m => m.name.trim() && (!m.phone || !/^\d{10}$/.test(m.phone)));
+    if (invalidMembers.length > 0) {
+      alert("Please enter a valid 10-digit numeric mobile number for all added team members.");
       return;
     }
 
@@ -194,14 +201,17 @@ export default function ProjectSubmissionPage() {
                 />
               </div>
               <div className="form-group">
-                <label htmlFor="leader-phone">Phone Number</label>
+                <label htmlFor="leader-phone">Phone Number (10 digits)</label>
                 <input
                   type="tel"
                   id="leader-phone"
-                  placeholder="+91 9876543210"
+                  placeholder="e.g., 9876543210"
                   required
+                  maxLength={10}
+                  pattern="[0-9]{10}"
+                  inputMode="numeric"
                   value={leaderPhone}
-                  onChange={(e) => setLeaderPhone(e.target.value)}
+                  onChange={(e) => setLeaderPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                 />
               </div>
             </div>
@@ -240,11 +250,14 @@ export default function ProjectSubmissionPage() {
                   />
                   <input
                     type="tel"
-                    placeholder="Phone Number"
+                    placeholder="10-digit Phone No."
                     required
+                    maxLength={10}
+                    pattern="[0-9]{10}"
+                    inputMode="numeric"
                     disabled={!isLeaderComplete}
                     value={member.phone}
-                    onChange={(e) => updateMember(index, 'phone', e.target.value)}
+                    onChange={(e) => updateMember(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
                   />
                   <button
                     type="button"

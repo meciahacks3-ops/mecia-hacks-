@@ -210,7 +210,8 @@ function validateLeaderDetails() {
   const leaderId = getInputValue('leader-id');
   const leaderPhone = getInputValue('leader-phone');
 
-  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && leaderPhone);
+  const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone);
+  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && isLeaderPhoneValid);
 
   const lockedElements = document.querySelectorAll('.locked-until-leader');
   const lockStatusBadge = document.getElementById('lock-status-badge');
@@ -218,11 +219,11 @@ function validateLeaderDetails() {
   lockedElements.forEach(el => {
     if (isLeaderComplete) {
       el.classList.remove('section-disabled');
-      const inputs = el.querySelectorAll('input, textarea, button');
+      const inputs = el.querySelectorAll('input, textarea, button, select');
       inputs.forEach(input => input.removeAttribute('disabled'));
     } else {
       el.classList.add('section-disabled');
-      const inputs = el.querySelectorAll('input, textarea, button');
+      const inputs = el.querySelectorAll('input, textarea, button, select');
       inputs.forEach(input => input.setAttribute('disabled', 'true'));
     }
   });
@@ -249,7 +250,7 @@ function addTeamMember() {
     <input type="text" placeholder="Member Name" required>
     <input type="email" placeholder="Email ID" required>
     <input type="text" placeholder="Enrollment No. / ID Number" required>
-    <input type="tel" placeholder="Phone Number" required>
+    <input type="tel" placeholder="10-digit Phone No." maxlength="10" pattern="[0-9]{10}" inputmode="numeric" required oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)">
     <button type="button" class="remove-btn" onclick="removeMember(this)" title="Remove Member">&times;</button>
   `;
   container.appendChild(memberRow);
@@ -284,6 +285,11 @@ async function handleProjectSubmission(event) {
 
   if (!teamName || !leaderName || !leaderEmail || !leaderId || !leaderPhone) {
     alert("Please complete all compulsory Team Leader details first.");
+    return false;
+  }
+
+  if (!/^\d{10}$/.test(leaderPhone)) {
+    alert("Please enter a valid 10-digit numeric mobile number for the Team Leader.");
     return false;
   }
 
@@ -956,7 +962,14 @@ document.addEventListener('DOMContentLoaded', () => {
   leaderInputs.forEach(id => {
     const input = document.getElementById(id);
     if (input) {
-      input.addEventListener('input', validateLeaderDetails);
+      if (id === 'leader-phone') {
+        input.addEventListener('input', (e) => {
+          e.target.value = e.target.value.replace(/\D/g, '').slice(0, 10);
+          validateLeaderDetails();
+        });
+      } else {
+        input.addEventListener('input', validateLeaderDetails);
+      }
     }
   });
 
