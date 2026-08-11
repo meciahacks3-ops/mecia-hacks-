@@ -28,7 +28,7 @@ const initialDemoTeams = [
     projectTitle: 'Post-Quantum Cryptography Ledger',
     mainIdea: 'Lattice-based encryption system for decentralized transaction validation resistant to quantum attacks.',
     techStack: 'Rust, WebAssembly, Go, Docker',
-    assignedJudge: 'judge@eval.org'
+    assignedJudge: 'judge2@eval.org'
   },
   {
     id: 'team-3',
@@ -40,7 +40,7 @@ const initialDemoTeams = [
     projectTitle: 'Smart Urban Traffic Grid Optimization',
     mainIdea: 'Computer-vision driven dynamic signal timing to minimize congestion and emergency vehicle response times.',
     techStack: 'OpenCV, PyTorch, Node.js, Leaflet.js',
-    assignedJudge: 'judge@eval.org'
+    assignedJudge: 'judge3@eval.org'
   }
 ];
 
@@ -110,6 +110,12 @@ export default function JudgeDashboardPage() {
     router.push('/');
   };
 
+  // Strict Panel-based Filtering: Judges only see teams assigned specifically to their judgeEmail
+  const assignedTeams = teams.filter(t => {
+    if (!t.assignedJudge) return false;
+    return t.assignedJudge.toLowerCase().trim() === judgeEmail.toLowerCase().trim();
+  });
+
   return (
     <>
       <div className="scanlines"></div>
@@ -132,8 +138,8 @@ export default function JudgeDashboardPage() {
           <div className="badge-wrapper">
             <span className="role-badge eval-badge">STAGE 2: JUDGE EVALUATION PANEL</span>
           </div>
-          <h2>ASSIGNED HACKATHON TEAMS</h2>
-          <p>Review team submissions, evaluate solutions against rubrics, and assign scores.</p>
+          <h2>ASSIGNED HACKATHON TEAMS ({assignedTeams.length})</h2>
+          <p>Review team submissions, evaluate solutions against rubrics, and assign scores for panel: <strong>{judgeEmail}</strong>.</p>
         </div>
 
         {/* Assigned Teams List Section */}
@@ -141,58 +147,65 @@ export default function JudgeDashboardPage() {
           <h3 className="section-title"><span className="pacman-bullet"></span> HACKATHON TEAMS (CLICK NAME TO EVALUATE)</h3>
 
           <div className="teams-list">
-            {teams.map(t => {
-              const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
-              const isScored = Boolean(evalEntry) || (t.teamName.toLowerCase() === 'quantum hackers');
-              const scoreVal = evalEntry ? evalEntry.totalScore : (t.teamName.toLowerCase() === 'quantum hackers' ? 88 : 0);
+            {assignedTeams.length === 0 ? (
+              <div style={{ textAlign: 'center', padding: '36px 16px', background: 'rgba(0, 0, 0, 0.5)', borderRadius: '10px', border: '1.5px dashed rgba(0, 255, 255, 0.3)' }}>
+                <p style={{ fontSize: '1rem', color: 'var(--pacman-yellow)', marginBottom: '8px', fontWeight: '700' }}>⚠️ NO TEAMS ASSIGNED YET</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No hackathon teams have been assigned to judge panel <strong>{judgeEmail}</strong> yet by the Admin.</p>
+              </div>
+            ) : (
+              assignedTeams.map(t => {
+                const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
+                const isScored = Boolean(evalEntry) || (t.teamName.toLowerCase() === 'quantum hackers');
+                const scoreVal = evalEntry ? evalEntry.totalScore : (t.teamName.toLowerCase() === 'quantum hackers' ? 44 : 0);
 
-              return (
-                <div key={t.id || t.teamName} className="team-card">
-                  <div className="team-card-header">
-                    <div>
+                return (
+                  <div key={t.id || t.teamName} className="team-card">
+                    <div className="team-card-header">
+                      <div>
+                        <a
+                          href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
+                          className="team-name-link"
+                          title={`Click to evaluate ${t.teamName}`}
+                        >
+                          <span className="team-name">{t.teamName}</span>
+                        </a>
+                        {isScored ? (
+                          <span className="status-pill status-completed">SCORED ({scoreVal}/50)</span>
+                        ) : (
+                          <span className="status-pill status-pending">PENDING EVALUATION</span>
+                        )}
+                      </div>
+
                       <a
                         href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
-                        className="team-name-link"
-                        title={`Click to evaluate ${t.teamName}`}
+                        className={`eval-btn ${isScored ? 'edit-btn' : ''}`}
                       >
-                        <span className="team-name">{t.teamName}</span>
+                        {isScored ? '✏️ EDIT MARKS' : '⭐ EVALUATE TEAM'}
                       </a>
-                      {isScored ? (
-                        <span className="status-pill status-completed">SCORED ({scoreVal}/100)</span>
-                      ) : (
-                        <span className="status-pill status-pending">PENDING EVALUATION</span>
-                      )}
                     </div>
 
-                    <a
-                      href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
-                      className={`eval-btn ${isScored ? 'edit-btn' : ''}`}
-                    >
-                      {isScored ? '✏️ EDIT MARKS' : '⭐ EVALUATE TEAM'}
-                    </a>
-                  </div>
-
-                  <div className="team-card-body">
-                    <div className="info-block">
-                      <span className="info-label">👑 Team Leader:</span>
-                      <span className="info-val">{t.leaderName} ({t.leaderId}) | {t.leaderEmail} | {t.leaderPhone}</span>
-                    </div>
-                    <div className="info-block">
-                      <span className="info-label">💡 Project Title:</span>
-                      <span className="info-val highlight-title">{t.projectTitle}</span>
-                    </div>
-                    <div className="info-block">
-                      <span className="info-label">🎯 Main Idea:</span>
-                      <span className="info-val">{t.mainIdea}</span>
-                    </div>
-                    <div className="info-block">
-                      <span className="info-label">🛠️ Tech Stack:</span>
-                      <span className="info-val">{t.techStack}</span>
+                    <div className="team-card-body">
+                      <div className="info-block">
+                        <span className="info-label">👑 Team Leader:</span>
+                        <span className="info-val">{t.leaderName} ({t.leaderId}) | {t.leaderEmail} | {t.leaderPhone}</span>
+                      </div>
+                      <div className="info-block">
+                        <span className="info-label">💡 Project Title:</span>
+                        <span className="info-val highlight-title">{t.projectTitle}</span>
+                      </div>
+                      <div className="info-block">
+                        <span className="info-label">🎯 Main Idea:</span>
+                        <span className="info-val">{t.mainIdea}</span>
+                      </div>
+                      <div className="info-block">
+                        <span className="info-label">🛠️ Tech Stack:</span>
+                        <span className="info-val">{t.techStack}</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              );
-            })}
+                );
+              })
+            )}
           </div>
         </div>
 
