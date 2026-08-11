@@ -13,6 +13,7 @@ export default function LoginPage() {
   // Login form state
   const [studentId, setStudentId] = useState('');
   const [judgeEmail, setJudgeEmail] = useState('');
+  const [adminUser, setAdminUser] = useState('');
   const [authError, setAuthError] = useState('');
 
   const isGmailWhitelisted = async (email) => {
