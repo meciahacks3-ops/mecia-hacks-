@@ -1555,6 +1555,7 @@ body.simple-theme .theme-toggle-btn:hover {
 .google-oauth-btn,
 .theme-toggle-btn,
 .logout-btn,
+.nav-back-btn,
 .add-member-btn,
 .tab-btn {
   position: relative !important;
@@ -1570,7 +1571,9 @@ body.simple-theme .theme-toggle-btn:hover {
 .theme-toggle-btn::before,
 .theme-toggle-btn::after,
 .logout-btn::before,
-.logout-btn::after {
+.logout-btn::after,
+.nav-back-btn::before,
+.nav-back-btn::after {
   content: '';
   position: absolute;
   top: 0;
@@ -1590,7 +1593,8 @@ body.simple-theme .theme-toggle-btn:hover {
 .eval-btn:hover::before,
 .google-oauth-btn:hover::before,
 .theme-toggle-btn:hover::before,
-.logout-btn:hover::before {
+.logout-btn:hover::before,
+.nav-back-btn:hover::before {
   opacity: 0.8;
   background: rgba(0, 255, 255, 0.25);
   box-shadow: -2px 0 #00ffff;
@@ -1603,7 +1607,8 @@ body.simple-theme .theme-toggle-btn:hover {
 .eval-btn:hover::after,
 .google-oauth-btn:hover::after,
 .theme-toggle-btn:hover::after,
-.logout-btn:hover::after {
+.logout-btn:hover::after,
+.nav-back-btn:hover::after {
   opacity: 0.8;
   background: rgba(255, 0, 85, 0.25);
   box-shadow: 2px 0 #ff0055;
@@ -1748,4 +1753,51 @@ body.simple-theme .logout-btn {
 body.simple-theme .logout-btn:hover {
   background: #dc2626 !important;
   color: #ffffff !important;
+}
+
+/* Pac-Man Arcade Themed Nav Back Button */
+.nav-back-btn {
+  position: relative;
+  overflow: hidden;
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.7);
+  border: 2px solid var(--inky-cyan);
+  border-radius: 8px;
+  color: var(--inky-cyan);
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  padding: 8px 16px;
+  cursor: pointer;
+  box-shadow: 0 0 12px rgba(0, 255, 255, 0.25), inset 0 0 8px rgba(0, 255, 255, 0.1);
+  transition: all 0.25s ease;
+}
+
+.nav-back-btn:hover {
+  background: rgba(0, 255, 255, 0.15);
+  border-color: var(--pacman-yellow);
+  color: var(--pacman-yellow);
+  text-shadow: 0 0 10px rgba(253, 255, 0, 0.8);
+  box-shadow: 0 0 20px rgba(0, 255, 255, 0.6), inset 0 0 12px rgba(0, 255, 255, 0.25);
+  transform: translateX(-3px);
+}
+
+body.simple-theme .nav-back-btn {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #2563eb !important;
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+  font-size: 0.85rem !important;
+  font-weight: 600 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
+body.simple-theme .nav-back-btn:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  border-color: #2563eb !important;
 }

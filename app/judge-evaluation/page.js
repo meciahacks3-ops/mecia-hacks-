@@ -156,7 +156,8 @@ function JudgeEvaluationContent() {
         {/* Navigation Bar */}
         <div className="nav-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
           <button type="button" className="nav-back-btn" onClick={() => router.push('/judge-dashboard')}>
-            ⬅️ RETURN TO DASHBOARD
+            <span className="pacman-bullet" style={{ transform: 'rotate(180deg)', width: '10px', height: '10px', margin: 0 }}></span>
+            RETURN TO DASHBOARD
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button
