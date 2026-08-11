@@ -117,14 +117,6 @@ export default function JudgeDashboardPage() {
       <div className="judge-container">
         {/* Navigation Bar */}
         <div className="nav-header" style={{ justifyContent: 'flex-end', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-          <button
-            type="button"
-            className="eval-btn edit-btn"
-            style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-            onClick={() => setShowRubrics(true)}
-          >
-            📋 ROUND 2 RUBRICS
-          </button>
           <div className="student-hud-badge">
             <span className="ghost cyan-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> JUDGE: <span id="logged-judge-email">{judgeEmail}</span>
           </div>

@@ -160,14 +160,6 @@ function JudgeEvaluationContent() {
             RETURN TO DASHBOARD
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              type="button"
-              className="eval-btn edit-btn"
-              style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-              onClick={() => { setSelectedRubricCategory(null); setShowRubrics(true); }}
-            >
-              📋 ALL ROUND 2 RUBRICS
-            </button>
             <div className="student-hud-badge">
               <span className="ghost cyan-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> JUDGE: <span>{judgeEmail}</span>
             </div>
