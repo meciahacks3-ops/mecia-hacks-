@@ -43,16 +43,62 @@ const initialDemoTeams = [
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [adminUser, setAdminUser] = useState('admin_user');
-  const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab' or 'scores-tab'
+  const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab', 'scores-tab', 'whitelist-tab'
   const [teams, setTeams] = useState(initialDemoTeams);
   const [evaluations, setEvaluations] = useState([]);
   const [judgeSelections, setJudgeSelections] = useState({});
+  const [allowedUsers, setAllowedUsers] = useState([]);
+  const [newGmail, setNewGmail] = useState('');
 
   useEffect(() => {
     const savedAdminUser = sessionStorage.getItem('adminUser');
     if (savedAdminUser) setAdminUser(savedAdminUser);
     fetchData();
+    fetchAllowedUsers();
   }, []);
+
+  const fetchAllowedUsers = async () => {
+    try {
+      const { data } = await supabase.from('allowed_users').select('*').order('created_at', { ascending: false });
+      if (data) setAllowedUsers(data);
+    } catch (e) {
+      console.warn("Allowed users fetch warning:", e);
+    }
+  };
+
+  const handleAddAllowedGmail = async (e) => {
+    e.preventDefault();
+    if (!newGmail.trim()) return;
+
+    try {
+      const { data, error } = await supabase
+        .from('allowed_users')
+        .insert([{ email: newGmail.trim().toLowerCase(), added_by: adminUser }])
+        .select()
+        .single();
+
+      if (error) {
+        alert("Database Notice: " + error.message);
+      } else if (data) {
+        setAllowedUsers([data, ...allowedUsers]);
+        setNewGmail('');
+        alert(`Successfully authorized ${data.email} for Google OAuth!`);
+      }
+    } catch (err) {
+      console.error("Add allowed email error:", err);
+    }
+  };
+
+  const handleRemoveAllowedGmail = async (id, email) => {
+    if (!confirm(`Are you sure you want to revoke access for ${email}?`)) return;
+
+    try {
+      await supabase.from('allowed_users').delete().eq('id', id);
+      setAllowedUsers(allowedUsers.filter(u => u.id !== id));
+    } catch (err) {
+      console.error("Remove allowed email error:", err);
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -229,17 +275,24 @@ export default function AdminDashboardPage() {
             className={`judge-nav-btn ${activeTab === 'teams-tab' ? 'active' : ''}`}
             onClick={() => setActiveTab('teams-tab')}
           >
-            👥 TEAM ASSIGNMENTS & JUDGES
+            👥 TEAMS & JUDGES
           </button>
           <button
             type="button"
             className={`judge-nav-btn eval-highlight ${activeTab === 'scores-tab' ? 'active' : ''}`}
             onClick={() => setActiveTab('scores-tab')}
           >
-            ⭐ LEADERBOARD & MARKS
+            ⭐ LEADERBOARD
+          </button>
+          <button
+            type="button"
+            className={`judge-nav-btn ${activeTab === 'whitelist-tab' ? 'active' : ''}`}
+            onClick={() => setActiveTab('whitelist-tab')}
+          >
+            🔐 OAUTH WHITELIST ({allowedUsers.length})
           </button>
           <button type="button" className="submit-btn excel-btn admin-excel-btn" onClick={exportCSV}>
-            📊 EXPORT ALL TO EXCEL (.CSV)
+            📊 EXPORT CSV
           </button>
         </div>
 
@@ -348,7 +401,7 @@ export default function AdminDashboardPage() {
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>21</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>22</td>
                             <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>88 / 100</td>
-                            <td><span class="status-pill status-completed">SCORED</span></td>
+                            <td><span className="status-pill status-completed">SCORED</span></td>
                             <td><small>Strong post-quantum security architecture and live demo.</small></td>
                           </tr>
                         );
@@ -368,6 +421,77 @@ export default function AdminDashboardPage() {
                         </tr>
                       );
                     })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 3: ALLOWED GMAILS WHITELIST */}
+        {activeTab === 'whitelist-tab' && (
+          <div className="admin-tab-content active">
+            <div className="form-section">
+              <h3 className="section-title"><span className="pacman-bullet"></span> GOOGLE OAUTH AUTHORIZED USERS WHITELIST</h3>
+
+              <form onSubmit={handleAddAllowedGmail} style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                <input
+                  type="email"
+                  placeholder="Enter authorized Gmail address (e.g., student@gmail.com)"
+                  required
+                  value={newGmail}
+                  onChange={(e) => setNewGmail(e.target.value)}
+                  style={{
+                    flex: 1,
+                    padding: '12px 14px',
+                    background: '#000',
+                    border: '2px solid var(--inky-cyan)',
+                    borderRadius: '8px',
+                    color: '#fff',
+                    outline: 'none'
+                  }}
+                />
+                <button type="submit" className="submit-btn" style={{ marginTop: 0, padding: '12px 20px', whiteSpace: 'nowrap' }}>
+                  ➕ ADD AUTHORIZED GMAIL
+                </button>
+              </form>
+
+              <div className="table-responsive">
+                <table className="eval-table admin-table">
+                  <thead>
+                    <tr>
+                      <th>Authorized Gmail Address</th>
+                      <th>Added By</th>
+                      <th>Authorized On</th>
+                      <th style={{ textAlign: 'center' }}>Action</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {allowedUsers.length === 0 ? (
+                      <tr>
+                        <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
+                          No email restriction entries found. (Google OAuth is open to all users by default until an email is added).
+                        </td>
+                      </tr>
+                    ) : (
+                      allowedUsers.map(u => (
+                        <tr key={u.id || u.email}>
+                          <td className="criterion-name">{u.email}</td>
+                          <td>{u.added_by || 'Admin'}</td>
+                          <td><small style={{ color: 'var(--text-muted)' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Active'}</small></td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="logout-btn"
+                              style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                              onClick={() => handleRemoveAllowedGmail(u.id, u.email)}
+                            >
+                              🗑️ REMOVE
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

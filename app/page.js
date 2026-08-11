@@ -13,7 +13,25 @@ export default function LoginPage() {
   // Login form state
   const [studentId, setStudentId] = useState('');
   const [judgeEmail, setJudgeEmail] = useState('');
-  const [adminUser, setAdminUser] = useState('');
+  const [authError, setAuthError] = useState('');
+
+  const isGmailWhitelisted = async (email) => {
+    if (!email) return false;
+    try {
+      const { count } = await supabase.from('allowed_users').select('*', { count: 'exact', head: true });
+      if (count === 0 || count === null) return true; // If whitelist table is empty/not populated yet, allow
+
+      const { data } = await supabase
+        .from('allowed_users')
+        .select('email')
+        .ilike('email', email)
+        .maybeSingle();
+
+      return Boolean(data);
+    } catch (e) {
+      return true;
+    }
+  };
 
   useEffect(() => {
     // Check Theme Preference
@@ -30,6 +48,13 @@ export default function LoginPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const userEmail = session.user.email || session.user.user_metadata?.email;
+        const allowed = await isGmailWhitelisted(userEmail);
+        if (!allowed) {
+          await supabase.auth.signOut();
+          sessionStorage.clear();
+          setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized for Mecia Hack 3.0. Please contact an admin.`);
+          return;
+        }
         sessionStorage.setItem('studentId', userEmail);
         sessionStorage.setItem('judgeEmail', userEmail);
         try {
@@ -45,6 +70,13 @@ export default function LoginPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         const userEmail = session.user.email || session.user.user_metadata?.email;
+        const allowed = await isGmailWhitelisted(userEmail);
+        if (!allowed) {
+          await supabase.auth.signOut();
+          sessionStorage.clear();
+          setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized for Mecia Hack 3.0.`);
+          return;
+        }
         sessionStorage.setItem('studentId', userEmail);
         sessionStorage.setItem('judgeEmail', userEmail);
         router.push('/project-submission');
@@ -175,6 +207,24 @@ export default function LoginPage() {
             {role === 'admin' && 'Manage events, teams, and administrative settings.'}
           </p>
         </div>
+
+        {/* Auth Error Banner */}
+        {authError && (
+          <div style={{
+            background: 'rgba(255, 0, 85, 0.15)',
+            border: '2px solid #ff0055',
+            color: '#ff4d79',
+            padding: '12px 14px',
+            borderRadius: '8px',
+            fontFamily: 'Press Start 2P, monospace',
+            fontSize: '0.62rem',
+            lineHeight: '1.5',
+            marginBottom: '16px',
+            textAlign: 'center'
+          }}>
+            {authError}
+          </div>
+        )}
 
         {/* Theme Toggle Bar */}
         <div className="theme-toggle-bar">
