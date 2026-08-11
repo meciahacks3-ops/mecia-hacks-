@@ -68,11 +68,11 @@ export default function LoginPage() {
   const handleGoogleOAuth = async () => {
     setIsLoggingIn(true);
     try {
-      const redirectUrl = process.env.NEXT_PUBLIC_SITE_URL || (typeof window !== 'undefined' ? window.location.origin : 'https://mecia-hacks.vercel.app');
+      const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://mecia-hacks.vercel.app';
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: redirectUrl,
+          redirectTo: originUrl,
         },
       });
       if (error) throw error;
