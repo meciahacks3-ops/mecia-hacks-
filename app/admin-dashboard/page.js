@@ -49,6 +49,8 @@ export default function AdminDashboardPage() {
   const [judgeSelections, setJudgeSelections] = useState({});
   const [allowedUsers, setAllowedUsers] = useState([]);
   const [newGmail, setNewGmail] = useState('');
+  const [editingUserId, setEditingUserId] = useState(null);
+  const [editingEmail, setEditingEmail] = useState('');
 
   useEffect(() => {
     const savedAdminUser = sessionStorage.getItem('adminUser');
@@ -86,6 +88,33 @@ export default function AdminDashboardPage() {
       }
     } catch (err) {
       console.error("Add allowed email error:", err);
+    }
+  };
+
+  const startEditGmail = (u) => {
+    setEditingUserId(u.id);
+    setEditingEmail(u.email);
+  };
+
+  const handleUpdateAllowedGmail = async (id) => {
+    if (!editingEmail.trim()) return;
+
+    try {
+      const { error } = await supabase
+        .from('allowed_users')
+        .update({ email: editingEmail.trim().toLowerCase() })
+        .eq('id', id);
+
+      if (error) {
+        alert("Database Notice: " + error.message);
+      } else {
+        setAllowedUsers(allowedUsers.map(u => u.id === id ? { ...u, email: editingEmail.trim().toLowerCase() } : u));
+        setEditingUserId(null);
+        setEditingEmail('');
+        alert("Successfully updated authorized email!");
+      }
+    } catch (err) {
+      console.error("Update allowed email error:", err);
     }
   };
 
@@ -476,18 +505,70 @@ export default function AdminDashboardPage() {
                     ) : (
                       allowedUsers.map(u => (
                         <tr key={u.id || u.email}>
-                          <td className="criterion-name">{u.email}</td>
+                          <td className="criterion-name">
+                            {editingUserId === u.id ? (
+                              <input
+                                type="email"
+                                value={editingEmail}
+                                onChange={(e) => setEditingEmail(e.target.value)}
+                                style={{
+                                  padding: '6px 10px',
+                                  background: '#000',
+                                  border: '2px solid var(--pacman-yellow)',
+                                  borderRadius: '6px',
+                                  color: '#fff',
+                                  fontFamily: 'Outfit, sans-serif',
+                                  fontSize: '0.9rem',
+                                  width: '100%',
+                                  maxWidth: '280px'
+                                }}
+                              />
+                            ) : (
+                              u.email
+                            )}
+                          </td>
                           <td>{u.added_by || 'Admin'}</td>
                           <td><small style={{ color: 'var(--text-muted)' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Active'}</small></td>
-                          <td style={{ textAlign: 'center' }}>
-                            <button
-                              type="button"
-                              className="logout-btn"
-                              style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                              onClick={() => handleRemoveAllowedGmail(u.id, u.email)}
-                            >
-                              🗑️ REMOVE
-                            </button>
+                          <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                            {editingUserId === u.id ? (
+                              <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  className="eval-btn"
+                                  style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                                  onClick={() => handleUpdateAllowedGmail(u.id)}
+                                >
+                                  💾 SAVE
+                                </button>
+                                <button
+                                  type="button"
+                                  className="logout-btn"
+                                  style={{ padding: '6px 10px', fontSize: '0.75rem', borderColor: '#777', color: '#aaa', background: 'transparent' }}
+                                  onClick={() => setEditingUserId(null)}
+                                >
+                                  ❌ CANCEL
+                                </button>
+                              </div>
+                            ) : (
+                              <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                <button
+                                  type="button"
+                                  className="eval-btn edit-btn"
+                                  style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                                  onClick={() => startEditGmail(u)}
+                                >
+                                  ✏️ EDIT
+                                </button>
+                                <button
+                                  type="button"
+                                  className="logout-btn"
+                                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                                  onClick={() => handleRemoveAllowedGmail(u.id, u.email)}
+                                >
+                                  🗑️ REMOVE
+                                </button>
+                              </div>
+                            )}
                           </td>
                         </tr>
                       ))
