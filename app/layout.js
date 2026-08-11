@@ -2,6 +2,12 @@ import "./globals.css";
 
 export const dynamic = 'force-dynamic';
 
+export const viewport = {
+  width: 'device-width',
+  initialScale: 1,
+  maximumScale: 1,
+};
+
 export const metadata = {
   title: "Mecia Hack 3.0 - Pac-Man Arcade Hackathon Portal",
   description: "Official evaluation and project submission system for Mecia Hack 3.0.",

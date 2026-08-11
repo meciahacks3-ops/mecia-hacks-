@@ -471,7 +471,7 @@ export default function AdminDashboardPage() {
             <div className="form-section">
               <h3 className="section-title"><span className="pacman-bullet"></span> GOOGLE OAUTH AUTHORIZED USERS WHITELIST</h3>
 
-              <form onSubmit={handleAddAllowedGmail} style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+              <form onSubmit={handleAddAllowedGmail} className="whitelist-add-form" style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
                 <input
                   type="email"
                   placeholder="Enter authorized Gmail address (e.g., student@gmail.com)"
