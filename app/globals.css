@@ -1614,7 +1614,8 @@ body.simple-theme .theme-toggle-btn:hover {
   background: rgba(0, 0, 0, 0.7);
   border: 2px solid var(--inky-cyan);
   border-radius: 8px;
-  color: #ffffff;
+  color: var(--inky-cyan);
+  text-shadow: 0 0 8px rgba(0, 255, 255, 0.6);
   font-family: 'Press Start 2P', 'Outfit', sans-serif;
   font-size: 0.72rem;
   letter-spacing: 0.05em;
@@ -1625,8 +1626,9 @@ body.simple-theme .theme-toggle-btn:hover {
 
 .google-oauth-btn:hover {
   background: rgba(0, 255, 255, 0.15);
-  border-color: #ffffff;
+  border-color: var(--pacman-yellow);
   color: var(--pacman-yellow);
+  text-shadow: 0 0 10px rgba(253, 255, 0, 0.8);
   box-shadow: 0 0 20px rgba(0, 255, 255, 0.7), inset 0 0 15px rgba(0, 255, 255, 0.3);
   transform: translateY(-2px);
 }
@@ -1634,20 +1636,21 @@ body.simple-theme .theme-toggle-btn:hover {
 body.simple-theme .google-oauth-btn {
   background: #ffffff !important;
   border: 1px solid #cbd5e1 !important;
-  color: #0f172a !important;
+  color: #2563eb !important;
   font-family: 'Outfit', 'Inter', sans-serif !important;
   font-size: 0.88rem !important;
   font-weight: 600 !important;
   box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
   border-radius: 8px !important;
   letter-spacing: normal !important;
+  text-shadow: none !important;
 }
 
 body.simple-theme .google-oauth-btn:hover {
   background: #f8fafc !important;
-  border-color: #4285F4 !important;
-  color: #1e293b !important;
-  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.18) !important;
+  border-color: #2563eb !important;
+  color: #1d4ed8 !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.18) !important;
   transform: translateY(-1px) !important;
 }
 
