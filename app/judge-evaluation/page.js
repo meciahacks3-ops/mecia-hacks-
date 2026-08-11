@@ -25,7 +25,17 @@ function JudgeEvaluationContent() {
   const [showModal, setShowModal] = useState(false);
   const [showRubrics, setShowRubrics] = useState(false);
 
-  const totalScore = Math.min(50, Math.max(0, (parseInt(c1) || 0) + (parseInt(c2) || 0) + (parseInt(c3) || 0) + (parseInt(c4) || 0) + (parseInt(c5) || 0)));
+  const isInvalid = (val) => {
+    if (val === '' || val === null || val === undefined) return false;
+    const num = Number(val);
+    return isNaN(num) || num < 0 || num > 10;
+  };
+
+  const hasInvalidMarks = isInvalid(c1) || isInvalid(c2) || isInvalid(c3) || isInvalid(c4) || isInvalid(c5);
+
+  const totalScore = hasInvalidMarks
+    ? 'INVALID'
+    : Math.min(50, Math.max(0, (parseInt(c1) || 0) + (parseInt(c2) || 0) + (parseInt(c3) || 0) + (parseInt(c4) || 0) + (parseInt(c5) || 0)));
 
   useEffect(() => {
     const savedJudgeEmail = sessionStorage.getItem('judgeEmail');
@@ -68,6 +78,11 @@ function JudgeEvaluationContent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (hasInvalidMarks) {
+      alert("⚠️ Invalid Marks: Scores for each criterion must be between 0 and 10.");
+      return;
+    }
 
     try {
       const { data: existingEval } = await supabase
@@ -198,10 +213,11 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
-                        className="eval-score-input"
+                        className={`eval-score-input ${isInvalid(c1) ? 'invalid-input' : ''}`}
                         value={c1}
                         onChange={(e) => setC1(e.target.value)}
                       />
+                      {isInvalid(c1) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
                     </td>
                   </tr>
                   <tr>
@@ -215,10 +231,11 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
-                        className="eval-score-input"
+                        className={`eval-score-input ${isInvalid(c2) ? 'invalid-input' : ''}`}
                         value={c2}
                         onChange={(e) => setC2(e.target.value)}
                       />
+                      {isInvalid(c2) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
                     </td>
                   </tr>
                   <tr>
@@ -232,10 +249,11 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
-                        className="eval-score-input"
+                        className={`eval-score-input ${isInvalid(c3) ? 'invalid-input' : ''}`}
                         value={c3}
                         onChange={(e) => setC3(e.target.value)}
                       />
+                      {isInvalid(c3) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
                     </td>
                   </tr>
                   <tr>
@@ -249,10 +267,11 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
-                        className="eval-score-input"
+                        className={`eval-score-input ${isInvalid(c4) ? 'invalid-input' : ''}`}
                         value={c4}
                         onChange={(e) => setC4(e.target.value)}
                       />
+                      {isInvalid(c4) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
                     </td>
                   </tr>
                   <tr>
@@ -266,10 +285,11 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
-                        className="eval-score-input"
+                        className={`eval-score-input ${isInvalid(c5) ? 'invalid-input' : ''}`}
                         value={c5}
                         onChange={(e) => setC5(e.target.value)}
                       />
+                      {isInvalid(c5) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
                     </td>
                   </tr>
                 </tbody>
@@ -277,9 +297,11 @@ function JudgeEvaluationContent() {
             </div>
 
             {/* TOTAL SCORE DISPLAY BOX */}
-            <div className="total-score-box">
+            <div className="total-score-box" style={hasInvalidMarks ? { borderColor: '#ff4d4d', boxShadow: '0 0 20px rgba(255, 77, 77, 0.4)' } : {}}>
               <span className="total-label">TOTAL EVALUATION SCORE:</span>
-              <span className="total-value">{totalScore} / 50</span>
+              <span className="total-value" style={hasInvalidMarks ? { color: '#ff4d4d', textShadow: '0 0 10px #ff4d4d' } : {}}>
+                {hasInvalidMarks ? '⚠️ INVALID MARKS ENTERED' : `${totalScore} / 50`}
+              </span>
             </div>
 
             {/* REMARKS & FEEDBACK */}

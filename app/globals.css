@@ -601,6 +601,22 @@ body::before {
   background: #050515;
 }
 
+.eval-score-input.invalid-input {
+  border-color: #ff4d4d !important;
+  color: #ff4d4d !important;
+  box-shadow: 0 0 14px rgba(255, 77, 77, 0.7) !important;
+  background: #1a0000 !important;
+}
+
+.invalid-badge {
+  color: #ff4d4d;
+  font-family: 'Outfit', 'Inter', sans-serif;
+  font-size: 0.75rem;
+  font-weight: 700;
+  margin-top: 4px;
+  display: block;
+}
+
 .team-banner-section {
   border-color: var(--inky-cyan);
   background: rgba(0, 255, 255, 0.05);
