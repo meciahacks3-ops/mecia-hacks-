@@ -12,6 +12,7 @@ export default function LoginPage() {
 
   // Login form state
   const [studentId, setStudentId] = useState('');
+  const [projectType, setProjectType] = useState('hardware');
   const [judgeEmail, setJudgeEmail] = useState('');
   const [adminUser, setAdminUser] = useState('');
   const [authError, setAuthError] = useState('');
@@ -145,11 +146,12 @@ export default function LoginPage() {
     e.preventDefault();
     setIsLoggingIn(true);
     sessionStorage.setItem('targetRole', 'student');
+    sessionStorage.setItem('projectType', projectType);
     setTimeout(async () => {
       if (studentId) {
         sessionStorage.setItem('studentId', studentId);
         try {
-          await supabase.from('user_logins').insert([{ role: 'student', user_identifier: studentId }]);
+          await supabase.from('user_logins').insert([{ role: 'student', user_identifier: studentId, project_type: projectType }]);
         } catch (err) {
           console.warn("Supabase login tracking warning:", err);
         }
@@ -300,6 +302,19 @@ export default function LoginPage() {
                 value={studentId}
                 onChange={(e) => setStudentId(e.target.value)}
               />
+            </div>
+            <div className="form-group">
+              <label htmlFor="project-type">Project Type</label>
+              <select
+                id="project-type"
+                value={projectType}
+                onChange={(e) => setProjectType(e.target.value)}
+                required
+              >
+                <option value="hardware">Hardware</option>
+                <option value="software">Software</option>
+                <option value="hybrid">Hybrid</option>
+              </select>
             </div>
             <div className="form-group">
               <label htmlFor="student-pass">Password</label>

@@ -150,11 +150,13 @@ function switchRole(role) {
 async function handleStudentLogin(event) {
   if (event) event.preventDefault();
   const studentId = getInputValue('student-id');
+  const projectType = getInputValue('project-type') || 'hardware';
+  sessionStorage.setItem('projectType', projectType);
   if (studentId) {
     sessionStorage.setItem('studentId', studentId);
     if (supabaseClient) {
       try {
-        await supabaseClient.from('user_logins').insert([{ role: 'student', user_identifier: studentId }]);
+        await supabaseClient.from('user_logins').insert([{ role: 'student', user_identifier: studentId, project_type: projectType }]);
       } catch (e) {
         console.warn("Supabase login tracking warning:", e);
       }

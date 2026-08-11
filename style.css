@@ -847,7 +847,7 @@ body {
   letter-spacing: 0.05em;
 }
 
-.form-group input, .form-group textarea {
+.form-group input, .form-group textarea, .form-group select {
   width: 100%;
   padding: 12px 14px;
   background: #000;
@@ -859,6 +859,17 @@ body {
   transition: all 0.2s ease;
 }
 
+.form-group select {
+  cursor: pointer;
+  appearance: auto;
+}
+
+.form-group select option {
+  background: #0d0e1b;
+  color: #fff;
+  padding: 8px;
+}
+
 .form-group textarea {
   resize: vertical;
   line-height: 1.5;
@@ -868,7 +879,7 @@ body {
   color: #555577;
 }
 
-.form-group input:focus, .form-group textarea:focus {
+.form-group input:focus, .form-group textarea:focus, .form-group select:focus {
   border-color: var(--pacman-yellow);
   box-shadow: 0 0 12px rgba(253, 255, 0, 0.4);
 }
