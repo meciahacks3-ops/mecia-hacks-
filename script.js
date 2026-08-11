@@ -276,8 +276,11 @@ async function handleProjectSubmission(event) {
   const leaderId = getInputValue('leader-id');
   const leaderPhone = getInputValue('leader-phone');
   const projectTitle = getInputValue('project-title') || 'New Project Entry';
-  const mainIdea = getInputValue('project-idea') || 'Project Idea Details';
+  const projectType = getInputValue('project-type') || 'hardware';
+  const mainIdea = getInputValue('project-idea') || getInputValue('main-idea') || 'Project Idea Details';
   const techStack = getInputValue('tech-stack') || 'HTML, CSS, JS';
+
+  sessionStorage.setItem('projectType', projectType);
 
   if (!teamName || !leaderName || !leaderEmail || !leaderId || !leaderPhone) {
     alert("Please complete all compulsory Team Leader details first.");
@@ -310,6 +313,7 @@ async function handleProjectSubmission(event) {
     leaderPhone,
     members,
     projectTitle,
+    projectType,
     mainIdea,
     techStack,
     assignedJudge: 'Unassigned'
@@ -888,7 +892,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // Ensure teams data is initialized
   getTeamsData();
 
-  // Populate student ID if on student submission page
+  // Populate student ID & project type if on student submission page
   const loggedIdEl = document.getElementById('logged-student-id');
   if (loggedIdEl) {
     const savedId = sessionStorage.getItem('studentId');
@@ -899,6 +903,12 @@ document.addEventListener('DOMContentLoaded', () => {
         leaderIdInput.value = savedId;
       }
     }
+  }
+
+  const savedProjectType = sessionStorage.getItem('projectType');
+  const projectTypeInput = document.getElementById('project-type');
+  if (savedProjectType && projectTypeInput) {
+    projectTypeInput.value = savedProjectType;
   }
 
   // Populate judge email if on judge panel

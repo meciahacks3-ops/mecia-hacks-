@@ -22,6 +22,7 @@ export default function ProjectSubmissionPage() {
 
   // Project details state
   const [projectTitle, setProjectTitle] = useState('');
+  const [projectType, setProjectType] = useState('hardware');
   const [projectIdea, setProjectIdea] = useState('');
   const [techStack, setTechStack] = useState('');
 
@@ -39,6 +40,10 @@ export default function ProjectSubmissionPage() {
       } else {
         setLeaderId(savedId);
       }
+    }
+    const savedType = sessionStorage.getItem('projectType');
+    if (savedType) {
+      setProjectType(savedType);
     }
   }, []);
 
@@ -78,6 +83,7 @@ export default function ProjectSubmissionPage() {
           leader_id: leaderId,
           leader_phone: leaderPhone,
           project_title: projectTitle || 'New Project Entry',
+          project_type: projectType,
           main_idea: projectIdea || 'Project Idea Details',
           tech_stack: techStack || 'HTML, CSS, JS'
         }])
@@ -278,6 +284,21 @@ export default function ProjectSubmissionPage() {
                 value={projectTitle}
                 onChange={(e) => setProjectTitle(e.target.value)}
               />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="project-type">Project Type</label>
+              <select
+                id="project-type"
+                required
+                disabled={!isLeaderComplete}
+                value={projectType}
+                onChange={(e) => setProjectType(e.target.value)}
+              >
+                <option value="hardware">Hardware</option>
+                <option value="software">Software</option>
+                <option value="hybrid">Hybrid</option>
+              </select>
             </div>
 
             <div className="form-group">
