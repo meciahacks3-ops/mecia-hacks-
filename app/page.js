@@ -56,14 +56,24 @@ export default function LoginPage() {
           setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized for Mecia Hack 3.0. Please contact an admin.`);
           return;
         }
-        sessionStorage.setItem('studentId', userEmail);
-        sessionStorage.setItem('judgeEmail', userEmail);
+        
+        const targetRole = sessionStorage.getItem('targetRole') || 'student';
+        if (targetRole === 'judge') {
+          sessionStorage.setItem('judgeEmail', userEmail);
+          router.push('/judge-dashboard');
+        } else if (targetRole === 'admin') {
+          sessionStorage.setItem('adminUser', userEmail);
+          router.push('/admin-dashboard');
+        } else {
+          sessionStorage.setItem('studentId', userEmail);
+          router.push('/project-submission');
+        }
+
         try {
-          await supabase.from('user_logins').insert([{ role: 'google_oauth', user_identifier: userEmail }]);
+          await supabase.from('user_logins').insert([{ role: `${targetRole}_google_oauth`, user_identifier: userEmail }]);
         } catch (e) {
           console.warn("Supabase OAuth login log warning:", e);
         }
-        router.push('/project-submission');
       }
     };
     checkOAuthSession();
@@ -78,9 +88,18 @@ export default function LoginPage() {
           setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized for Mecia Hack 3.0.`);
           return;
         }
-        sessionStorage.setItem('studentId', userEmail);
-        sessionStorage.setItem('judgeEmail', userEmail);
-        router.push('/project-submission');
+        
+        const targetRole = sessionStorage.getItem('targetRole') || 'student';
+        if (targetRole === 'judge') {
+          sessionStorage.setItem('judgeEmail', userEmail);
+          router.push('/judge-dashboard');
+        } else if (targetRole === 'admin') {
+          sessionStorage.setItem('adminUser', userEmail);
+          router.push('/admin-dashboard');
+        } else {
+          sessionStorage.setItem('studentId', userEmail);
+          router.push('/project-submission');
+        }
       }
     });
 
@@ -98,8 +117,14 @@ export default function LoginPage() {
     }
   };
 
+  const handleRoleSelect = (selectedRole) => {
+    setRole(selectedRole);
+    sessionStorage.setItem('targetRole', selectedRole);
+  };
+
   const handleGoogleOAuth = async () => {
     setIsLoggingIn(true);
+    sessionStorage.setItem('targetRole', role);
     try {
       const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://mecia-hacks.vercel.app';
       const { error } = await supabase.auth.signInWithOAuth({
@@ -119,6 +144,7 @@ export default function LoginPage() {
   const handleStudentLogin = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
+    sessionStorage.setItem('targetRole', 'student');
     setTimeout(async () => {
       if (studentId) {
         sessionStorage.setItem('studentId', studentId);
@@ -136,6 +162,7 @@ export default function LoginPage() {
   const handleJudgeLogin = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
+    sessionStorage.setItem('targetRole', 'judge');
     setTimeout(async () => {
       const email = judgeEmail || 'judge@eval.org';
       sessionStorage.setItem('judgeEmail', email);
@@ -152,6 +179,7 @@ export default function LoginPage() {
   const handleAdminLogin = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
+    sessionStorage.setItem('targetRole', 'admin');
     setTimeout(async () => {
       const user = adminUser || 'admin_user';
       sessionStorage.setItem('adminUser', user);
@@ -239,21 +267,21 @@ export default function LoginPage() {
           <button
             type="button"
             className={`tab-btn student-tab ${role === 'student' ? 'active' : ''}`}
-            onClick={() => setRole('student')}
+            onClick={() => handleRoleSelect('student')}
           >
             <span className="tab-ghost red-ghost"></span> Student
           </button>
           <button
             type="button"
             className={`tab-btn judge-tab ${role === 'judge' ? 'active' : ''}`}
-            onClick={() => setRole('judge')}
+            onClick={() => handleRoleSelect('judge')}
           >
             <span className="tab-ghost cyan-ghost"></span> Judge
           </button>
           <button
             type="button"
             className={`tab-btn admin-tab ${role === 'admin' ? 'active' : ''}`}
-            onClick={() => setRole('admin')}
+            onClick={() => handleRoleSelect('admin')}
           >
             <span className="tab-ghost pink-ghost"></span> Admin
           </button>
