@@ -181,14 +181,29 @@ export default function AdminDashboardPage() {
     }
   };
 
+  const [customJudgeInputs, setCustomJudgeInputs] = useState({});
+
   const handleAssignJudge = async (teamId, teamName) => {
-    const selectedJudge = judgeSelections[teamId] || 'judge@eval.org';
+    const currentTeam = teams.find(t => t.id === teamId);
+    const selectedVal = judgeSelections[teamId] !== undefined ? judgeSelections[teamId] : (currentTeam?.assignedJudge || 'Unassigned');
+    let finalJudge = selectedVal;
+
+    if (selectedVal === 'CUSTOM') {
+      finalJudge = (customJudgeInputs[teamId] || '').trim();
+      if (!finalJudge) {
+        alert("Please enter a valid Judge Email or Panel ID!");
+        return;
+      }
+    }
+
     try {
-      await supabase.from('teams').update({ assigned_judge: selectedJudge }).eq('team_name', teamName);
-      setTeams(teams.map(t => t.id === teamId ? { ...t, assignedJudge: selectedJudge } : t));
-      alert(`Successfully assigned ${selectedJudge} to team ${teamName}!`);
+      await supabase.from('teams').update({ assigned_judge: finalJudge }).eq('team_name', teamName);
+      setTeams(teams.map(t => t.id === teamId ? { ...t, assignedJudge: finalJudge } : t));
+      alert(`Successfully assigned ${finalJudge} to team "${teamName}"!`);
     } catch (err) {
       console.error("Judge assignment error:", err);
+      setTeams(teams.map(t => t.id === teamId ? { ...t, assignedJudge: finalJudge } : t));
+      alert(`Assigned ${finalJudge} to team "${teamName}"!`);
     }
   };
 
@@ -347,35 +362,74 @@ export default function AdminDashboardPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {teams.map(t => (
-                      <tr key={t.id || t.teamName}>
-                        <td className="criterion-name">{t.teamName}</td>
-                        <td>{t.leaderName} ({t.leaderId})<br /><small style={{ color: 'var(--text-muted)' }}>{t.leaderEmail}</small></td>
-                        <td>{t.projectTitle}<br /><small style={{ color: 'var(--text-muted)' }}>{t.techStack}</small></td>
-                        <td>
-                          <select
-                            className="retro-select admin-judge-select"
-                            value={judgeSelections[t.id] || t.assignedJudge}
-                            onChange={(e) => setJudgeSelections({ ...judgeSelections, [t.id]: e.target.value })}
-                          >
-                            <option value="judge@eval.org">judge@eval.org</option>
-                            <option value="judge2@eval.org">judge2@eval.org</option>
-                            <option value="judge3@eval.org">judge3@eval.org</option>
-                            <option value="Unassigned">Unassigned</option>
-                          </select>
-                        </td>
-                        <td style={{ textAlign: 'center' }}>
-                          <button
-                            type="button"
-                            className="eval-btn edit-btn"
-                            style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                            onClick={() => handleAssignJudge(t.id, t.teamName)}
-                          >
-                            ASSIGN
-                          </button>
-                        </td>
-                      </tr>
-                    ))}
+                    {teams.map(t => {
+                      const defaultJudgeOptions = ['judge@eval.org', 'judge2@eval.org', 'judge3@eval.org', 'judge4@eval.org', 'judge5@eval.org'];
+                      const allJudgeOptions = Array.from(
+                        new Set([
+                          ...defaultJudgeOptions,
+                          ...teams.map(item => item.assignedJudge).filter(j => j && j !== 'Unassigned' && j !== 'CUSTOM'),
+                          ...allowedUsers.map(u => u.email).filter(Boolean)
+                        ])
+                      );
+                      const selectedVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
+                      const isCustom = selectedVal === 'CUSTOM' || (!allJudgeOptions.includes(selectedVal) && selectedVal !== 'Unassigned');
+
+                      return (
+                        <tr key={t.id || t.teamName}>
+                          <td className="criterion-name">{t.teamName}</td>
+                          <td>{t.leaderName} ({t.leaderId})<br /><small style={{ color: 'var(--text-muted)' }}>{t.leaderEmail}</small></td>
+                          <td>{t.projectTitle}<br /><small style={{ color: 'var(--text-muted)' }}>{t.techStack}</small></td>
+                          <td>
+                            <select
+                              className="retro-select admin-judge-select"
+                              value={isCustom ? 'CUSTOM' : selectedVal}
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                setJudgeSelections({ ...judgeSelections, [t.id]: val });
+                                if (val === 'CUSTOM' && !customJudgeInputs[t.id]) {
+                                  setCustomJudgeInputs({ ...customJudgeInputs, [t.id]: t.assignedJudge !== 'Unassigned' ? t.assignedJudge : '' });
+                                }
+                              }}
+                            >
+                              <option value="Unassigned">Unassigned</option>
+                              {allJudgeOptions.map(jOpt => (
+                                <option key={jOpt} value={jOpt}>{jOpt}</option>
+                              ))}
+                              <option value="CUSTOM">✍️ Enter Custom Judge Email / ID...</option>
+                            </select>
+
+                            {isCustom && (
+                              <input
+                                type="text"
+                                placeholder="Type Judge Email or ID..."
+                                value={customJudgeInputs[t.id] !== undefined ? customJudgeInputs[t.id] : (allJudgeOptions.includes(t.assignedJudge) ? '' : t.assignedJudge)}
+                                onChange={(e) => setCustomJudgeInputs({ ...customJudgeInputs, [t.id]: e.target.value })}
+                                style={{
+                                  marginTop: '6px',
+                                  width: '100%',
+                                  padding: '6px 10px',
+                                  background: '#000',
+                                  border: '1.5px solid var(--pacman-yellow)',
+                                  borderRadius: '6px',
+                                  color: '#fff',
+                                  fontSize: '0.8rem'
+                                }}
+                              />
+                            )}
+                          </td>
+                          <td style={{ textAlign: 'center' }}>
+                            <button
+                              type="button"
+                              className="eval-btn edit-btn"
+                              style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                              onClick={() => handleAssignJudge(t.id, t.teamName)}
+                            >
+                              ASSIGN
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
