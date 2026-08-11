@@ -3,6 +3,7 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import RubricsModal from '@/app/components/RubricsModal';
 
 function JudgeEvaluationContent() {
   const router = useRouter();
@@ -21,6 +22,7 @@ function JudgeEvaluationContent() {
   const [remarks, setRemarks] = useState('');
 
   const [showModal, setShowModal] = useState(false);
+  const [showRubrics, setShowRubrics] = useState(false);
 
   const totalScore = Math.min(100, Math.max(0, (parseInt(c1) || 0) + (parseInt(c2) || 0) + (parseInt(c3) || 0) + (parseInt(c4) || 0)));
 
@@ -136,6 +138,14 @@ function JudgeEvaluationContent() {
             ⬅️ RETURN TO DASHBOARD
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <button
+              type="button"
+              className="eval-btn edit-btn"
+              style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+              onClick={() => setShowRubrics(true)}
+            >
+              📋 ROUND 2 RUBRICS
+            </button>
             <div className="student-hud-badge">
               <span className="ghost cyan-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> JUDGE: <span>{judgeEmail}</span>
             </div>
@@ -144,6 +154,8 @@ function JudgeEvaluationContent() {
             </button>
           </div>
         </div>
+
+        <RubricsModal isOpen={showRubrics} onClose={() => setShowRubrics(false)} />
 
         {/* Team Banner Header */}
         <div className="login-header text-left team-banner-section">

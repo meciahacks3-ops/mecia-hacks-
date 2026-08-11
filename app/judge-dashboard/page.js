@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import RubricsModal from '@/app/components/RubricsModal';
 
 const initialDemoTeams = [
   {
@@ -49,6 +50,7 @@ export default function JudgeDashboardPage() {
   const [teams, setTeams] = useState(initialDemoTeams);
   const [evaluations, setEvaluations] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [showRubrics, setShowRubrics] = useState(false);
 
   useEffect(() => {
     const savedJudgeEmail = sessionStorage.getItem('judgeEmail');
@@ -115,6 +117,14 @@ export default function JudgeDashboardPage() {
       <div className="judge-container">
         {/* Navigation Bar */}
         <div className="nav-header" style={{ justifyContent: 'flex-end', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
+          <button
+            type="button"
+            className="eval-btn edit-btn"
+            style={{ padding: '6px 14px', fontSize: '0.8rem' }}
+            onClick={() => setShowRubrics(true)}
+          >
+            📋 ROUND 2 RUBRICS
+          </button>
           <div className="student-hud-badge">
             <span className="ghost cyan-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> JUDGE: <span id="logged-judge-email">{judgeEmail}</span>
           </div>
@@ -122,6 +132,8 @@ export default function JudgeDashboardPage() {
             🚪 LOG OUT
           </button>
         </div>
+
+        <RubricsModal isOpen={showRubrics} onClose={() => setShowRubrics(false)} />
 
         {/* Dashboard Title Header */}
         <div className="login-header text-left">
