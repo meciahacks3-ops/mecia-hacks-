@@ -24,6 +24,7 @@ function JudgeEvaluationContent() {
 
   const [showModal, setShowModal] = useState(false);
   const [showRubrics, setShowRubrics] = useState(false);
+  const [selectedRubricCategory, setSelectedRubricCategory] = useState(null);
 
   const isInvalid = (val) => {
     if (val === '' || val === null || val === undefined) return false;
@@ -162,9 +163,9 @@ function JudgeEvaluationContent() {
               type="button"
               className="eval-btn edit-btn"
               style={{ padding: '6px 14px', fontSize: '0.8rem' }}
-              onClick={() => setShowRubrics(true)}
+              onClick={() => { setSelectedRubricCategory(null); setShowRubrics(true); }}
             >
-              📋 ROUND 2 RUBRICS
+              📋 ALL ROUND 2 RUBRICS
             </button>
             <div className="student-hud-badge">
               <span className="ghost cyan-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> JUDGE: <span>{judgeEmail}</span>
@@ -175,7 +176,11 @@ function JudgeEvaluationContent() {
           </div>
         </div>
 
-        <RubricsModal isOpen={showRubrics} onClose={() => setShowRubrics(false)} />
+        <RubricsModal
+          isOpen={showRubrics}
+          categoryIndex={selectedRubricCategory}
+          onClose={() => setShowRubrics(false)}
+        />
 
         {/* Team Banner Header */}
         <div className="login-header text-left team-banner-section">
@@ -203,7 +208,18 @@ function JudgeEvaluationContent() {
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="criterion-name">1. System Architecture & Technical Readiness</td>
+                    <td className="criterion-name">
+                      1. System Architecture & Technical Readiness
+                      <div>
+                        <button
+                          type="button"
+                          className="rubric-info-btn"
+                          onClick={() => { setSelectedRubricCategory(0); setShowRubrics(true); }}
+                        >
+                          ℹ️ Rubric Details
+                        </button>
+                      </div>
+                    </td>
                     <td className="criterion-desc">Clear block/circuit diagrams, tech stack setup, component selection, software/hardware architecture logic.</td>
                     <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
@@ -221,7 +237,18 @@ function JudgeEvaluationContent() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="criterion-name">2. Interface/Circuit / Prototype Scope</td>
+                    <td className="criterion-name">
+                      2. Interface/Circuit / Prototype Scope
+                      <div>
+                        <button
+                          type="button"
+                          className="rubric-info-btn"
+                          onClick={() => { setSelectedRubricCategory(1); setShowRubrics(true); }}
+                        >
+                          ℹ️ Rubric Details
+                        </button>
+                      </div>
+                    </td>
                     <td className="criterion-desc">Figma wireframes, UX flows, schematics, CAD models, physical/digital layout completeness.</td>
                     <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
@@ -239,7 +266,18 @@ function JudgeEvaluationContent() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="criterion-name">3. Data, API / Hardware Component Availability</td>
+                    <td className="criterion-name">
+                      3. Data, API / Hardware Component Availability
+                      <div>
+                        <button
+                          type="button"
+                          className="rubric-info-btn"
+                          onClick={() => { setSelectedRubricCategory(2); setShowRubrics(true); }}
+                        >
+                          ℹ️ Rubric Details
+                        </button>
+                      </div>
+                    </td>
                     <td className="criterion-desc">APIs/keys verified, datasets accessible, physical hardware/sensors/microcontrollers procured and ready.</td>
                     <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
@@ -257,7 +295,18 @@ function JudgeEvaluationContent() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="criterion-name">4. Execution Feasibility & Timeline</td>
+                    <td className="criterion-name">
+                      4. Execution Feasibility & Timeline
+                      <div>
+                        <button
+                          type="button"
+                          className="rubric-info-btn"
+                          onClick={() => { setSelectedRubricCategory(3); setShowRubrics(true); }}
+                        >
+                          ℹ️ Rubric Details
+                        </button>
+                      </div>
+                    </td>
                     <td className="criterion-desc">Feasibility of completing a working MVP/physical prototype during the 24-hour sprint.</td>
                     <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
@@ -275,7 +324,18 @@ function JudgeEvaluationContent() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="criterion-name">5. Implementation Details</td>
+                    <td className="criterion-name">
+                      5. Implementation Details
+                      <div>
+                        <button
+                          type="button"
+                          className="rubric-info-btn"
+                          onClick={() => { setSelectedRubricCategory(4); setShowRubrics(true); }}
+                        >
+                          ℹ️ Rubric Details
+                        </button>
+                      </div>
+                    </td>
                     <td className="criterion-desc">Granular breakdown of build steps, module-wise execution plan, pinouts, and technical task assignments.</td>
                     <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">

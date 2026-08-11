@@ -60,19 +60,26 @@ const rubricCriteria = [
   }
 ];
 
-export default function RubricsModal({ isOpen, onClose }) {
+export default function RubricsModal({ isOpen, onClose, categoryIndex = null }) {
   if (!isOpen) return null;
+
+  const displayCriteria = (categoryIndex !== null && categoryIndex >= 0 && categoryIndex < rubricCriteria.length)
+    ? [rubricCriteria[categoryIndex]]
+    : rubricCriteria;
+
+  const isSingle = categoryIndex !== null && categoryIndex >= 0 && categoryIndex < rubricCriteria.length;
+  const currentTitle = isSingle ? rubricCriteria[categoryIndex].title : 'MECIA 3.0 ROUND 2 RUBRICS';
 
   return (
     <div className="modal-overlay show" style={{ zIndex: 2000, overflowY: 'auto', padding: '20px 10px' }}>
-      <div className="modal-card" style={{ maxWidth: '850px', width: '100%', textCenter: 'left', padding: '28px 24px', margin: 'auto' }}>
+      <div className="modal-card" style={{ maxWidth: '850px', width: '100%', textAlign: 'left', padding: '28px 24px', margin: 'auto' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px', borderBottom: '2px solid var(--inky-cyan)', paddingBottom: '12px' }}>
           <div>
-            <h2 className="victory-title" style={{ fontSize: '1.1rem', margin: 0, textAlign: 'left', color: 'var(--inky-cyan)' }}>
-              📋 MECIA 3.0 ROUND 2 RUBRICS
+            <h2 className="victory-title" style={{ fontSize: '1.05rem', margin: 0, textAlign: 'left', color: 'var(--inky-cyan)' }}>
+              ℹ️ {currentTitle}
             </h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Official Evaluation Criteria & Scoring Matrix for Judges (Max 10 Marks Each)
+              {isSingle ? 'Detailed Criteria & Performance Expectation Guidelines' : 'Official Evaluation Criteria & Scoring Matrix for Judges (Max 10 Marks Each)'}
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -96,37 +103,40 @@ export default function RubricsModal({ isOpen, onClose }) {
         </div>
 
         <div style={{ maxHeight: '65vh', overflowY: 'auto', paddingRight: '6px' }}>
-          {rubricCriteria.map((c, idx) => (
-            <div key={idx} style={{ marginBottom: '20px', background: 'rgba(0, 0, 0, 0.6)', border: '1px solid rgba(0, 255, 255, 0.3)', borderRadius: '8px', padding: '14px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                <h3 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--pacman-yellow)', fontFamily: 'Outfit, sans-serif', fontWeight: 700 }}>
-                  {idx + 1}. {c.title}
-                </h3>
-                <span className="max-mark-badge" style={{ fontSize: '0.7rem' }}>Max: {c.maxMarks}</span>
-              </div>
+          {displayCriteria.map((c, idx) => {
+            const actualIndex = isSingle ? categoryIndex : idx;
+            return (
+              <div key={actualIndex} style={{ marginBottom: '20px', background: 'rgba(0, 0, 0, 0.6)', border: '1px solid rgba(0, 255, 255, 0.3)', borderRadius: '8px', padding: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                  <h3 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--pacman-yellow)', fontFamily: 'Outfit, sans-serif', fontWeight: 700 }}>
+                    {actualIndex + 1}. {c.title}
+                  </h3>
+                  <span className="max-mark-badge" style={{ fontSize: '0.7rem' }}>Max: {c.maxMarks}</span>
+                </div>
 
-              <div className="table-responsive">
-                <table className="eval-table" style={{ fontSize: '0.8rem' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ width: '22%' }}>Score Band</th>
-                      <th>Performance Expectation</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {c.scores.map((s, sIdx) => (
-                      <tr key={sIdx}>
-                        <td style={{ fontWeight: '700', color: sIdx >= 3 ? 'var(--inky-cyan)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
-                          {s.range}
-                        </td>
-                        <td style={{ color: '#e2e8f0', lineHeight: 1.4 }}>{s.text}</td>
+                <div className="table-responsive">
+                  <table className="eval-table" style={{ fontSize: '0.8rem' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ width: '22%' }}>Score Band</th>
+                        <th>Performance Expectation</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
+                    </thead>
+                    <tbody>
+                      {c.scores.map((s, sIdx) => (
+                        <tr key={sIdx}>
+                          <td style={{ fontWeight: '700', color: sIdx >= 3 ? 'var(--inky-cyan)' : 'var(--text-muted)', whiteSpace: 'nowrap' }}>
+                            {s.range}
+                          </td>
+                          <td style={{ color: '#e2e8f0', lineHeight: 1.4 }}>{s.text}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
 
         <div style={{ marginTop: '16px', textAlign: 'right' }}>
