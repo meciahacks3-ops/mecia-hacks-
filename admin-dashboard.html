@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mecia Hack 3.0 - Admin Management & Evaluation Control</title>
+  <!-- Google Fonts: Arcade & Pixel Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700&family=Outfit:wght@600;700;800&display=swap" rel="stylesheet">
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Arcade CRT Scanlines Overlay -->
+  <div class="scanlines"></div>
+
+  <!-- Animated Pac-Man Marquee Top Track -->
+  <div class="arcade-marquee submission-marquee">
+    <div class="pacman-runner">
+      <div class="pacman"></div>
+      <div class="ghost blinky"></div>
+      <div class="ghost pinky"></div>
+      <div class="ghost inky"></div>
+      <div class="ghost clyde"></div>
+    </div>
+    <div class="pellet-line">
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span class="power-pellet">●</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+    </div>
+  </div>
+
+  <div class="submission-container judge-container admin-container">
+    <!-- Retro Arcade HUD Header -->
+    <div class="arcade-hud">
+      <span>ADMIN: <span class="hud-yellow" id="logged-admin-user">admin_user</span></span>
+      <span class="blink-text">STAGE 4: SYSTEM CONTROL PANEL</span>
+      <a href="mecia03.html" class="logout-link">LOGOUT [ESC]</a>
+    </div>
+
+    <div class="login-header">
+      <div class="badge-wrapper">
+        <span class="role-badge admin-badge">ADMIN CONTROL PANEL</span>
+      </div>
+      <h2>Mecia Hack 3.0</h2>
+      <p>Assign teams to judges, view live evaluation scores, and export full reports.</p>
+    </div>
+
+    <!-- Admin Top Controls Bar -->
+    <div class="judge-nav-tabs admin-controls-bar">
+      <button type="button" class="judge-nav-btn active" onclick="switchAdminTab('teams-tab')">
+        👥 TEAM ASSIGNMENTS & JUDGES
+      </button>
+      <button type="button" class="judge-nav-btn eval-highlight" onclick="switchAdminTab('scores-tab')">
+        ⭐ LEADERBOARD & MARKS
+      </button>
+      <button type="button" class="submit-btn excel-btn admin-excel-btn" onclick="exportAdminDataToExcel()">
+        📊 EXPORT ALL TO EXCEL (.CSV)
+      </button>
+    </div>
+
+    <!-- TAB 1: TEAMS & JUDGE ASSIGNMENTS -->
+    <div id="teams-tab" class="admin-tab-content active">
+      <div class="form-section">
+        <h3 class="section-title"><span class="pacman-bullet"></span> REGISTERED TEAMS & JUDGE ASSIGNMENTS</h3>
+        
+        <div class="table-responsive">
+          <table class="eval-table admin-table">
+            <thead>
+              <tr>
+                <th style="width: 20%;">Team Name</th>
+                <th style="width: 25%;">Team Leader</th>
+                <th style="width: 25%;">Project Title</th>
+                <th style="width: 20%;">Assigned Judge</th>
+                <th style="width: 10%; text-align: center;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="admin-teams-tbody">
+              <!-- Dynamically populated via script.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB 2: MARKSHEET & LIVE SCORES OVERVIEW -->
+    <div id="scores-tab" class="admin-tab-content">
+      <div class="form-section">
+        <h3 class="section-title"><span class="pacman-bullet"></span> LIVE EVALUATION LEADERBOARD</h3>
+        
+        <div class="table-responsive">
+          <table class="eval-table admin-table">
+            <thead>
+              <tr>
+                <th>Team Name</th>
+                <th>Assigned Judge</th>
+                <th style="text-align: center;">Innov (25)</th>
+                <th style="text-align: center;">Tech (25)</th>
+                <th style="text-align: center;">Feas (25)</th>
+                <th style="text-align: center;">Pres (25)</th>
+                <th style="text-align: center;">Total (100)</th>
+                <th>Status</th>
+                <th>Remarks</th>
+              </tr>
+            </thead>
+            <tbody id="admin-scores-tbody">
+              <!-- Dynamically populated via script.js -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Arcade Footer -->
+    <div class="arcade-footer">
+      <span>ADMIN CONTROL SYSTEM</span>
+      <span>LEVEL 3.0</span>
+    </div>
+  </div>
+
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Linking JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>

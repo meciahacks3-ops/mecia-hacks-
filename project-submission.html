@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mecia Hack 3.0 - Student Project Submission</title>
+  <!-- Google Fonts: Arcade & Pixel Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Arcade CRT Scanlines Overlay -->
+  <div class="scanlines"></div>
+
+  <!-- Animated Pac-Man Marquee Top Track -->
+  <div class="arcade-marquee submission-marquee">
+    <div class="pacman-runner">
+      <div class="pacman"></div>
+      <div class="ghost blinky"></div>
+      <div class="ghost pinky"></div>
+      <div class="ghost inky"></div>
+      <div class="ghost clyde"></div>
+    </div>
+    <div class="pellet-line">
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span class="power-pellet">●</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+    </div>
+  </div>
+
+  <div class="submission-container">
+    <!-- Retro Arcade HUD Header -->
+    <div class="arcade-hud">
+      <span>PLAYER: <span class="hud-yellow" id="logged-student-id">STU2026101</span></span>
+      <span class="blink-text">STAGE 2: PROJECT SUBMISSION</span>
+      <a href="mecia03.html" class="logout-link">LOGOUT [ESC]</a>
+    </div>
+
+    <div class="login-header">
+      <div class="badge-wrapper">
+        <span class="role-badge">STUDENT PORTAL</span>
+      </div>
+      <h2>Mecia Hack 3.0</h2>
+      <p>Register your team members, project description, and core main idea.</p>
+    </div>
+
+    <form id="submission-form" onsubmit="handleProjectSubmission(event)">
+
+      <!-- SECTION 1: TEAM DETAILS -->
+      <div class="form-section">
+        <h3 class="section-title"><span class="pacman-bullet"></span> 1. TEAM DETAILS</h3>
+        
+        <div class="form-group">
+          <label for="team-name">Team Name</label>
+          <input type="text" id="team-name" placeholder="e.g. Cyber Byte Squad" required>
+        </div>
+
+        <!-- FIRST BLOCK: TEAM LEADER DETAILS -->
+        <div class="sub-block leader-block">
+          <div class="block-header">
+            <span class="block-title">👑 TEAM LEADER DETAILS (COMPULSORY)</span>
+            <span id="lock-status-badge" class="lock-badge locked">🔒 ENTER LEADER DETAILS FIRST</span>
+          </div>
+          <div class="form-grid">
+            <div class="form-group">
+              <label for="leader-name">Leader Full Name *</label>
+              <input type="text" id="leader-name" placeholder="e.g. Alex Johnson" required>
+            </div>
+            <div class="form-group">
+              <label for="leader-email">Leader Email ID *</label>
+              <input type="email" id="leader-email" placeholder="e.g. alex@student.edu" required>
+            </div>
+            <div class="form-group">
+              <label for="leader-id">Enrollment No. / ID Number *</label>
+              <input type="text" id="leader-id" placeholder="e.g. EN2026101" required>
+            </div>
+            <div class="form-group">
+              <label for="leader-phone">Phone Number *</label>
+              <input type="tel" id="leader-phone" placeholder="e.g. +91 9876543210" required>
+            </div>
+          </div>
+        </div>
+
+        <!-- SECOND BLOCK: TEAM MEMBERS DETAILS (LOCKED UNTIL LEADER DETAILS ARE ENTERED) -->
+        <div class="sub-block members-block locked-until-leader section-disabled">
+          <div class="block-header">
+            <span class="block-title">👥 TEAM MEMBERS</span>
+            <button type="button" class="add-member-btn" onclick="addTeamMember()" disabled>+ ADD MEMBER</button>
+          </div>
+
+          <div id="team-members-container" class="team-members-list">
+            <!-- Initial Member Row -->
+            <div class="member-row">
+              <input type="text" placeholder="Member Name" disabled>
+              <input type="email" placeholder="Email ID" disabled>
+              <input type="text" placeholder="Enrollment No. / ID Number" disabled>
+              <input type="tel" placeholder="Phone Number" disabled>
+              <button type="button" class="remove-btn" onclick="removeMember(this)" title="Remove Member" disabled>&times;</button>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+      <!-- SECTION 2: PROJECT DETAILS (LOCKED UNTIL LEADER DETAILS ARE ENTERED) -->
+      <div class="form-section locked-until-leader section-disabled">
+        <h3 class="section-title"><span class="pacman-bullet"></span> 2. PROJECT DETAILS & MAIN IDEA</h3>
+        
+        <div class="form-group">
+          <label for="project-title">Project Title</label>
+          <input type="text" id="project-title" placeholder="e.g. AI-Powered Autonomous Health Monitor" disabled required>
+        </div>
+
+        <div class="form-group">
+          <label for="main-idea">Main Idea & Problem Statement</label>
+          <textarea id="main-idea" rows="3" placeholder="Describe the core problem your project solves and your main innovation idea..." disabled required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="project-desc">Project Description & Architecture</label>
+          <textarea id="project-desc" rows="4" placeholder="Explain how your project works, key features, workflow, and expected outcomes..." disabled required></textarea>
+        </div>
+
+        <div class="form-grid">
+          <div class="form-group">
+            <label for="tech-stack">Tech Stack & Tools</label>
+            <input type="text" id="tech-stack" placeholder="e.g. Python, React, TensorFlow, Node.js" disabled required>
+          </div>
+          <div class="form-group">
+            <label for="repo-link">Repository / Demo Link (Optional)</label>
+            <input type="url" id="repo-link" placeholder="e.g. https://github.com/team/project" disabled>
+          </div>
+        </div>
+      </div>
+
+      <button type="submit" id="submit-project-btn" class="submit-btn full-width-btn locked-until-leader section-disabled" disabled>
+        <span class="pacman-icon"></span> SUBMIT PROJECT ENTRY
+      </button>
+
+    </form>
+
+    <!-- Arcade Footer -->
+    <div class="arcade-footer">
+      <span>READY FOR EVALUATION</span>
+      <span>LEVEL 3.0</span>
+    </div>
+  </div>
+
+  <!-- Arcade Victory Modal -->
+  <div id="victory-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-ghost-row">
+        <div class="ghost blinky"></div>
+        <div class="ghost pinky"></div>
+        <div class="ghost inky"></div>
+        <div class="ghost clyde"></div>
+      </div>
+      <h2 class="victory-title">STAGE CLEAR!</h2>
+      <p class="victory-subtitle">PROJECT SUBMITTED SUCCESSFULLY!</p>
+      <div class="score-box">
+        <span>SUBMISSION SCORE: <span class="hud-yellow">+10000 PTS</span></span>
+      </div>
+      <button type="button" class="submit-btn" onclick="closeVictoryModal()">BACK TO LOGIN</button>
+    </div>
+  </div>
+
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Linking JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>

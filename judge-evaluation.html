@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mecia Hack 3.0 - Marks Evaluation Sheet</title>
+  <!-- Google Fonts: Arcade & Pixel Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Arcade CRT Scanlines Overlay -->
+  <div class="scanlines"></div>
+
+  <!-- Animated Pac-Man Marquee Top Track -->
+  <div class="arcade-marquee submission-marquee">
+    <div class="pacman-runner">
+      <div class="pacman"></div>
+      <div class="ghost blinky"></div>
+      <div class="ghost pinky"></div>
+      <div class="ghost inky"></div>
+      <div class="ghost clyde"></div>
+    </div>
+    <div class="pellet-line">
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span class="power-pellet">●</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+    </div>
+  </div>
+
+  <div class="submission-container judge-container">
+    <!-- Retro Arcade HUD Header -->
+    <div class="arcade-hud">
+      <span>JUDGE: <span class="hud-yellow" id="logged-judge-email">judge@eval.org</span></span>
+      <span class="blink-text">STAGE 3: MARKS EVALUATION SHEET</span>
+      <a href="mecia03.html" class="logout-link">LOGOUT [ESC]</a>
+    </div>
+
+    <div class="login-header">
+      <div class="badge-wrapper">
+        <span class="role-badge">JUDGE EVALUATION SHEET</span>
+      </div>
+      <h2>Mecia Hack 3.0</h2>
+      <p>Enter team evaluation marks based on hackathon criteria.</p>
+    </div>
+
+    <!-- Back Navigation Link -->
+    <div class="judge-nav-tabs">
+      <a href="judge-dashboard.html" class="judge-nav-btn active">
+        ⬅ BACK TO ASSIGNED TEAMS LIST
+      </a>
+    </div>
+
+    <form id="evaluation-form" onsubmit="handleEvaluationSubmission(event)">
+
+      <!-- FIXED EVALUATING TEAM BANNER -->
+      <div class="form-section team-banner-section">
+        <h3 class="section-title"><span class="pacman-bullet"></span> EVALUATING TEAM: <span class="hud-yellow" id="evaluating-team-name">Cyber Byte Squad</span></h3>
+        <p class="eval-team-sub" id="evaluating-team-sub">Leader: Alex Johnson | Project: AI-Powered Autonomous Health Monitor</p>
+      </div>
+
+      <!-- EVALUATION CRITERIA MARKSHEET TABLE -->
+      <div class="form-section">
+        <h3 class="section-title"><span class="pacman-bullet"></span> EVALUATION CRITERIA MARKSHEET (MAX 100 MARKS)</h3>
+
+        <div class="table-responsive">
+          <table class="eval-table">
+            <thead>
+              <tr>
+                <th style="width: 28%;">Evaluation Criterion</th>
+                <th>Description</th>
+                <th style="width: 15%; text-align: center;">Max Marks</th>
+                <th style="width: 22%; text-align: center;">Score (0-25)</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td class="criterion-name">1. Innovation & Originality</td>
+                <td class="criterion-desc">Uniqueness of the idea, novelty of approach, and creative problem solving.</td>
+                <td class="max-marks-cell">25</td>
+                <td class="score-input-cell">
+                  <input type="number" id="c1-score" min="0" max="25" placeholder="0 - 25" required oninput="calculateTotalScore()" class="eval-score-input">
+                </td>
+              </tr>
+              <tr>
+                <td class="criterion-name">2. Technical Execution & Architecture</td>
+                <td class="criterion-desc">Code quality, system complexity, tech stack utilization, and stability.</td>
+                <td class="max-marks-cell">25</td>
+                <td class="score-input-cell">
+                  <input type="number" id="c2-score" min="0" max="25" placeholder="0 - 25" required oninput="calculateTotalScore()" class="eval-score-input">
+                </td>
+              </tr>
+              <tr>
+                <td class="criterion-name">3. Solution Feasibility & Impact</td>
+                <td class="criterion-desc">Practical implementation, real-world utility, scalability, and impact.</td>
+                <td class="max-marks-cell">25</td>
+                <td class="score-input-cell">
+                  <input type="number" id="c3-score" min="0" max="25" placeholder="0 - 25" required oninput="calculateTotalScore()" class="eval-score-input">
+                </td>
+              </tr>
+              <tr>
+                <td class="criterion-name">4. Presentation, UI/UX & Demo</td>
+                <td class="criterion-desc">Quality of live demonstration, user experience design, and pitch clarity.</td>
+                <td class="max-marks-cell">25</td>
+                <td class="score-input-cell">
+                  <input type="number" id="c4-score" min="0" max="25" placeholder="0 - 25" required oninput="calculateTotalScore()" class="eval-score-input">
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- TOTAL SCORE DISPLAY BOX -->
+        <div class="total-score-box">
+          <span class="total-label">TOTAL EVALUATION SCORE:</span>
+          <span class="total-value" id="live-total-score">0 / 100</span>
+        </div>
+
+        <!-- REMARKS & FEEDBACK -->
+        <div class="form-group" style="margin-top: 20px;">
+          <label for="judge-remarks">Judge Remarks & Feedback (Optional)</label>
+          <textarea id="judge-remarks" rows="3" placeholder="Add constructive feedback, strengths, and recommendations for the team..."></textarea>
+        </div>
+
+      </div>
+
+      <button type="submit" class="submit-btn full-width-btn">
+        <span class="pacman-icon"></span> SUBMIT EVALUATION MARKS
+      </button>
+
+    </form>
+
+    <!-- Arcade Footer -->
+    <div class="arcade-footer">
+      <span>JUDGE EVALUATION SYSTEM</span>
+      <span>LEVEL 3.0</span>
+    </div>
+  </div>
+
+  <!-- Arcade Victory / Score Submission Modal -->
+  <div id="eval-modal" class="modal-overlay">
+    <div class="modal-card">
+      <div class="modal-ghost-row">
+        <div class="ghost blinky"></div>
+        <div class="ghost pinky"></div>
+        <div class="ghost inky"></div>
+        <div class="ghost clyde"></div>
+      </div>
+      <h2 class="victory-title">EVALUATION SUBMITTED!</h2>
+      <p class="victory-subtitle">MARKS RECORDED SUCCESSFULLY FOR TEAM</p>
+      <div class="score-box">
+        <span>FINAL TEAM SCORE: <span class="hud-yellow" id="modal-team-score">0 / 100</span></span>
+      </div>
+      <button type="button" class="submit-btn full-width-btn" onclick="closeEvalModal()">RETURN TO TEAMS LIST</button>
+    </div>
+  </div>
+
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Linking JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>

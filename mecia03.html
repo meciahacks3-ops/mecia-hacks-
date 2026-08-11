@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mecia Hack 3.0 - Pac-Man Arcade Login</title>
+  <!-- Google Fonts: Arcade & Pixel Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Linking External CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Arcade CRT Scanlines & Maze Overlay -->
+  <div class="scanlines"></div>
+
+  <!-- Animated Pac-Man & Ghosts Marquee Top Track -->
+  <div class="arcade-marquee">
+    <div class="pacman-runner">
+      <div class="pacman"></div>
+      <div class="ghost blinky"></div>
+      <div class="ghost pinky"></div>
+      <div class="ghost inky"></div>
+      <div class="ghost clyde"></div>
+    </div>
+    <div class="pellet-line">
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span class="power-pellet">●</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+    </div>
+  </div>
+
+  <div class="login-container">
+    <!-- Retro Arcade HUD Header -->
+    <div class="arcade-hud">
+      <span>1UP <span class="hud-yellow">00300</span></span>
+      <span class="blink-text">READY!</span>
+      <span>HIGH SCORE <span class="hud-yellow">99990</span></span>
+    </div>
+
+    <div class="login-header">
+      <div class="badge-wrapper">
+        <span class="role-badge" id="role-badge">STAGE 1: STUDENT</span>
+      </div>
+      <h2 id="portal-title">Mecia Hack 3.0</h2>
+      <p id="portal-desc">Access your project dashboard and submit entries.</p>
+    </div>
+
+    <!-- Theme Toggle Bar -->
+    <div class="theme-toggle-bar">
+      <button type="button" id="theme-toggle-btn" class="theme-toggle-btn" onclick="toggleWebsiteTheme()">
+        🌗 CONVERT TO SIMPLE THEME
+      </button>
+    </div>
+
+    <!-- Role Selection Tabs -->
+    <div class="role-tabs">
+      <button class="tab-btn active student-tab" onclick="switchRole('student')">
+        <span class="tab-ghost red-ghost"></span> Student
+      </button>
+      <button class="tab-btn judge-tab" onclick="switchRole('judge')">
+        <span class="tab-ghost cyan-ghost"></span> Judge
+      </button>
+      <button class="tab-btn admin-tab" onclick="switchRole('admin')">
+        <span class="tab-ghost pink-ghost"></span> Admin
+      </button>
+    </div>
+
+    <!-- 1. Student Login Form -->
+    <form id="student-form" class="login-form active" action="project-submission.html" method="GET" onsubmit="handleStudentLogin(event)">
+      <div class="form-group">
+        <label for="student-id">Student ID / Roll No.</label>
+        <input type="text" id="student-id" name="studentId" placeholder="e.g., STU2026101" required>
+      </div>
+      <div class="form-group">
+        <label for="student-pass">Password</label>
+        <input type="password" id="student-pass" name="password" placeholder="••••••••" required>
+      </div>
+      <div class="form-footer">
+        <label><input type="checkbox"> Remember me</label>
+        <a href="#">Forgot Password?</a>
+      </div>
+      <button type="submit" class="submit-btn"><span class="pacman-icon"></span> LOGIN</button>
+    </form>
+
+    <!-- 2. Judge Panel Login Form -->
+    <form id="judge-form" class="login-form" action="judge-dashboard.html" method="GET" onsubmit="handleJudgeLogin(event)">
+      <div class="form-group">
+        <label for="judge-email">Judge Email</label>
+        <input type="email" id="judge-email" name="email" placeholder="judge@eval.org" required>
+      </div>
+      <div class="form-group">
+        <label for="judge-pass">Access Code / Password</label>
+        <input type="password" id="judge-pass" name="password" placeholder="••••••••" required>
+      </div>
+      <div class="form-footer">
+        <label><input type="checkbox"> Remember me</label>
+        <a href="#">Request Code reset</a>
+      </div>
+      <button type="submit" class="submit-btn"><span class="pacman-icon"></span> LOGIN</button>
+    </form>
+
+    <!-- 3. Admin Team Login Form -->
+    <form id="admin-form" class="login-form" action="admin-dashboard.html" method="GET" onsubmit="handleAdminLogin(event)">
+      <div class="form-group">
+        <label for="admin-user">Admin Username</label>
+        <input type="text" id="admin-user" name="username" placeholder="admin_user" required>
+      </div>
+      <div class="form-group">
+        <label for="admin-pass">Password</label>
+        <input type="password" id="admin-pass" name="password" placeholder="••••••••" required>
+      </div>
+      <div class="form-group">
+        <label for="admin-key">Security Key / 2FA Code</label>
+        <input type="text" id="admin-key" name="securityKey" placeholder="6-digit code" required>
+      </div>
+      <button type="submit" class="submit-btn"><span class="pacman-icon"></span> LOGIN</button>
+    </form>
+
+    <!-- Arcade Footer Coin Counter -->
+    <div class="arcade-footer">
+      <span>INSERT COIN (1 CREDIT)</span>
+      <span>LEVEL 3.0</span>
+    </div>
+
+  </div>
+
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Linking External JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>

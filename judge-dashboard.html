@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mecia Hack 3.0 - Judge Panel & Team Dashboard</title>
+  <!-- Google Fonts: Arcade & Pixel Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <!-- External CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- Arcade CRT Scanlines Overlay -->
+  <div class="scanlines"></div>
+
+  <!-- Animated Pac-Man Marquee Top Track -->
+  <div class="arcade-marquee submission-marquee">
+    <div class="pacman-runner">
+      <div class="pacman"></div>
+      <div class="ghost blinky"></div>
+      <div class="ghost pinky"></div>
+      <div class="ghost inky"></div>
+      <div class="ghost clyde"></div>
+    </div>
+    <div class="pellet-line">
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+      <span class="power-pellet">●</span>
+      <span>•</span><span>•</span><span>•</span><span>•</span><span>•</span>
+    </div>
+  </div>
+
+  <div class="submission-container judge-container">
+    <!-- Retro Arcade HUD Header -->
+    <div class="arcade-hud">
+      <span>JUDGE: <span class="hud-yellow" id="logged-judge-email">judge@eval.org</span></span>
+      <span class="blink-text">STAGE 2: JUDGE EVALUATION PANEL</span>
+      <a href="mecia03.html" class="logout-link">LOGOUT [ESC]</a>
+    </div>
+
+    <div class="login-header">
+      <div class="badge-wrapper">
+        <span class="role-badge">JUDGE PANEL</span>
+      </div>
+      <h2>Mecia Hack 3.0</h2>
+      <p>Review team submissions and access the marks evaluation sheet.</p>
+    </div>
+
+    <!-- Judge Navigation Bar -->
+    <div class="judge-nav-tabs">
+      <span class="judge-nav-btn active">
+        👥 ASSIGNED TEAMS (3)
+      </span>
+    </div>
+
+    <!-- Assigned Teams List Section -->
+    <div class="form-section">
+      <h3 class="section-title"><span class="pacman-bullet"></span> HACKATHON TEAMS (CLICK NAME TO EVALUATE)</h3>
+
+      <div class="teams-list">
+
+        <!-- TEAM 1 -->
+        <div class="team-card">
+          <div class="team-card-header">
+            <div>
+              <a href="judge-evaluation.html?team=Cyber+Byte+Squad" class="team-name-link" title="Click to evaluate Cyber Byte Squad">
+                <span class="team-name">Cyber Byte Squad</span>
+              </a>
+              <span class="status-pill status-pending">PENDING EVALUATION</span>
+            </div>
+            <a href="judge-evaluation.html?team=Cyber+Byte+Squad" class="eval-btn">
+              ⭐ EVALUATE TEAM
+            </a>
+          </div>
+
+          <div class="team-card-body">
+            <div class="info-block">
+              <span class="info-label">👑 Team Leader:</span>
+              <span class="info-val">Alex Johnson (EN2026101) | alex@cyber.edu | +91 9876543210</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">👥 Members (3):</span>
+              <span class="info-val">Rohan Verma (EN2026102), Priya Patel (EN2026103), David Miller (EN2026104)</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">💡 Project Title:</span>
+              <span class="info-val highlight-title">AI-Powered Autonomous Health Monitor</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">🎯 Main Idea:</span>
+              <span class="info-val">Real-time patient telemetry monitoring using wearable sensor fusion and edge AI anomaly detection.</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">🛠️ Tech Stack:</span>
+              <span class="info-val">Python, TensorFlow, React Native, Raspberry Pi</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TEAM 2 -->
+        <div class="team-card">
+          <div class="team-card-header">
+            <div>
+              <a href="judge-evaluation.html?team=Quantum+Hackers" class="team-name-link" title="Click to evaluate Quantum Hackers">
+                <span class="team-name">Quantum Hackers</span>
+              </a>
+              <span class="status-pill status-completed">SCORED (88/100)</span>
+            </div>
+            <a href="judge-evaluation.html?team=Quantum+Hackers" class="eval-btn edit-btn">
+              ✏️ EDIT MARKS
+            </a>
+          </div>
+
+          <div class="team-card-body">
+            <div class="info-block">
+              <span class="info-label">👑 Team Leader:</span>
+              <span class="info-val">Sarah Chen (EN2026204) | sarah@quantum.edu | +91 9812345678</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">👥 Members (2):</span>
+              <span class="info-val">Michael Scott (EN2026205), Dwight Schrute (EN2026206)</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">💡 Project Title:</span>
+              <span class="info-val highlight-title">Post-Quantum Cryptography Ledger</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">🎯 Main Idea:</span>
+              <span class="info-val">Lattice-based encryption system for decentralized transaction validation resistant to quantum attacks.</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">🛠️ Tech Stack:</span>
+              <span class="info-val">Rust, WebAssembly, Go, Docker</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- TEAM 3 -->
+        <div class="team-card">
+          <div class="team-card-header">
+            <div>
+              <a href="judge-evaluation.html?team=Visionary+AI" class="team-name-link" title="Click to evaluate Visionary AI">
+                <span class="team-name">Visionary AI</span>
+              </a>
+              <span class="status-pill status-pending">PENDING EVALUATION</span>
+            </div>
+            <a href="judge-evaluation.html?team=Visionary+AI" class="eval-btn">
+              ⭐ EVALUATE TEAM
+            </a>
+          </div>
+
+          <div class="team-card-body">
+            <div class="info-block">
+              <span class="info-label">👑 Team Leader:</span>
+              <span class="info-val">Rahul Sharma (EN2026309) | rahul@vision.edu | +91 9765432109</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">👥 Members (4):</span>
+              <span class="info-val">Neha Gupta (EN2026310), Aniket Das (EN2026311), Sophia Lee (EN2026312)</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">💡 Project Title:</span>
+              <span class="info-val highlight-title">Smart Urban Traffic Grid Optimization</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">🎯 Main Idea:</span>
+              <span class="info-val">Computer-vision driven dynamic signal timing to minimize congestion and emergency vehicle response times.</span>
+            </div>
+            <div class="info-block">
+              <span class="info-label">🛠️ Tech Stack:</span>
+              <span class="info-val">OpenCV, PyTorch, Node.js, Leaflet.js</span>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Arcade Footer -->
+    <div class="arcade-footer">
+      <span>JUDGE EVALUATION SYSTEM</span>
+      <span>LEVEL 3.0</span>
+    </div>
+  </div>
+
+  <!-- Supabase JS Client CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <!-- Linking JavaScript -->
+  <script src="script.js"></script>
+</body>
+</html>

@@ -37,22 +37,6 @@ body {
   overflow-x: hidden;
 }
 
-body::before {
-  content: '';
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background-image: url('/center-rollie.png');
-  background-position: center center;
-  background-repeat: no-repeat;
-  background-size: contain;
-  opacity: 0.22;
-  pointer-events: none;
-  z-index: 0;
-}
-
 /* Retro CRT Scanlines Effect */
 .scanlines {
   position: fixed;
@@ -210,7 +194,7 @@ body::before {
 }
 
 /* Arcade HUD Top Header Bar */
-.nav-header {
+.arcade-hud {
   font-family: 'Press Start 2P', monospace;
   font-size: 0.62rem;
   display: flex;
@@ -218,7 +202,7 @@ body::before {
   align-items: center;
   padding-bottom: 16px;
   border-bottom: 2px dashed rgba(33, 33, 255, 0.5);
-  margin-bottom: 32px;
+  margin-bottom: 20px;
   color: #fff;
 }
 
@@ -1505,182 +1489,5 @@ body.simple-theme .theme-toggle-btn {
 
 body.simple-theme .theme-toggle-btn:hover {
   background: #2563eb !important;
-  color: #ffffff !important;
-}
-
-/* ==========================================
-   BUTTON HOVER GLITCH EFFECT (Codrops Slice Style)
-   ========================================== */
-.submit-btn,
-.eval-btn,
-.google-oauth-btn,
-.theme-toggle-btn,
-.logout-btn,
-.add-member-btn,
-.tab-btn {
-  position: relative !important;
-  overflow: hidden !important;
-}
-
-.submit-btn::before,
-.submit-btn::after,
-.eval-btn::before,
-.eval-btn::after,
-.google-oauth-btn::before,
-.google-oauth-btn::after,
-.theme-toggle-btn::before,
-.theme-toggle-btn::after,
-.logout-btn::before,
-.logout-btn::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: inherit;
-  border-radius: inherit;
-  opacity: 0;
-  pointer-events: none;
-  z-index: 2;
-  transition: opacity 0.15s ease;
-}
-
-/* Layer 1 - Cyan Slice Glitch */
-.submit-btn:hover::before,
-.eval-btn:hover::before,
-.google-oauth-btn:hover::before,
-.theme-toggle-btn:hover::before,
-.logout-btn:hover::before {
-  opacity: 0.8;
-  background: rgba(0, 255, 255, 0.25);
-  box-shadow: -2px 0 #00ffff;
-  clip-path: polygon(0 15%, 100% 15%, 100% 45%, 0 45%);
-  animation: glitch-anim-1-horizontal 1.8s infinite linear alternate;
-}
-
-/* Layer 2 - Magenta Slice Glitch */
-.submit-btn:hover::after,
-.eval-btn:hover::after,
-.google-oauth-btn:hover::after,
-.theme-toggle-btn:hover::after,
-.logout-btn:hover::after {
-  opacity: 0.8;
-  background: rgba(255, 0, 85, 0.25);
-  box-shadow: 2px 0 #ff0055;
-  clip-path: polygon(0 60%, 100% 60%, 100% 85%, 0 85%);
-  animation: glitch-anim-2-horizontal 2.2s infinite linear alternate;
-}
-
-@keyframes glitch-anim-1-horizontal {
-  0% { clip-path: polygon(0 2%, 100% 2%, 100% 5%, 0 5%); transform: translate3d(-3px, 0, 0); }
-  10% { clip-path: polygon(0 15%, 100% 15%, 100% 25%, 0 25%); transform: translate3d(3px, 0, 0); }
-  20% { clip-path: polygon(0 10%, 100% 10%, 100% 20%, 0 20%); transform: translate3d(-2px, 0, 0); }
-  30% { clip-path: polygon(0 1%, 100% 1%, 100% 2%, 0 2%); transform: translate3d(2px, 0, 0); }
-  40% { clip-path: polygon(0 33%, 100% 33%, 100% 45%, 0 45%); transform: translate3d(-4px, 0, 0); }
-  50% { clip-path: polygon(0 44%, 100% 44%, 100% 55%, 0 55%); transform: translate3d(4px, 0, 0); }
-  60% { clip-path: polygon(0 50%, 100% 50%, 100% 70%, 0 70%); transform: translate3d(-1px, 0, 0); }
-  70% { clip-path: polygon(0 70%, 100% 70%, 100% 85%, 0 85%); transform: translate3d(3px, 0, 0); }
-  80% { clip-path: polygon(0 80%, 100% 80%, 100% 90%, 0 90%); transform: translate3d(-3px, 0, 0); }
-  90% { clip-path: polygon(0 50%, 100% 50%, 100% 65%, 0 65%); transform: translate3d(2px, 0, 0); }
-  100% { clip-path: polygon(0 70%, 100% 70%, 100% 80%, 0 80%); transform: translate3d(0, 0, 0); }
-}
-
-@keyframes glitch-anim-2-horizontal {
-  0% { clip-path: polygon(0 25%, 100% 25%, 100% 30%, 0 30%); transform: translate3d(3px, 0, 0); }
-  15% { clip-path: polygon(0 3%, 100% 3%, 100% 12%, 0 12%); transform: translate3d(-3px, 0, 0); }
-  22% { clip-path: polygon(0 5%, 100% 5%, 100% 20%, 0 20%); transform: translate3d(4px, 0, 0); }
-  31% { clip-path: polygon(0 20%, 100% 20%, 100% 35%, 0 35%); transform: translate3d(-2px, 0, 0); }
-  45% { clip-path: polygon(0 40%, 100% 40%, 100% 50%, 0 50%); transform: translate3d(3px, 0, 0); }
-  51% { clip-path: polygon(0 52%, 100% 52%, 100% 65%, 0 65%); transform: translate3d(-4px, 0, 0); }
-  63% { clip-path: polygon(0 60%, 100% 60%, 100% 75%, 0 75%); transform: translate3d(2px, 0, 0); }
-  76% { clip-path: polygon(0 75%, 100% 75%, 100% 88%, 0 88%); transform: translate3d(-3px, 0, 0); }
-  81% { clip-path: polygon(0 65%, 100% 65%, 100% 80%, 0 80%); transform: translate3d(3px, 0, 0); }
-  94% { clip-path: polygon(0 45%, 100% 45%, 100% 60%, 0 60%); transform: translate3d(-2px, 0, 0); }
-  100% { clip-path: polygon(0 14%, 100% 14%, 100% 33%, 0 33%); transform: translate3d(0, 0, 0); }
-}
-
-/* Google OAuth Button Styling */
-.google-oauth-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 10px;
-  width: 100%;
-  padding: 12px 16px;
-  margin-top: 15px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 2px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: #ffffff;
-  font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: 0.85rem;
-  font-weight: 700;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.3);
-}
-
-.google-oauth-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
-  border-color: #4285F4;
-  box-shadow: 0 0 15px rgba(66, 133, 244, 0.4);
-  transform: translateY(-1px);
-}
-
-.oauth-divider {
-  display: flex;
-  align-items: center;
-  margin: 18px 0 10px 0;
-  color: var(--text-muted);
-  font-size: 0.7rem;
-  font-family: 'Inter', sans-serif;
-}
-
-.oauth-divider::before,
-.oauth-divider::after {
-  content: '';
-  flex: 1;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.15);
-}
-
-.oauth-divider span {
-  padding: 0 10px;
-}
-
-/* Top Header Logout Button */
-.logout-btn {
-  background: rgba(255, 0, 85, 0.15);
-  color: #ff4d79;
-  border: 1px solid #ff0055;
-  padding: 6px 14px;
-  border-radius: 6px;
-  font-family: 'Outfit', 'Inter', sans-serif;
-  font-size: 0.8rem;
-  font-weight: 700;
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.25s ease;
-  box-shadow: 0 0 10px rgba(255, 0, 85, 0.2);
-}
-
-.logout-btn:hover {
-  background: #ff0055;
-  color: #ffffff;
-  box-shadow: 0 0 15px rgba(255, 0, 85, 0.5);
-  transform: translateY(-1px);
-}
-
-body.simple-theme .logout-btn {
-  background: #fef2f2 !important;
-  color: #dc2626 !important;
-  border: 1px solid #fca5a5 !important;
-  box-shadow: none !important;
-}
-
-body.simple-theme .logout-btn:hover {
-  background: #dc2626 !important;
   color: #ffffff !important;
 }
