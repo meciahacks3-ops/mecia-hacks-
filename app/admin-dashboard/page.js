@@ -166,10 +166,11 @@ export default function AdminDashboardPage() {
         const formattedEvals = supaEvals.map(se => ({
           teamName: se.team_name,
           judgeEmail: se.judge_email,
-          c1: se.c1_innovation,
-          c2: se.c2_execution,
-          c3: se.c3_feasibility,
-          c4: se.c4_presentation,
+          c1: se.c1_innovation ?? 0,
+          c2: se.c2_execution ?? 0,
+          c3: se.c3_feasibility ?? 0,
+          c4: se.c4_presentation ?? 0,
+          c5: se.c5_details ?? 0,
           totalScore: se.total_score,
           remarks: se.remarks
         }));
@@ -193,7 +194,7 @@ export default function AdminDashboardPage() {
 
   const exportCSV = () => {
     let csvRows = [];
-    csvRows.push(["Mecia Hack 3.0 - Complete Admin Master Report & Evaluation Sheet"]);
+    csvRows.push(["Mecia Hack 3.0 - Complete Admin Master Report & Evaluation Sheet (Round 2)"]);
     csvRows.push(["Report Date", new Date().toLocaleString()]);
     csvRows.push([]);
     csvRows.push([
@@ -206,10 +207,11 @@ export default function AdminDashboardPage() {
       "Tech Stack",
       "Assigned Judge",
       "Evaluation Status",
-      "Innovation (25)",
-      "Technical Execution (25)",
-      "Solution Feasibility (25)",
-      "Presentation & UI/UX (25)",
+      "System Architecture (25)",
+      "Prototype Scope (25)",
+      "Component Availability (25)",
+      "Execution Feasibility (20)",
+      "Implementation Details (5)",
       "Total Score (100)",
       "Judge Remarks"
     ]);
@@ -217,7 +219,7 @@ export default function AdminDashboardPage() {
     teams.forEach(t => {
       const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
       let status = "PENDING";
-      let c1 = "-", c2 = "-", c3 = "-", c4 = "-", total = "-", remarks = "-";
+      let c1 = "-", c2 = "-", c3 = "-", c4 = "-", c5 = "-", total = "-", remarks = "-";
 
       if (evalEntry) {
         status = "SCORED";
@@ -225,11 +227,12 @@ export default function AdminDashboardPage() {
         c2 = evalEntry.c2;
         c3 = evalEntry.c3;
         c4 = evalEntry.c4;
+        c5 = evalEntry.c5;
         total = evalEntry.totalScore;
         remarks = evalEntry.remarks || '';
       } else if (t.teamName.toLowerCase() === 'quantum hackers') {
         status = "SCORED";
-        c1 = 22; c2 = 23; c3 = 21; c4 = 22; total = 88;
+        c1 = 22; c2 = 22; c3 = 22; c4 = 18; c5 = 4; total = 88;
         remarks = "Strong post-quantum security architecture and live demo.";
       }
 
@@ -247,6 +250,7 @@ export default function AdminDashboardPage() {
         c2,
         c3,
         c4,
+        c5,
         total,
         `"${(remarks || '').replace(/"/g, '""')}"`
       ]);
@@ -391,10 +395,11 @@ export default function AdminDashboardPage() {
                     <tr>
                       <th>Team Name</th>
                       <th>Assigned Judge</th>
-                      <th style={{ textAlign: 'center' }}>Innov (25)</th>
-                      <th style={{ textAlign: 'center' }}>Tech (25)</th>
-                      <th style={{ textAlign: 'center' }}>Feas (25)</th>
-                      <th style={{ textAlign: 'center' }}>Pres (25)</th>
+                      <th style={{ textAlign: 'center' }}>Arch (25)</th>
+                      <th style={{ textAlign: 'center' }}>Scope (25)</th>
+                      <th style={{ textAlign: 'center' }}>Avail (25)</th>
+                      <th style={{ textAlign: 'center' }}>Timeline (20)</th>
+                      <th style={{ textAlign: 'center' }}>Impl (5)</th>
                       <th style={{ textAlign: 'center' }}>Total (100)</th>
                       <th>Status</th>
                       <th>Remarks</th>
@@ -413,6 +418,7 @@ export default function AdminDashboardPage() {
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c2}</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c3}</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c4}</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c5}</td>
                             <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>{evalEntry.totalScore} / 100</td>
                             <td><span className="status-pill status-completed">SCORED</span></td>
                             <td><small>{evalEntry.remarks || 'No remarks added.'}</small></td>
@@ -426,9 +432,10 @@ export default function AdminDashboardPage() {
                             <td className="criterion-name">{t.teamName}</td>
                             <td>{t.assignedJudge}</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>22</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>23</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>21</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>22</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>22</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>18</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>4</td>
                             <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>88 / 100</td>
                             <td><span className="status-pill status-completed">SCORED</span></td>
                             <td><small>Strong post-quantum security architecture and live demo.</small></td>
@@ -440,6 +447,7 @@ export default function AdminDashboardPage() {
                         <tr key={t.id || t.teamName}>
                           <td className="criterion-name">{t.teamName}</td>
                           <td>{t.assignedJudge}</td>
+                          <td style={{ textAlign: 'center' }}>-</td>
                           <td style={{ textAlign: 'center' }}>-</td>
                           <td style={{ textAlign: 'center' }}>-</td>
                           <td style={{ textAlign: 'center' }}>-</td>

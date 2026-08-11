@@ -14,17 +14,18 @@ function JudgeEvaluationContent() {
   const [teamName, setTeamName] = useState(teamParam);
   const [teamSub, setTeamSub] = useState(`Evaluating team: ${teamParam}`);
 
-  // Rubric scores
-  const [c1, setC1] = useState(0);
-  const [c2, setC2] = useState(0);
-  const [c3, setC3] = useState(0);
-  const [c4, setC4] = useState(0);
+  // Rubric scores (Round 2 Evaluation Sheet)
+  const [c1, setC1] = useState(0); // System Architecture & Technical Readiness (25%)
+  const [c2, setC2] = useState(0); // Interface/Circuit / Prototype Scope (25%)
+  const [c3, setC3] = useState(0); // Data, API / Hardware Component Availability (25%)
+  const [c4, setC4] = useState(0); // Execution Feasibility & Timeline (20%)
+  const [c5, setC5] = useState(0); // Implementation Details (5%)
   const [remarks, setRemarks] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [showRubrics, setShowRubrics] = useState(false);
 
-  const totalScore = Math.min(100, Math.max(0, (parseInt(c1) || 0) + (parseInt(c2) || 0) + (parseInt(c3) || 0) + (parseInt(c4) || 0)));
+  const totalScore = Math.min(100, Math.max(0, (parseInt(c1) || 0) + (parseInt(c2) || 0) + (parseInt(c3) || 0) + (parseInt(c4) || 0) + (parseInt(c5) || 0)));
 
   useEffect(() => {
     const savedJudgeEmail = sessionStorage.getItem('judgeEmail');
@@ -50,12 +51,14 @@ function JudgeEvaluationContent() {
         setC2(data.c2_execution ?? 0);
         setC3(data.c3_feasibility ?? 0);
         setC4(data.c4_presentation ?? 0);
+        setC5(data.c5_details ?? 0);
         setRemarks(data.remarks ?? '');
       } else if (name.toLowerCase() === 'quantum hackers') {
         setC1(22);
-        setC2(23);
-        setC3(21);
-        setC4(22);
+        setC2(22);
+        setC3(22);
+        setC4(18);
+        setC5(4);
         setRemarks('Strong post-quantum security architecture and live demo.');
       }
     } catch (e) {
@@ -83,6 +86,7 @@ function JudgeEvaluationContent() {
             c2_execution: parseInt(c2) || 0,
             c3_feasibility: parseInt(c3) || 0,
             c4_presentation: parseInt(c4) || 0,
+            c5_details: parseInt(c5) || 0,
             total_score: totalScore,
             remarks: remarks,
             updated_at: new Date()
@@ -99,6 +103,7 @@ function JudgeEvaluationContent() {
             c2_execution: parseInt(c2) || 0,
             c3_feasibility: parseInt(c3) || 0,
             c4_presentation: parseInt(c4) || 0,
+            c5_details: parseInt(c5) || 0,
             total_score: totalScore,
             remarks: remarks,
             updated_at: new Date()
@@ -177,15 +182,15 @@ function JudgeEvaluationContent() {
                   <tr>
                     <th style={{ width: '28%' }}>Evaluation Criterion</th>
                     <th>Description</th>
-                    <th style={{ width: '15%', textAlign: 'center' }}>Max Marks</th>
-                    <th style={{ width: '22%', textAlign: 'center' }}>Score (0-25)</th>
+                    <th style={{ width: '15%', textAlign: 'center' }}>Weight (Max Marks)</th>
+                    <th style={{ width: '22%', textAlign: 'center' }}>Score</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
-                    <td className="criterion-name">1. Innovation & Originality</td>
-                    <td className="criterion-desc">Uniqueness of the idea, novelty of approach, and creative problem solving.</td>
-                    <td className="max-marks-cell">25</td>
+                    <td className="criterion-name">1. System Architecture & Technical Readiness</td>
+                    <td className="criterion-desc">Clear block/circuit diagrams, tech stack setup, component selection, software/hardware architecture logic.</td>
+                    <td className="max-marks-cell">25% (25)</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
@@ -200,9 +205,9 @@ function JudgeEvaluationContent() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="criterion-name">2. Technical Execution & Architecture</td>
-                    <td className="criterion-desc">Code quality, system complexity, tech stack utilization, and stability.</td>
-                    <td className="max-marks-cell">25</td>
+                    <td className="criterion-name">2. Interface/Circuit / Prototype Scope</td>
+                    <td className="criterion-desc">Figma wireframes, UX flows, schematics, CAD models, physical/digital layout completeness.</td>
+                    <td className="max-marks-cell">25% (25)</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
@@ -217,9 +222,9 @@ function JudgeEvaluationContent() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="criterion-name">3. Solution Feasibility & Impact</td>
-                    <td className="criterion-desc">Practical implementation, real-world utility, scalability, and impact.</td>
-                    <td className="max-marks-cell">25</td>
+                    <td className="criterion-name">3. Data, API / Hardware Component Availability</td>
+                    <td className="criterion-desc">APIs/keys verified, datasets accessible, physical hardware/sensors/microcontrollers procured and ready.</td>
+                    <td className="max-marks-cell">25% (25)</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
@@ -234,19 +239,36 @@ function JudgeEvaluationContent() {
                     </td>
                   </tr>
                   <tr>
-                    <td className="criterion-name">4. Presentation, UI/UX & Demo</td>
-                    <td className="criterion-desc">Quality of live demonstration, user experience design, and pitch clarity.</td>
-                    <td className="max-marks-cell">25</td>
+                    <td className="criterion-name">4. Execution Feasibility & Timeline</td>
+                    <td className="criterion-desc">Feasibility of completing a working MVP/physical prototype during the 24-hour sprint.</td>
+                    <td className="max-marks-cell">20% (20)</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
                         min="0"
-                        max="25"
-                        placeholder="0 - 25"
+                        max="20"
+                        placeholder="0 - 20"
                         required
                         className="eval-score-input"
                         value={c4}
                         onChange={(e) => setC4(e.target.value)}
+                      />
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="criterion-name">5. Implementation Details</td>
+                    <td className="criterion-desc">Granular breakdown of build steps, module-wise execution plan, pinouts, and technical task assignments.</td>
+                    <td className="max-marks-cell">5% (5)</td>
+                    <td className="score-input-cell">
+                      <input
+                        type="number"
+                        min="0"
+                        max="5"
+                        placeholder="0 - 5"
+                        required
+                        className="eval-score-input"
+                        value={c5}
+                        onChange={(e) => setC5(e.target.value)}
                       />
                     </td>
                   </tr>
