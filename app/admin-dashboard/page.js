@@ -207,12 +207,12 @@ export default function AdminDashboardPage() {
       "Tech Stack",
       "Assigned Judge",
       "Evaluation Status",
-      "System Architecture (25)",
-      "Prototype Scope (25)",
-      "Component Availability (25)",
-      "Execution Feasibility (20)",
-      "Implementation Details (5)",
-      "Total Score (100)",
+      "System Architecture (10)",
+      "Prototype Scope (10)",
+      "Component Availability (10)",
+      "Execution Feasibility (10)",
+      "Implementation Details (10)",
+      "Total Score (50)",
       "Judge Remarks"
     ]);
 
@@ -232,7 +232,7 @@ export default function AdminDashboardPage() {
         remarks = evalEntry.remarks || '';
       } else if (t.teamName.toLowerCase() === 'quantum hackers') {
         status = "SCORED";
-        c1 = 22; c2 = 22; c3 = 22; c4 = 18; c5 = 4; total = 88;
+        c1 = 9; c2 = 9; c3 = 9; c4 = 8; c5 = 9; total = 44;
         remarks = "Strong post-quantum security architecture and live demo.";
       }
 
@@ -395,12 +395,12 @@ export default function AdminDashboardPage() {
                     <tr>
                       <th>Team Name</th>
                       <th>Assigned Judge</th>
-                      <th style={{ textAlign: 'center' }}>Arch (25)</th>
-                      <th style={{ textAlign: 'center' }}>Scope (25)</th>
-                      <th style={{ textAlign: 'center' }}>Avail (25)</th>
-                      <th style={{ textAlign: 'center' }}>Timeline (20)</th>
-                      <th style={{ textAlign: 'center' }}>Impl (5)</th>
-                      <th style={{ textAlign: 'center' }}>Total (100)</th>
+                      <th style={{ textAlign: 'center' }}>Arch (10)</th>
+                      <th style={{ textAlign: 'center' }}>Scope (10)</th>
+                      <th style={{ textAlign: 'center' }}>Avail (10)</th>
+                      <th style={{ textAlign: 'center' }}>Timeline (10)</th>
+                      <th style={{ textAlign: 'center' }}>Impl (10)</th>
+                      <th style={{ textAlign: 'center' }}>Total (50)</th>
                       <th>Status</th>
                       <th>Remarks</th>
                     </tr>
@@ -419,7 +419,7 @@ export default function AdminDashboardPage() {
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c3}</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c4}</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c5}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>{evalEntry.totalScore} / 100</td>
+                            <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>{evalEntry.totalScore} / 50</td>
                             <td><span className="status-pill status-completed">SCORED</span></td>
                             <td><small>{evalEntry.remarks || 'No remarks added.'}</small></td>
                           </tr>
@@ -431,12 +431,12 @@ export default function AdminDashboardPage() {
                           <tr key={t.id || t.teamName}>
                             <td className="criterion-name">{t.teamName}</td>
                             <td>{t.assignedJudge}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>22</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>22</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>22</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>18</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>4</td>
-                            <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>88 / 100</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>9</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>9</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>9</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>8</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>9</td>
+                            <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>44 / 50</td>
                             <td><span className="status-pill status-completed">SCORED</span></td>
                             <td><small>Strong post-quantum security architecture and live demo.</small></td>
                           </tr>
@@ -452,7 +452,7 @@ export default function AdminDashboardPage() {
                           <td style={{ textAlign: 'center' }}>-</td>
                           <td style={{ textAlign: 'center' }}>-</td>
                           <td style={{ textAlign: 'center' }}>-</td>
-                          <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>- / 100</td>
+                          <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>- / 50</td>
                           <td><span className="status-pill status-pending">PENDING</span></td>
                           <td><small style={{ color: 'var(--text-muted)' }}>Evaluation pending</small></td>
                         </tr>

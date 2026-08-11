@@ -5,7 +5,7 @@ import { useState } from 'react';
 const rubricCriteria = [
   {
     title: 'System Architecture & Technical Readiness',
-    weight: '25%',
+    maxMarks: '10 Marks',
     scores: [
       { range: '1–2 (Poor)', text: 'No system or circuit architecture provided; tech stack or hardware components completely undefined.' },
       { range: '3–4 (Fair)', text: 'Basic architecture; unclear software/hardware integration or missing critical system components.' },
@@ -16,7 +16,7 @@ const rubricCriteria = [
   },
   {
     title: 'Interface / Circuit / Prototype Scope',
-    weight: '25%',
+    maxMarks: '10 Marks',
     scores: [
       { range: '1–2 (Poor)', text: 'No UI wireframes, CAD models, or schematics prepared; user/device flow completely undefined.' },
       { range: '3–4 (Fair)', text: 'Bare minimum sketches/schematics; missing core user flow or cluttered, unorganized layout.' },
@@ -27,7 +27,7 @@ const rubricCriteria = [
   },
   {
     title: 'Data, API / Hardware Component Availability',
-    weight: '25%',
+    maxMarks: '10 Marks',
     scores: [
       { range: '1–2 (Poor)', text: 'Required APIs, datasets, microcontrollers, or physical sensors are unverified or missing entirely.' },
       { range: '3–4 (Fair)', text: 'Major APIs or essential hardware components missing; high risk of assembly or integration failure.' },
@@ -38,7 +38,7 @@ const rubricCriteria = [
   },
   {
     title: 'Execution Feasibility & Timeline',
-    weight: '20%',
+    maxMarks: '10 Marks',
     scores: [
       { range: '1–2 (Poor)', text: 'Unrealistic build; impossible to code or assemble a functional working demo in 24 hours.' },
       { range: '3–4 (Fair)', text: 'Scope is bloated; high risk of failing to deliver a functional MVP/hardware build.' },
@@ -49,7 +49,7 @@ const rubricCriteria = [
   },
   {
     title: 'Implementation Details',
-    weight: '5%',
+    maxMarks: '10 Marks',
     scores: [
       { range: '1–2 (Poor)', text: 'No implementation details provided; build steps and technical execution strategy are missing completely.' },
       { range: '3–4 (Fair)', text: 'Vague build plan; key technical steps, pinouts, or code module breakdowns are omitted or unclear.' },
@@ -72,7 +72,7 @@ export default function RubricsModal({ isOpen, onClose }) {
               📋 MECIA 3.0 ROUND 2 RUBRICS
             </h2>
             <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-              Official Evaluation Criteria & Scoring Matrix for Judges
+              Official Evaluation Criteria & Scoring Matrix for Judges (Max 10 Marks Each)
             </p>
           </div>
           <div style={{ display: 'flex', gap: '10px' }}>
@@ -102,7 +102,7 @@ export default function RubricsModal({ isOpen, onClose }) {
                 <h3 style={{ margin: 0, fontSize: '0.95rem', color: 'var(--pacman-yellow)', fontFamily: 'Outfit, sans-serif', fontWeight: 700 }}>
                   {idx + 1}. {c.title}
                 </h3>
-                <span className="max-mark-badge" style={{ fontSize: '0.7rem' }}>Weight: {c.weight}</span>
+                <span className="max-mark-badge" style={{ fontSize: '0.7rem' }}>Max: {c.maxMarks}</span>
               </div>
 
               <div className="table-responsive">

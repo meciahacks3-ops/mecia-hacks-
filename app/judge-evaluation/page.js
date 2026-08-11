@@ -14,18 +14,18 @@ function JudgeEvaluationContent() {
   const [teamName, setTeamName] = useState(teamParam);
   const [teamSub, setTeamSub] = useState(`Evaluating team: ${teamParam}`);
 
-  // Rubric scores (Round 2 Evaluation Sheet)
-  const [c1, setC1] = useState(0); // System Architecture & Technical Readiness (25%)
-  const [c2, setC2] = useState(0); // Interface/Circuit / Prototype Scope (25%)
-  const [c3, setC3] = useState(0); // Data, API / Hardware Component Availability (25%)
-  const [c4, setC4] = useState(0); // Execution Feasibility & Timeline (20%)
-  const [c5, setC5] = useState(0); // Implementation Details (5%)
+  // Rubric scores (Round 2 Evaluation Sheet - Max 10 marks per section)
+  const [c1, setC1] = useState(0); // System Architecture & Technical Readiness (Max 10)
+  const [c2, setC2] = useState(0); // Interface/Circuit / Prototype Scope (Max 10)
+  const [c3, setC3] = useState(0); // Data, API / Hardware Component Availability (Max 10)
+  const [c4, setC4] = useState(0); // Execution Feasibility & Timeline (Max 10)
+  const [c5, setC5] = useState(0); // Implementation Details (Max 10)
   const [remarks, setRemarks] = useState('');
 
   const [showModal, setShowModal] = useState(false);
   const [showRubrics, setShowRubrics] = useState(false);
 
-  const totalScore = Math.min(100, Math.max(0, (parseInt(c1) || 0) + (parseInt(c2) || 0) + (parseInt(c3) || 0) + (parseInt(c4) || 0) + (parseInt(c5) || 0)));
+  const totalScore = Math.min(50, Math.max(0, (parseInt(c1) || 0) + (parseInt(c2) || 0) + (parseInt(c3) || 0) + (parseInt(c4) || 0) + (parseInt(c5) || 0)));
 
   useEffect(() => {
     const savedJudgeEmail = sessionStorage.getItem('judgeEmail');
@@ -54,11 +54,11 @@ function JudgeEvaluationContent() {
         setC5(data.c5_details ?? 0);
         setRemarks(data.remarks ?? '');
       } else if (name.toLowerCase() === 'quantum hackers') {
-        setC1(22);
-        setC2(22);
-        setC3(22);
-        setC4(18);
-        setC5(4);
+        setC1(9);
+        setC2(9);
+        setC3(9);
+        setC4(8);
+        setC5(9);
         setRemarks('Strong post-quantum security architecture and live demo.');
       }
     } catch (e) {
@@ -174,29 +174,29 @@ function JudgeEvaluationContent() {
         {/* Evaluation Marksheet Form */}
         <form onSubmit={handleSubmit}>
           <div className="form-section">
-            <h3 className="section-title"><span className="pacman-bullet"></span> EVALUATION CRITERIA MARKSHEET (MAX 100 MARKS)</h3>
+            <h3 className="section-title"><span className="pacman-bullet"></span> EVALUATION CRITERIA MARKSHEET (MAX 50 MARKS)</h3>
 
             <div className="table-responsive">
               <table className="eval-table">
                 <thead>
                   <tr>
-                    <th style={{ width: '28%' }}>Evaluation Criterion</th>
+                    <th style={{ width: '32%' }}>Evaluation Criterion</th>
                     <th>Description</th>
-                    <th style={{ width: '15%', textAlign: 'center' }}>Weight (Max Marks)</th>
-                    <th style={{ width: '22%', textAlign: 'center' }}>Score</th>
+                    <th style={{ width: '15%', textAlign: 'center' }}>Max Marks</th>
+                    <th style={{ width: '20%', textAlign: 'center' }}>Score (0-10)</th>
                   </tr>
                 </thead>
                 <tbody>
                   <tr>
                     <td className="criterion-name">1. System Architecture & Technical Readiness</td>
                     <td className="criterion-desc">Clear block/circuit diagrams, tech stack setup, component selection, software/hardware architecture logic.</td>
-                    <td className="max-marks-cell">25% (25)</td>
+                    <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
                         min="0"
-                        max="25"
-                        placeholder="0 - 25"
+                        max="10"
+                        placeholder="0 - 10"
                         required
                         className="eval-score-input"
                         value={c1}
@@ -207,13 +207,13 @@ function JudgeEvaluationContent() {
                   <tr>
                     <td className="criterion-name">2. Interface/Circuit / Prototype Scope</td>
                     <td className="criterion-desc">Figma wireframes, UX flows, schematics, CAD models, physical/digital layout completeness.</td>
-                    <td className="max-marks-cell">25% (25)</td>
+                    <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
                         min="0"
-                        max="25"
-                        placeholder="0 - 25"
+                        max="10"
+                        placeholder="0 - 10"
                         required
                         className="eval-score-input"
                         value={c2}
@@ -224,13 +224,13 @@ function JudgeEvaluationContent() {
                   <tr>
                     <td className="criterion-name">3. Data, API / Hardware Component Availability</td>
                     <td className="criterion-desc">APIs/keys verified, datasets accessible, physical hardware/sensors/microcontrollers procured and ready.</td>
-                    <td className="max-marks-cell">25% (25)</td>
+                    <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
                         min="0"
-                        max="25"
-                        placeholder="0 - 25"
+                        max="10"
+                        placeholder="0 - 10"
                         required
                         className="eval-score-input"
                         value={c3}
@@ -241,13 +241,13 @@ function JudgeEvaluationContent() {
                   <tr>
                     <td className="criterion-name">4. Execution Feasibility & Timeline</td>
                     <td className="criterion-desc">Feasibility of completing a working MVP/physical prototype during the 24-hour sprint.</td>
-                    <td className="max-marks-cell">20% (20)</td>
+                    <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
                         min="0"
-                        max="20"
-                        placeholder="0 - 20"
+                        max="10"
+                        placeholder="0 - 10"
                         required
                         className="eval-score-input"
                         value={c4}
@@ -258,13 +258,13 @@ function JudgeEvaluationContent() {
                   <tr>
                     <td className="criterion-name">5. Implementation Details</td>
                     <td className="criterion-desc">Granular breakdown of build steps, module-wise execution plan, pinouts, and technical task assignments.</td>
-                    <td className="max-marks-cell">5% (5)</td>
+                    <td className="max-marks-cell">10</td>
                     <td className="score-input-cell">
                       <input
                         type="number"
                         min="0"
-                        max="5"
-                        placeholder="0 - 5"
+                        max="10"
+                        placeholder="0 - 10"
                         required
                         className="eval-score-input"
                         value={c5}
@@ -279,7 +279,7 @@ function JudgeEvaluationContent() {
             {/* TOTAL SCORE DISPLAY BOX */}
             <div className="total-score-box">
               <span className="total-label">TOTAL EVALUATION SCORE:</span>
-              <span className="total-value">{totalScore} / 100</span>
+              <span className="total-value">{totalScore} / 50</span>
             </div>
 
             {/* REMARKS & FEEDBACK */}
@@ -319,7 +319,7 @@ function JudgeEvaluationContent() {
             <h2 className="victory-title">EVALUATION SUBMITTED!</h2>
             <p className="victory-subtitle">MARKS RECORDED SUCCESSFULLY FOR TEAM</p>
             <div className="score-box">
-              <span>FINAL TEAM SCORE: <span className="hud-yellow">{totalScore} / 100</span></span>
+              <span>FINAL TEAM SCORE: <span className="hud-yellow">{totalScore} / 50</span></span>
             </div>
             <button
               type="button"
