@@ -187,11 +187,11 @@ async function handleJudgeLogin(event) {
 const COMMON_ADMIN_PASS = 'MeciaHacks2026!';
 
 const ALLOWED_ADMIN_EMAILS = {
-  '24ce58@svitvasad.ac.in': { name: 'Admin (24ce58)', pass: COMMON_ADMIN_PASS },
-  '24ce67@svitvasad.ac.in': { name: 'Admin (24ce67)', pass: COMMON_ADMIN_PASS },
-  'devpatel4536@gmail.com': { name: 'Admin (Dev Patel)', pass: COMMON_ADMIN_PASS },
-  '224csd8@svitvasad.ac.in': { name: 'Admin (224csd8)', pass: COMMON_ADMIN_PASS },
-  'milinpatel.comp@svitvasad.ac.in': { name: 'Admin (Milin Patel)', pass: COMMON_ADMIN_PASS }
+  '24ce58@svitvasad.ac.in': { name: 'Manav Patel', pass: COMMON_ADMIN_PASS },
+  '24ce67@svitvasad.ac.in': { name: 'Het Patel', pass: COMMON_ADMIN_PASS },
+  'devpatel4536@gmail.com': { name: 'Dev Patel', pass: COMMON_ADMIN_PASS },
+  '224csd8@svitvasad.ac.in': { name: 'Tej Patel', pass: COMMON_ADMIN_PASS },
+  'milinpatel.comp@svitvasad.ac.in': { name: 'Milin Patel', pass: COMMON_ADMIN_PASS }
 };
 
 // Handle Admin Login & Redirect to Admin Control Panel
