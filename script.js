@@ -194,67 +194,22 @@ const ALLOWED_ADMIN_EMAILS = {
   'milinpatel.comp@svitvasad.ac.in': { name: 'Admin (Milin Patel)', pass: COMMON_ADMIN_PASS }
 };
 
-async function handleRequestAdminKey(event) {
-  if (event) event.preventDefault();
-  const adminEmail = getInputValue('admin-user').trim().toLowerCase();
-  if (!adminEmail) {
-    alert("Please enter your authorized Admin Email ID first.");
-    return false;
-  }
-
-  if (!ALLOWED_ADMIN_EMAILS[adminEmail]) {
-    alert(`⛔ ACCESS DENIED: '${adminEmail}' is not an authorized Admin Email ID. Admin portal access is strictly limited to 5 registered team members.`);
-    return false;
-  }
-
-  const newKey = Math.floor(100000 + Math.random() * 900000).toString();
-  sessionStorage.setItem(`admin_key_${adminEmail}`, newKey);
-
-  console.log(
-    `%c🔑 [ADMIN SECURITY KEY GENERATED ON YOUR PC]\nAdmin Email: ${adminEmail}\nSecurity Key: ${newKey}\nCommon Password: ${COMMON_ADMIN_PASS}`,
-    'color: #fdff00; font-weight: bold; background: #000; padding: 8px; border: 2px solid #2121ff; border-radius: 4px;'
-  );
-
-  if (supabaseClient) {
-    try {
-      await supabaseClient.from('admin_login_requests').insert([{ user_identifier: adminEmail, security_key: newKey, status: 'pending' }]);
-    } catch (e) {
-      console.warn("Supabase key request insert warning:", e);
-    }
-  }
-
-  alert(`🔑 SECURITY KEY GENERATED ON YOUR PC!\n\nAdmin Email: ${adminEmail}\nGenerated Key: ${newKey}\n\nPlease enter this 6-digit key to log in.`);
-  const keyInput = document.getElementById('admin-key');
-  if (keyInput) keyInput.value = newKey;
-  return false;
-}
-
 // Handle Admin Login & Redirect to Admin Control Panel
 async function handleAdminLogin(event) {
   if (event) event.preventDefault();
   const adminEmail = getInputValue('admin-user').trim().toLowerCase();
-  const adminPass = getInputValue('admin-pass');
-  const adminKey = getInputValue('admin-key').trim();
+  const adminPass = getInputValue('admin-pass').trim();
 
   const adminAccount = ALLOWED_ADMIN_EMAILS[adminEmail];
   if (!adminAccount) {
-    alert(`⛔ ACCESS DENIED: '${adminEmail}' is not an authorized Admin Email ID.`);
+    alert(`⛔ ACCESS DENIED: '${adminEmail}' is not an authorized Admin Email ID. Access is strictly limited to the 5 official Admin team accounts.`);
     return false;
   }
 
-  const enteredPass = adminPass.trim();
-  const isPassValid = enteredPass === COMMON_ADMIN_PASS || enteredPass.toLowerCase() === 'meciahacks2026' || enteredPass === 'MeciaHacks2026';
-
-  const storedKey = sessionStorage.setItem ? sessionStorage.getItem(`admin_key_${adminEmail}`) : null;
-  const isKeyValid = (storedKey && adminKey === storedKey) || adminKey === '901234';
+  const isPassValid = adminPass === COMMON_ADMIN_PASS || adminPass.toLowerCase() === 'meciahacks2026' || adminPass === 'MeciaHacks2026';
 
   if (!isPassValid) {
     alert("⛔ ACCESS DENIED: Incorrect Admin Password.");
-    return false;
-  }
-
-  if (!isKeyValid) {
-    alert("⛔ ACCESS DENIED: Incorrect 6-digit Security Key. Click '⚡ KEY' to generate a fresh 6-digit Security Key on your PC.");
     return false;
   }
 

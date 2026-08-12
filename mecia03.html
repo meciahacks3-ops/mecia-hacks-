@@ -115,19 +115,12 @@
     <!-- 3. Admin Team Login Form -->
     <form id="admin-form" class="login-form" action="admin-dashboard.html" method="GET" onsubmit="handleAdminLogin(event)">
       <div class="form-group">
-        <label for="admin-user">Admin Username / Email</label>
-        <div style="display: flex; gap: 8px;">
-          <input type="text" id="admin-user" name="username" placeholder="e.g. admin1 or name@org.com" required>
-          <button type="button" onclick="handleRequestAdminKey(event)" style="background: #2121ff; color: #fdff00; border: 2px solid #fdff00; border-radius: 8px; padding: 0 10px; font-family: 'Press Start 2P', monospace; font-size: 0.55rem; cursor: pointer; white-space: nowrap;">⚡ KEY</button>
-        </div>
+        <label for="admin-user">Admin Email ID</label>
+        <input type="email" id="admin-user" name="username" placeholder="e.g. 24ce58@svitvasad.ac.in" required>
       </div>
       <div class="form-group">
         <label for="admin-pass">Password</label>
         <input type="password" id="admin-pass" name="password" placeholder="••••••••" required>
-      </div>
-      <div class="form-group">
-        <label for="admin-key">Security Key / 2FA Code</label>
-        <input type="text" id="admin-key" name="securityKey" placeholder="6-digit generated key" required>
       </div>
       <button type="submit" class="submit-btn"><span class="pacman-icon"></span> LOGIN TO ADMIN PORTAL</button>
     </form>
