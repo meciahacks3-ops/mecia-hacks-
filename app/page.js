@@ -21,12 +21,14 @@ export default function LoginPage() {
   const [keyNotice, setKeyNotice] = useState('');
   const [authError, setAuthError] = useState('');
 
-  const ALLOWED_ADMIN_ACCOUNTS = {
-    'admin1': { pass: 'MeciaAdmin#2026@1', key: '901234', name: 'Lead Event Administrator' },
-    'admin2': { pass: 'MeciaAdmin#2026@2', key: '901235', name: 'Technical Operations Head' },
-    'admin3': { pass: 'MeciaAdmin#2026@3', key: '901236', name: 'Judging Panel Coordinator' },
-    'admin4': { pass: 'MeciaAdmin#2026@4', key: '901237', name: 'Logistics & Teams Manager' },
-    'admin5': { pass: 'MeciaAdmin#2026@5', key: '901238', name: 'Security & Control Officer' },
+  const COMMON_ADMIN_PASS = 'MeciaHacks2026!';
+
+  const ALLOWED_ADMIN_EMAILS = {
+    '24ce58@svitvasad.ac.in': { name: 'Admin (24ce58)', pass: COMMON_ADMIN_PASS },
+    '24ce67@svitvasad.ac.in': { name: 'Admin (24ce67)', pass: COMMON_ADMIN_PASS },
+    'devpatel4536@gmail.com': { name: 'Admin (Dev Patel)', pass: COMMON_ADMIN_PASS },
+    '224csd8@svitvasad.ac.in': { name: 'Admin (224csd8)', pass: COMMON_ADMIN_PASS },
+    'milinpatel.comp@svitvasad.ac.in': { name: 'Admin (Milin Patel)', pass: COMMON_ADMIN_PASS }
   };
 
   const isGmailWhitelisted = async (email) => {
@@ -194,7 +196,12 @@ export default function LoginPage() {
     if (e) e.preventDefault();
     const cleanUser = (adminUser || '').trim().toLowerCase();
     if (!cleanUser) {
-      setAuthError('Please enter an Admin Username or Email first.');
+      setAuthError('Please enter your authorized Admin Email ID first.');
+      return;
+    }
+
+    if (!ALLOWED_ADMIN_EMAILS[cleanUser]) {
+      setAuthError(`⛔ ACCESS DENIED: '${cleanUser}' is not an authorized Admin Email ID. Admin access is strictly limited to 5 registered team members.`);
       return;
     }
 
@@ -205,7 +212,7 @@ export default function LoginPage() {
 
     // Output to developer console on your PC
     console.log(
-      `%c🔑 [NEW ADMIN SECURITY KEY GENERATED ON YOUR PC]\nUser: ${cleanUser}\nSecurity Key: ${newKey}`,
+      `%c🔑 [ADMIN SECURITY KEY GENERATED ON YOUR PC]\nAdmin Email: ${cleanUser}\nSecurity Key: ${newKey}\nCommon Password: ${COMMON_ADMIN_PASS}`,
       'color: #fdff00; font-weight: bold; background: #000; padding: 8px; border: 2px solid #2121ff; border-radius: 4px;'
     );
 
@@ -215,7 +222,7 @@ export default function LoginPage() {
       console.warn("Supabase key request insert warning:", e);
     }
 
-    setKeyNotice(`🔑 SECURITY KEY GENERATED ON YOUR PC: ${newKey} (User: ${cleanUser})`);
+    setKeyNotice(`🔑 SECURITY KEY GENERATED ON YOUR PC: ${newKey} (Admin: ${cleanUser})`);
   };
 
   const handleAdminLogin = async (e) => {
@@ -225,25 +232,35 @@ export default function LoginPage() {
     sessionStorage.setItem('targetRole', 'admin');
 
     const cleanUser = (adminUser || '').trim().toLowerCase();
-    const account = ALLOWED_ADMIN_ACCOUNTS[cleanUser];
-    const storedKey = sessionStorage.getItem(`admin_key_${cleanUser}`) || activeAdminKey;
+    const adminAccount = ALLOWED_ADMIN_EMAILS[cleanUser];
 
-    // Check password
-    const isPassValid = account ? adminPass === account.pass : adminPass.length >= 6;
-    // Check security key (dynamic generated key OR preset static key for preset admin accounts)
-    const isKeyValid = (storedKey && adminKey.trim() === storedKey) || (account && adminKey.trim() === account.key);
-
-    if (!isPassValid || !isKeyValid) {
+    if (!adminAccount) {
       setIsLoggingIn(false);
-      setAuthError('⛔ ACCESS DENIED: Incorrect Password or Security Key. Click "⚡ GENERATE KEY" to generate a fresh 6-digit key on your PC.');
+      setAuthError(`⛔ ACCESS DENIED: '${cleanUser}' is not an authorized Admin Email ID.`);
       return;
     }
 
-    const roleTitle = account ? account.name : 'Authorized Administrator';
+    const enteredPass = adminPass.trim();
+    const isPassValid = enteredPass === COMMON_ADMIN_PASS || enteredPass.toLowerCase() === 'meciahacks2026' || enteredPass === 'MeciaHacks2026';
+
+    const storedKey = sessionStorage.getItem(`admin_key_${cleanUser}`) || activeAdminKey;
+    const isKeyValid = (storedKey && adminKey.trim() === storedKey) || adminKey.trim() === '901234';
+
+    if (!isPassValid) {
+      setIsLoggingIn(false);
+      setAuthError('⛔ ACCESS DENIED: Incorrect Admin Password.');
+      return;
+    }
+
+    if (!isKeyValid) {
+      setIsLoggingIn(false);
+      setAuthError('⛔ ACCESS DENIED: Incorrect 6-digit Security Key. Click "⚡ KEY" to generate a fresh 6-digit Security Key on your PC.');
+      return;
+    }
 
     setTimeout(async () => {
       sessionStorage.setItem('adminUser', cleanUser);
-      sessionStorage.setItem('adminRoleName', roleTitle);
+      sessionStorage.setItem('adminRoleName', adminAccount.name);
       try {
         await supabase.from('user_logins').insert([{ role: 'admin', user_identifier: cleanUser }]);
       } catch (err) {
