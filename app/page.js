@@ -395,7 +395,7 @@ export default function LoginPage() {
               <input
                 type="email"
                 id="judge-email"
-                placeholder="judge@eval.org"
+                placeholder="Enter Judge Email"
                 required
                 value={judgeEmail}
                 onChange={(e) => setJudgeEmail(e.target.value)}
@@ -446,7 +446,7 @@ export default function LoginPage() {
               <input
                 type="email"
                 id="admin-user"
-                placeholder="e.g. 24ce58@svitvasad.ac.in"
+                placeholder="Enter Admin Email ID"
                 required
                 value={adminUser}
                 onChange={(e) => setAdminUser(e.target.value)}
