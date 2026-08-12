@@ -15,7 +15,17 @@ export default function LoginPage() {
   const [projectType, setProjectType] = useState('hardware');
   const [judgeEmail, setJudgeEmail] = useState('');
   const [adminUser, setAdminUser] = useState('');
+  const [adminPass, setAdminPass] = useState('');
+  const [adminKey, setAdminKey] = useState('');
   const [authError, setAuthError] = useState('');
+
+  const ALLOWED_ADMIN_ACCOUNTS = {
+    'admin1': { pass: 'MeciaAdmin#2026@1', key: '901234', name: 'Lead Event Administrator' },
+    'admin2': { pass: 'MeciaAdmin#2026@2', key: '901235', name: 'Technical Operations Head' },
+    'admin3': { pass: 'MeciaAdmin#2026@3', key: '901236', name: 'Judging Panel Coordinator' },
+    'admin4': { pass: 'MeciaAdmin#2026@4', key: '901237', name: 'Logistics & Teams Manager' },
+    'admin5': { pass: 'MeciaAdmin#2026@5', key: '901238', name: 'Security & Control Officer' },
+  };
 
   const isGmailWhitelisted = async (email) => {
     if (!email) return false;
@@ -180,13 +190,24 @@ export default function LoginPage() {
 
   const handleAdminLogin = async (e) => {
     e.preventDefault();
+    setAuthError('');
     setIsLoggingIn(true);
     sessionStorage.setItem('targetRole', 'admin');
+
+    const cleanUser = (adminUser || '').trim().toLowerCase();
+    const account = ALLOWED_ADMIN_ACCOUNTS[cleanUser];
+
+    if (!account || adminPass !== account.pass || adminKey.trim() !== account.key) {
+      setIsLoggingIn(false);
+      setAuthError('⛔ ACCESS DENIED: Invalid Admin Username, Password, or Security Key. Only authorized Admin team members (admin1 - admin5) may log in.');
+      return;
+    }
+
     setTimeout(async () => {
-      const user = adminUser || 'admin_user';
-      sessionStorage.setItem('adminUser', user);
+      sessionStorage.setItem('adminUser', cleanUser);
+      sessionStorage.setItem('adminRoleName', account.name);
       try {
-        await supabase.from('user_logins').insert([{ role: 'admin', user_identifier: user }]);
+        await supabase.from('user_logins').insert([{ role: 'admin', user_identifier: cleanUser }]);
       } catch (err) {
         console.warn("Supabase login tracking warning:", err);
       }
@@ -412,7 +433,7 @@ export default function LoginPage() {
               <input
                 type="text"
                 id="admin-user"
-                placeholder="admin_user"
+                placeholder="e.g. admin1"
                 required
                 value={adminUser}
                 onChange={(e) => setAdminUser(e.target.value)}
@@ -420,11 +441,25 @@ export default function LoginPage() {
             </div>
             <div className="form-group">
               <label htmlFor="admin-pass">Password</label>
-              <input type="password" id="admin-pass" placeholder="••••••••" required />
+              <input
+                type="password"
+                id="admin-pass"
+                placeholder="••••••••"
+                required
+                value={adminPass}
+                onChange={(e) => setAdminPass(e.target.value)}
+              />
             </div>
             <div className="form-group">
               <label htmlFor="admin-key">Security Key / 2FA Code</label>
-              <input type="text" id="admin-key" placeholder="6-digit code" required />
+              <input
+                type="text"
+                id="admin-key"
+                placeholder="6-digit code"
+                required
+                value={adminKey}
+                onChange={(e) => setAdminKey(e.target.value)}
+              />
             </div>
             <button
               type="submit"

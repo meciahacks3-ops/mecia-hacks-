@@ -184,18 +184,35 @@ async function handleJudgeLogin(event) {
   return false;
 }
 
+const ALLOWED_ADMIN_ACCOUNTS = {
+  'admin1': { pass: 'MeciaAdmin#2026@1', key: '901234', name: 'Lead Event Administrator' },
+  'admin2': { pass: 'MeciaAdmin#2026@2', key: '901235', name: 'Technical Operations Head' },
+  'admin3': { pass: 'MeciaAdmin#2026@3', key: '901236', name: 'Judging Panel Coordinator' },
+  'admin4': { pass: 'MeciaAdmin#2026@4', key: '901237', name: 'Logistics & Teams Manager' },
+  'admin5': { pass: 'MeciaAdmin#2026@5', key: '901238', name: 'Security & Control Officer' },
+};
+
 // Handle Admin Login & Redirect to Admin Control Panel
 async function handleAdminLogin(event) {
   if (event) event.preventDefault();
-  const adminUser = getInputValue('admin-user');
-  if (adminUser) {
-    sessionStorage.setItem('adminUser', adminUser);
-    if (supabaseClient) {
-      try {
-        await supabaseClient.from('user_logins').insert([{ role: 'admin', user_identifier: adminUser }]);
-      } catch (e) {
-        console.warn("Supabase login tracking warning:", e);
-      }
+  const adminUser = getInputValue('admin-user').trim().toLowerCase();
+  const adminPass = getInputValue('admin-pass');
+  const adminKey = getInputValue('admin-key').trim();
+
+  const account = ALLOWED_ADMIN_ACCOUNTS[adminUser];
+
+  if (!account || adminPass !== account.pass || adminKey !== account.key) {
+    alert("⛔ ACCESS DENIED: Invalid Admin Username, Password, or Security Key. Access is restricted to authorized admin accounts only (admin1 - admin5).");
+    return false;
+  }
+
+  sessionStorage.setItem('adminUser', adminUser);
+  sessionStorage.setItem('adminRoleName', account.name);
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('user_logins').insert([{ role: 'admin', user_identifier: adminUser }]);
+    } catch (e) {
+      console.warn("Supabase login tracking warning:", e);
     }
   }
   window.location.href = 'admin-dashboard.html';
