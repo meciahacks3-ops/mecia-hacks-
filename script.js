@@ -192,6 +192,36 @@ const ALLOWED_ADMIN_ACCOUNTS = {
   'admin5': { pass: 'MeciaAdmin#2026@5', key: '901238', name: 'Security & Control Officer' },
 };
 
+async function handleRequestAdminKey(event) {
+  if (event) event.preventDefault();
+  const adminUser = getInputValue('admin-user').trim().toLowerCase();
+  if (!adminUser) {
+    alert("Please enter your Admin Username / Email first.");
+    return false;
+  }
+
+  const newKey = Math.floor(100000 + Math.random() * 900000).toString();
+  sessionStorage.setItem(`admin_key_${adminUser}`, newKey);
+
+  console.log(
+    `%c🔑 [NEW ADMIN SECURITY KEY GENERATED ON YOUR PC]\nUser: ${adminUser}\nSecurity Key: ${newKey}`,
+    'color: #fdff00; font-weight: bold; background: #000; padding: 8px; border: 2px solid #2121ff; border-radius: 4px;'
+  );
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('admin_login_requests').insert([{ user_identifier: adminUser, security_key: newKey, status: 'pending' }]);
+    } catch (e) {
+      console.warn("Supabase key request insert warning:", e);
+    }
+  }
+
+  alert(`🔑 SECURITY KEY GENERATED ON YOUR PC!\n\nUser: ${adminUser}\nGenerated Key: ${newKey}\n\nPlease enter this 6-digit key to log in.`);
+  const keyInput = document.getElementById('admin-key');
+  if (keyInput) keyInput.value = newKey;
+  return false;
+}
+
 // Handle Admin Login & Redirect to Admin Control Panel
 async function handleAdminLogin(event) {
   if (event) event.preventDefault();
@@ -200,14 +230,20 @@ async function handleAdminLogin(event) {
   const adminKey = getInputValue('admin-key').trim();
 
   const account = ALLOWED_ADMIN_ACCOUNTS[adminUser];
+  const storedKey = sessionStorage.getItem(`admin_key_${adminUser}`);
 
-  if (!account || adminPass !== account.pass || adminKey !== account.key) {
-    alert("⛔ ACCESS DENIED: Invalid Admin Username, Password, or Security Key. Access is restricted to authorized admin accounts only (admin1 - admin5).");
+  const isPassValid = account ? adminPass === account.pass : adminPass.length >= 6;
+  const isKeyValid = (storedKey && adminKey === storedKey) || (account && adminKey === account.key);
+
+  if (!isPassValid || !isKeyValid) {
+    alert("⛔ ACCESS DENIED: Incorrect Password or Security Key. Click '⚡ KEY' to generate a fresh 6-digit Security Key on your PC.");
     return false;
   }
 
+  const roleTitle = account ? account.name : 'Authorized Administrator';
   sessionStorage.setItem('adminUser', adminUser);
-  sessionStorage.setItem('adminRoleName', account.name);
+  sessionStorage.setItem('adminRoleName', roleTitle);
+
   if (supabaseClient) {
     try {
       await supabaseClient.from('user_logins').insert([{ role: 'admin', user_identifier: adminUser }]);

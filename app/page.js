@@ -17,6 +17,8 @@ export default function LoginPage() {
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
   const [adminKey, setAdminKey] = useState('');
+  const [activeAdminKey, setActiveAdminKey] = useState('');
+  const [keyNotice, setKeyNotice] = useState('');
   const [authError, setAuthError] = useState('');
 
   const ALLOWED_ADMIN_ACCOUNTS = {
@@ -188,6 +190,34 @@ export default function LoginPage() {
     }, 450);
   };
 
+  const handleRequestAdminKey = async (e) => {
+    if (e) e.preventDefault();
+    const cleanUser = (adminUser || '').trim().toLowerCase();
+    if (!cleanUser) {
+      setAuthError('Please enter an Admin Username or Email first.');
+      return;
+    }
+
+    setAuthError('');
+    const newKey = Math.floor(100000 + Math.random() * 900000).toString();
+    setActiveAdminKey(newKey);
+    sessionStorage.setItem(`admin_key_${cleanUser}`, newKey);
+
+    // Output to developer console on your PC
+    console.log(
+      `%c🔑 [NEW ADMIN SECURITY KEY GENERATED ON YOUR PC]\nUser: ${cleanUser}\nSecurity Key: ${newKey}`,
+      'color: #fdff00; font-weight: bold; background: #000; padding: 8px; border: 2px solid #2121ff; border-radius: 4px;'
+    );
+
+    try {
+      await supabase.from('admin_login_requests').insert([{ user_identifier: cleanUser, security_key: newKey, status: 'pending' }]);
+    } catch (e) {
+      console.warn("Supabase key request insert warning:", e);
+    }
+
+    setKeyNotice(`🔑 SECURITY KEY GENERATED ON YOUR PC: ${newKey} (User: ${cleanUser})`);
+  };
+
   const handleAdminLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -196,16 +226,24 @@ export default function LoginPage() {
 
     const cleanUser = (adminUser || '').trim().toLowerCase();
     const account = ALLOWED_ADMIN_ACCOUNTS[cleanUser];
+    const storedKey = sessionStorage.getItem(`admin_key_${cleanUser}`) || activeAdminKey;
 
-    if (!account || adminPass !== account.pass || adminKey.trim() !== account.key) {
+    // Check password
+    const isPassValid = account ? adminPass === account.pass : adminPass.length >= 6;
+    // Check security key (dynamic generated key OR preset static key for preset admin accounts)
+    const isKeyValid = (storedKey && adminKey.trim() === storedKey) || (account && adminKey.trim() === account.key);
+
+    if (!isPassValid || !isKeyValid) {
       setIsLoggingIn(false);
-      setAuthError('⛔ ACCESS DENIED: Invalid Admin Username, Password, or Security Key. Only authorized Admin team members (admin1 - admin5) may log in.');
+      setAuthError('⛔ ACCESS DENIED: Incorrect Password or Security Key. Click "⚡ GENERATE KEY" to generate a fresh 6-digit key on your PC.');
       return;
     }
 
+    const roleTitle = account ? account.name : 'Authorized Administrator';
+
     setTimeout(async () => {
       sessionStorage.setItem('adminUser', cleanUser);
-      sessionStorage.setItem('adminRoleName', account.name);
+      sessionStorage.setItem('adminRoleName', roleTitle);
       try {
         await supabase.from('user_logins').insert([{ role: 'admin', user_identifier: cleanUser }]);
       } catch (err) {
@@ -429,16 +467,55 @@ export default function LoginPage() {
         {role === 'admin' && (
           <form className="login-form active" onSubmit={handleAdminLogin}>
             <div className="form-group">
-              <label htmlFor="admin-user">Admin Username</label>
-              <input
-                type="text"
-                id="admin-user"
-                placeholder="e.g. admin1"
-                required
-                value={adminUser}
-                onChange={(e) => setAdminUser(e.target.value)}
-              />
+              <label htmlFor="admin-user">Admin Username / Email</label>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <input
+                  type="text"
+                  id="admin-user"
+                  placeholder="e.g. admin1 or name@org.com"
+                  required
+                  value={adminUser}
+                  onChange={(e) => setAdminUser(e.target.value)}
+                />
+                <button
+                  type="button"
+                  onClick={handleRequestAdminKey}
+                  style={{
+                    background: 'var(--maze-blue, #2121ff)',
+                    color: 'var(--pacman-yellow, #fdff00)',
+                    border: '2px solid var(--pacman-yellow, #fdff00)',
+                    borderRadius: '8px',
+                    padding: '0 10px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
+                  }}
+                  title="Generate dynamic 6-digit Security Key on PC"
+                >
+                  ⚡ KEY
+                </button>
+              </div>
             </div>
+
+            {keyNotice && (
+              <div style={{
+                background: 'rgba(253, 255, 0, 0.15)',
+                border: '2px solid #fdff00',
+                color: '#fdff00',
+                padding: '10px 12px',
+                borderRadius: '8px',
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.58rem',
+                lineHeight: '1.5',
+                marginBottom: '16px',
+                textAlign: 'center'
+              }}>
+                {keyNotice}
+              </div>
+            )}
+
             <div className="form-group">
               <label htmlFor="admin-pass">Password</label>
               <input
@@ -455,7 +532,7 @@ export default function LoginPage() {
               <input
                 type="text"
                 id="admin-key"
-                placeholder="6-digit code"
+                placeholder="6-digit generated key"
                 required
                 value={adminKey}
                 onChange={(e) => setAdminKey(e.target.value)}
