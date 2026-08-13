@@ -816,52 +816,82 @@ async function renderAdminTables() {
     }
   }
 
-  // 2. Render Live Leaderboard & Evaluation Scores Table
+  // 2. Render Live Leaderboard & Evaluation Scores Table (Ranked by Highest Score out of 50)
   if (scoresTbody) {
     scoresTbody.innerHTML = '';
-    teams.forEach(t => {
+
+    const leaderboardData = teams.map(t => {
       const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
-      const tr = document.createElement('tr');
+      let isScored = false;
+      let score = 0;
+      let c1 = '-', c2 = '-', c3 = '-', c4 = '-', c5 = '-', remarks = 'Evaluation pending';
+      let judge = t.assignedJudge || 'Unassigned';
 
       if (evalEntry) {
-        tr.innerHTML = `
-          <td class="criterion-name">${t.teamName}</td>
-          <td>${evalEntry.judgeEmail || t.assignedJudge}</td>
-          <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${evalEntry.c1}</td>
-          <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${evalEntry.c2}</td>
-          <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${evalEntry.c3}</td>
-          <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${evalEntry.c4}</td>
-          <td style="text-align:center; font-weight:800; font-size:1.1rem; color:var(--pacman-yellow);">${evalEntry.totalScore} / 100</td>
-          <td><span class="status-pill status-completed">SCORED</span></td>
-          <td><small>${evalEntry.remarks || 'No remarks added.'}</small></td>
-        `;
-      } else {
-        if (t.teamName.toLowerCase() === 'quantum hackers') {
-          tr.innerHTML = `
-            <td class="criterion-name">${t.teamName}</td>
-            <td>${t.assignedJudge}</td>
-            <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">22</td>
-            <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">23</td>
-            <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">21</td>
-            <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">22</td>
-            <td style="text-align:center; font-weight:800; font-size:1.1rem; color:var(--pacman-yellow);">88 / 100</td>
-            <td><span class="status-pill status-completed">SCORED</span></td>
-            <td><small>Strong post-quantum security architecture and live demo.</small></td>
-          `;
+        isScored = true;
+        score = Number(evalEntry.totalScore) || 0;
+        c1 = evalEntry.c1;
+        c2 = evalEntry.c2;
+        c3 = evalEntry.c3;
+        c4 = evalEntry.c4;
+        c5 = evalEntry.c5;
+        remarks = evalEntry.remarks || 'Scored';
+        if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
+      } else if (t.teamName.toLowerCase() === 'quantum hackers') {
+        isScored = true;
+        score = 44;
+        c1 = 9; c2 = 9; c3 = 9; c4 = 8; c5 = 9;
+        remarks = 'Strong post-quantum security architecture and live demo.';
+      }
+
+      return {
+        ...t,
+        isScored,
+        score,
+        c1, c2, c3, c4, c5,
+        remarks,
+        judge
+      };
+    }).sort((a, b) => {
+      if (a.isScored && b.isScored) return b.score - a.score;
+      if (a.isScored && !b.isScored) return -1;
+      if (!a.isScored && b.isScored) return 1;
+      return 0;
+    });
+
+    leaderboardData.forEach((item, index) => {
+      let rankBadge = '-';
+      let rowBg = '';
+
+      if (item.isScored) {
+        if (index === 0) {
+          rankBadge = '🥇 1ST';
+          rowBg = 'background: rgba(253, 255, 0, 0.08);';
+        } else if (index === 1) {
+          rankBadge = '🥈 2ND';
+          rowBg = 'background: rgba(224, 224, 224, 0.06);';
+        } else if (index === 2) {
+          rankBadge = '🥉 3RD';
+          rowBg = 'background: rgba(205, 127, 50, 0.06);';
         } else {
-          tr.innerHTML = `
-            <td class="criterion-name">${t.teamName}</td>
-            <td>${t.assignedJudge}</td>
-            <td style="text-align:center;">-</td>
-            <td style="text-align:center;">-</td>
-            <td style="text-align:center;">-</td>
-            <td style="text-align:center;">-</td>
-            <td style="text-align:center; color:var(--text-muted);">- / 100</td>
-            <td><span class="status-pill status-pending">PENDING</span></td>
-            <td><small style="color:var(--text-muted);">Evaluation pending</small></td>
-          `;
+          rankBadge = `#${index + 1}`;
         }
       }
+
+      const tr = document.createElement('tr');
+      if (rowBg) tr.setAttribute('style', rowBg);
+      tr.innerHTML = `
+        <td style="text-align:center; font-weight:bold; font-size:0.85rem; color:${index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff'};">${rankBadge}</td>
+        <td class="criterion-name">${item.teamName} ${index === 0 && item.isScored ? '👑' : ''}</td>
+        <td>${item.judge}</td>
+        <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c1}</td>
+        <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c2}</td>
+        <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c3}</td>
+        <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c4}</td>
+        <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c5}</td>
+        <td style="text-align:center; font-weight:800; font-size:1.1rem; color:${item.isScored ? '#fdff00' : 'var(--text-muted)'};">${item.isScored ? `${item.score} / 50` : '- / 50'}</td>
+        <td>${item.isScored ? '<span class="status-pill status-completed">SCORED</span>' : '<span class="status-pill status-pending">PENDING</span>'}</td>
+      `;
       scoresTbody.appendChild(tr);
     });
   }

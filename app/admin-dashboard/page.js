@@ -58,6 +58,12 @@ export default function AdminDashboardPage() {
     if (savedAdminUser) setAdminUser(savedAdminUser);
     fetchData();
     fetchAllowedUsers();
+
+    const pollInterval = setInterval(() => {
+      fetchData();
+    }, 3000);
+
+    return () => clearInterval(pollInterval);
   }, []);
 
   const fetchAllowedUsers = async () => {
@@ -534,86 +540,130 @@ export default function AdminDashboardPage() {
         })()}
 
         {/* TAB 2: MARKSHEET & LIVE SCORES OVERVIEW */}
-        {activeTab === 'scores-tab' && (
-          <div className="admin-tab-content active">
-            <div className="form-section">
-              <h3 className="section-title"><span className="pacman-bullet"></span> LIVE EVALUATION LEADERBOARD</h3>
+        {activeTab === 'scores-tab' && (() => {
+          // Map team scores and sort descending by totalScore (out of 50)
+          const leaderboardData = teams.map(t => {
+            const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
+            let isScored = false;
+            let score = 0;
+            let c1 = '-', c2 = '-', c3 = '-', c4 = '-', c5 = '-', remarks = 'Evaluation pending';
+            let judge = t.assignedJudge || 'Unassigned';
 
-              <div className="table-responsive">
-                <table className="eval-table admin-table">
-                  <thead>
-                    <tr>
-                      <th>Team Name</th>
-                      <th>Assigned Judge</th>
-                      <th style={{ textAlign: 'center' }}>Arch (10)</th>
-                      <th style={{ textAlign: 'center' }}>Scope (10)</th>
-                      <th style={{ textAlign: 'center' }}>Avail (10)</th>
-                      <th style={{ textAlign: 'center' }}>Timeline (10)</th>
-                      <th style={{ textAlign: 'center' }}>Impl (10)</th>
-                      <th style={{ textAlign: 'center' }}>Total (50)</th>
-                      <th>Status</th>
-                      <th>Remarks</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teams.map(t => {
-                      const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
+            if (evalEntry) {
+              isScored = true;
+              score = Number(evalEntry.totalScore) || 0;
+              c1 = evalEntry.c1;
+              c2 = evalEntry.c2;
+              c3 = evalEntry.c3;
+              c4 = evalEntry.c4;
+              c5 = evalEntry.c5;
+              remarks = evalEntry.remarks || 'Scored';
+              if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
+            } else if (t.teamName.toLowerCase() === 'quantum hackers') {
+              isScored = true;
+              score = 44;
+              c1 = 9; c2 = 9; c3 = 9; c4 = 8; c5 = 9;
+              remarks = 'Strong post-quantum security architecture and live demo.';
+            }
 
-                      if (evalEntry) {
+            return {
+              ...t,
+              isScored,
+              score,
+              c1, c2, c3, c4, c5,
+              remarks,
+              judge
+            };
+          }).sort((a, b) => {
+            if (a.isScored && b.isScored) return b.score - a.score;
+            if (a.isScored && !b.isScored) return -1;
+            if (!a.isScored && b.isScored) return 1;
+            return 0;
+          });
+
+          return (
+            <div className="admin-tab-content active">
+              <div className="form-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                  <h3 className="section-title" style={{ margin: 0 }}>
+                    <span className="pacman-bullet"></span> LIVE EVALUATION LEADERBOARD (RANKED BY HIGHEST SCORE)
+                  </h3>
+                  <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.58rem', padding: '6px 12px' }}>
+                    🔴 LIVE REAL-TIME SYNC (3S POLL)
+                  </span>
+                </div>
+
+                <div className="table-responsive">
+                  <table className="eval-table admin-table">
+                    <thead>
+                      <tr>
+                        <th style={{ width: '8%', textAlign: 'center' }}>Rank</th>
+                        <th style={{ width: '20%' }}>Team Name</th>
+                        <th style={{ width: '18%' }}>Assigned Judge</th>
+                        <th style={{ textAlign: 'center' }}>Arch (10)</th>
+                        <th style={{ textAlign: 'center' }}>Scope (10)</th>
+                        <th style={{ textAlign: 'center' }}>Avail (10)</th>
+                        <th style={{ textAlign: 'center' }}>Timeline (10)</th>
+                        <th style={{ textAlign: 'center' }}>Impl (10)</th>
+                        <th style={{ textAlign: 'center', width: '12%' }}>Total Score (50)</th>
+                        <th style={{ width: '12%' }}>Status</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {leaderboardData.map((item, index) => {
+                        let rankBadge = '-';
+                        let rowBg = undefined;
+
+                        if (item.isScored) {
+                          if (index === 0) {
+                            rankBadge = '🥇 1ST';
+                            rowBg = 'rgba(253, 255, 0, 0.08)';
+                          } else if (index === 1) {
+                            rankBadge = '🥈 2ND';
+                            rowBg = 'rgba(224, 224, 224, 0.06)';
+                          } else if (index === 2) {
+                            rankBadge = '🥉 3RD';
+                            rowBg = 'rgba(205, 127, 50, 0.06)';
+                          } else {
+                            rankBadge = `#${index + 1}`;
+                          }
+                        }
+
                         return (
-                          <tr key={t.id || t.teamName}>
-                            <td className="criterion-name">{t.teamName}</td>
-                            <td>{evalEntry.judgeEmail || t.assignedJudge}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c1}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c2}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c3}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c4}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{evalEntry.c5}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>{evalEntry.totalScore} / 50</td>
-                            <td><span className="status-pill status-completed">SCORED</span></td>
-                            <td><small>{evalEntry.remarks || 'No remarks added.'}</small></td>
+                          <tr key={item.id || item.teamName} style={{ background: rowBg }}>
+                            <td style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem', color: index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff' }}>
+                              {rankBadge}
+                            </td>
+                            <td className="criterion-name">
+                              {item.teamName}
+                              {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
+                            </td>
+                            <td>{item.judge}</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c2}</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c3}</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c4}</td>
+                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c5}</td>
+                            <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: item.isScored ? '#fdff00' : 'var(--text-muted)' }}>
+                              {item.isScored ? `${item.score} / 50` : '- / 50'}
+                            </td>
+                            <td>
+                              {item.isScored ? (
+                                <span className="status-pill status-completed">SCORED</span>
+                              ) : (
+                                <span className="status-pill status-pending">PENDING</span>
+                              )}
+                            </td>
                           </tr>
                         );
-                      }
-
-                      if (t.teamName.toLowerCase() === 'quantum hackers') {
-                        return (
-                          <tr key={t.id || t.teamName}>
-                            <td className="criterion-name">{t.teamName}</td>
-                            <td>{t.assignedJudge}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>9</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>9</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>9</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>8</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>9</td>
-                            <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: 'var(--pacman-yellow)' }}>44 / 50</td>
-                            <td><span className="status-pill status-completed">SCORED</span></td>
-                            <td><small>Strong post-quantum security architecture and live demo.</small></td>
-                          </tr>
-                        );
-                      }
-
-                      return (
-                        <tr key={t.id || t.teamName}>
-                          <td className="criterion-name">{t.teamName}</td>
-                          <td>{t.assignedJudge}</td>
-                          <td style={{ textAlign: 'center' }}>-</td>
-                          <td style={{ textAlign: 'center' }}>-</td>
-                          <td style={{ textAlign: 'center' }}>-</td>
-                          <td style={{ textAlign: 'center' }}>-</td>
-                          <td style={{ textAlign: 'center' }}>-</td>
-                          <td style={{ textAlign: 'center', color: 'var(--text-muted)' }}>- / 50</td>
-                          <td><span className="status-pill status-pending">PENDING</span></td>
-                          <td><small style={{ color: 'var(--text-muted)' }}>Evaluation pending</small></td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      })}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 3: ALLOWED GMAILS WHITELIST */}
         {activeTab === 'whitelist-tab' && (
