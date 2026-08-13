@@ -44,6 +44,7 @@ export default function AdminDashboardPage() {
   const router = useRouter();
   const [adminUser, setAdminUser] = useState('admin_user');
   const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab', 'scores-tab', 'whitelist-tab'
+  const [teamsFilter, setTeamsFilter] = useState('unassigned'); // 'unassigned', 'assigned', 'all'
   const [teams, setTeams] = useState(initialDemoTeams);
   const [evaluations, setEvaluations] = useState([]);
   const [judgeSelections, setJudgeSelections] = useState({});
@@ -345,97 +346,192 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* TAB 1: TEAMS & JUDGE ASSIGNMENTS */}
-        {activeTab === 'teams-tab' && (
-          <div className="admin-tab-content active">
-            <div className="form-section">
-              <h3 className="section-title"><span className="pacman-bullet"></span> REGISTERED TEAMS & JUDGE ASSIGNMENTS</h3>
+        {activeTab === 'teams-tab' && (() => {
+          const unassignedTeams = teams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned');
+          const assignedTeams = teams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned');
+          const displayedTeams = teamsFilter === 'unassigned' 
+            ? unassignedTeams 
+            : teamsFilter === 'assigned' 
+            ? assignedTeams 
+            : teams;
 
-              <div className="table-responsive">
-                <table className="eval-table admin-table">
-                  <thead>
-                    <tr>
-                      <th style={{ width: '20%' }}>Team Name</th>
-                      <th style={{ width: '25%' }}>Team Leader</th>
-                      <th style={{ width: '25%' }}>Project Title</th>
-                      <th style={{ width: '20%' }}>Assigned Judge</th>
-                      <th style={{ width: '10%', textAlign: 'center' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {teams.map(t => {
-                      const defaultJudgeOptions = ['judge@eval.org', 'judge2@eval.org', 'judge3@eval.org', 'judge4@eval.org', 'judge5@eval.org'];
-                      const allJudgeOptions = Array.from(
-                        new Set([
-                          ...defaultJudgeOptions,
-                          ...teams.map(item => item.assignedJudge).filter(j => j && j !== 'Unassigned' && j !== 'CUSTOM'),
-                          ...allowedUsers.map(u => u.email).filter(Boolean)
-                        ])
-                      );
-                      const selectedVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
-                      const isCustom = selectedVal === 'CUSTOM' || (!allJudgeOptions.includes(selectedVal) && selectedVal !== 'Unassigned');
+          return (
+            <div className="admin-tab-content active">
+              <div className="form-section">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                  <h3 className="section-title" style={{ margin: 0 }}><span className="pacman-bullet"></span> REGISTERED TEAMS & JUDGE ASSIGNMENTS</h3>
+                  
+                  {/* Sub-filter tabs */}
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                      type="button"
+                      onClick={() => setTeamsFilter('unassigned')}
+                      style={{
+                        background: teamsFilter === 'unassigned' ? '#ff0055' : 'rgba(0,0,0,0.6)',
+                        color: '#fff',
+                        border: '1px solid ' + (teamsFilter === 'unassigned' ? '#ff0055' : '#444'),
+                        borderRadius: '6px',
+                        padding: '8px 14px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.6rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⚠️ UNASSIGNED ({unassignedTeams.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTeamsFilter('assigned')}
+                      style={{
+                        background: teamsFilter === 'assigned' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                        color: teamsFilter === 'assigned' ? '#000' : '#fff',
+                        border: '1px solid ' + (teamsFilter === 'assigned' ? '#00ffcc' : '#444'),
+                        borderRadius: '6px',
+                        padding: '8px 14px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.6rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✅ ASSIGNED ({assignedTeams.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setTeamsFilter('all')}
+                      style={{
+                        background: teamsFilter === 'all' ? '#fdff00' : 'rgba(0,0,0,0.6)',
+                        color: teamsFilter === 'all' ? '#000' : '#fff',
+                        border: '1px solid ' + (teamsFilter === 'all' ? '#fdff00' : '#444'),
+                        borderRadius: '6px',
+                        padding: '8px 14px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.6rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      📋 ALL TEAMS ({teams.length})
+                    </button>
+                  </div>
+                </div>
 
-                      return (
-                        <tr key={t.id || t.teamName}>
-                          <td className="criterion-name">{t.teamName}</td>
-                          <td>{t.leaderName} ({t.leaderId})<br /><small style={{ color: 'var(--text-muted)' }}>{t.leaderEmail}</small></td>
-                          <td>{t.projectTitle}<br /><small style={{ color: 'var(--text-muted)' }}>{t.techStack}</small></td>
-                          <td>
-                            <select
-                              className="retro-select admin-judge-select"
-                              value={isCustom ? 'CUSTOM' : selectedVal}
-                              onChange={(e) => {
-                                const val = e.target.value;
-                                setJudgeSelections({ ...judgeSelections, [t.id]: val });
-                                if (val === 'CUSTOM' && !customJudgeInputs[t.id]) {
-                                  setCustomJudgeInputs({ ...customJudgeInputs, [t.id]: t.assignedJudge !== 'Unassigned' ? t.assignedJudge : '' });
-                                }
-                              }}
-                            >
-                              <option value="Unassigned">Unassigned</option>
-                              {allJudgeOptions.map(jOpt => (
-                                <option key={jOpt} value={jOpt}>{jOpt}</option>
-                              ))}
-                              <option value="CUSTOM">✍️ Enter Custom Judge Email / ID...</option>
-                            </select>
-
-                            {isCustom && (
-                              <input
-                                type="text"
-                                placeholder="Type Judge Email or ID..."
-                                value={customJudgeInputs[t.id] !== undefined ? customJudgeInputs[t.id] : (allJudgeOptions.includes(t.assignedJudge) ? '' : t.assignedJudge)}
-                                onChange={(e) => setCustomJudgeInputs({ ...customJudgeInputs, [t.id]: e.target.value })}
-                                style={{
-                                  marginTop: '6px',
-                                  width: '100%',
-                                  padding: '6px 10px',
-                                  background: '#000',
-                                  border: '1.5px solid var(--pacman-yellow)',
-                                  borderRadius: '6px',
-                                  color: '#fff',
-                                  fontSize: '0.8rem'
-                                }}
-                              />
-                            )}
-                          </td>
-                          <td style={{ textAlign: 'center' }}>
-                            <button
-                              type="button"
-                              className="eval-btn edit-btn"
-                              style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                              onClick={() => handleAssignJudge(t.id, t.teamName)}
-                            >
-                              ASSIGN
-                            </button>
-                          </td>
+                {teamsFilter === 'unassigned' && unassignedTeams.length === 0 ? (
+                  <div style={{
+                    background: 'rgba(0, 255, 204, 0.1)',
+                    border: '2px solid #00ffcc',
+                    borderRadius: '10px',
+                    padding: '24px',
+                    textAlign: 'center',
+                    color: '#00ffcc',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.75rem',
+                    lineHeight: '1.8'
+                  }}>
+                    🎉 ALL TEAMS HAVE BEEN ASSIGNED TO JUDGES!
+                    <br />
+                    <span style={{ fontSize: '0.65rem', color: '#aaa' }}>Click "✅ ASSIGNED" above to view or modify judge assignments.</span>
+                  </div>
+                ) : (
+                  <div className="table-responsive">
+                    <table className="eval-table admin-table">
+                      <thead>
+                        <tr>
+                          <th style={{ width: '20%' }}>Team Name</th>
+                          <th style={{ width: '22%' }}>Team Leader</th>
+                          <th style={{ width: '23%' }}>Project Title</th>
+                          <th style={{ width: '15%' }}>Status</th>
+                          <th style={{ width: '20%' }}>Assign Judge</th>
+                          <th style={{ width: '10%', textAlign: 'center' }}>Action</th>
                         </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                      </thead>
+                      <tbody>
+                        {displayedTeams.map(t => {
+                          const defaultJudgeOptions = ['judge@eval.org', 'judge2@eval.org', 'judge3@eval.org', 'judge4@eval.org', 'judge5@eval.org'];
+                          const allJudgeOptions = Array.from(
+                            new Set([
+                              ...defaultJudgeOptions,
+                              ...teams.map(item => item.assignedJudge).filter(j => j && j !== 'Unassigned' && j !== 'CUSTOM'),
+                              ...allowedUsers.map(u => u.email).filter(Boolean)
+                            ])
+                          );
+                          const selectedVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
+                          const isCustom = selectedVal === 'CUSTOM' || (!allJudgeOptions.includes(selectedVal) && selectedVal !== 'Unassigned');
+                          const isAssigned = t.assignedJudge && t.assignedJudge !== 'Unassigned';
+
+                          return (
+                            <tr key={t.id || t.teamName}>
+                              <td className="criterion-name">{t.teamName}</td>
+                              <td>{t.leaderName} ({t.leaderId})<br /><small style={{ color: 'var(--text-muted)' }}>{t.leaderEmail}</small></td>
+                              <td>{t.projectTitle}<br /><small style={{ color: 'var(--text-muted)' }}>{t.techStack}</small></td>
+                              <td>
+                                {isAssigned ? (
+                                  <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc' }}>
+                                    ✅ ASSIGNED TO {t.assignedJudge}
+                                  </span>
+                                ) : (
+                                  <span className="status-pill status-pending" style={{ background: 'rgba(255, 0, 85, 0.15)', color: '#ff0055', border: '1px solid #ff0055' }}>
+                                    ⚠️ UNASSIGNED
+                                  </span>
+                                )}
+                              </td>
+                              <td>
+                                <select
+                                  className="retro-select admin-judge-select"
+                                  value={isCustom ? 'CUSTOM' : selectedVal}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setJudgeSelections({ ...judgeSelections, [t.id]: val });
+                                    if (val === 'CUSTOM' && !customJudgeInputs[t.id]) {
+                                      setCustomJudgeInputs({ ...customJudgeInputs, [t.id]: t.assignedJudge !== 'Unassigned' ? t.assignedJudge : '' });
+                                    }
+                                  }}
+                                >
+                                  <option value="Unassigned">Unassigned</option>
+                                  {allJudgeOptions.map(jOpt => (
+                                    <option key={jOpt} value={jOpt}>{jOpt}</option>
+                                  ))}
+                                  <option value="CUSTOM">✍️ Enter Custom Judge Email / ID...</option>
+                                </select>
+
+                                {isCustom && (
+                                  <input
+                                    type="text"
+                                    placeholder="Type Judge Email or ID..."
+                                    value={customJudgeInputs[t.id] !== undefined ? customJudgeInputs[t.id] : (allJudgeOptions.includes(t.assignedJudge) ? '' : t.assignedJudge)}
+                                    onChange={(e) => setCustomJudgeInputs({ ...customJudgeInputs, [t.id]: e.target.value })}
+                                    style={{
+                                      marginTop: '6px',
+                                      width: '100%',
+                                      padding: '6px 10px',
+                                      background: '#000',
+                                      border: '1.5px solid var(--pacman-yellow)',
+                                      borderRadius: '6px',
+                                      color: '#fff',
+                                      fontSize: '0.8rem'
+                                    }}
+                                  />
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <button
+                                  type="button"
+                                  className="eval-btn edit-btn"
+                                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                                  onClick={() => handleAssignJudge(t.id, t.teamName)}
+                                >
+                                  ASSIGN
+                                </button>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         {/* TAB 2: MARKSHEET & LIVE SCORES OVERVIEW */}
         {activeTab === 'scores-tab' && (

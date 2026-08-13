@@ -776,28 +776,44 @@ async function renderAdminTables() {
   // 1. Render Teams & Judge Assignment Table
   if (teamsTbody) {
     teamsTbody.innerHTML = '';
-    teams.forEach(t => {
-      const tr = document.createElement('tr');
-      tr.innerHTML = `
-        <td class="criterion-name">${t.teamName}</td>
-        <td>${t.leaderName} (${t.leaderId})<br><small style="color:var(--text-muted);">${t.leaderEmail}</small></td>
-        <td>${t.projectTitle}<br><small style="color:var(--text-muted);">${t.techStack}</small></td>
-        <td>
-          <select id="judge-select-${t.id}" class="retro-select admin-judge-select">
-            <option value="judge@eval.org" ${t.assignedJudge === 'judge@eval.org' ? 'selected' : ''}>judge@eval.org</option>
-            <option value="judge2@eval.org" ${t.assignedJudge === 'judge2@eval.org' ? 'selected' : ''}>judge2@eval.org</option>
-            <option value="judge3@eval.org" ${t.assignedJudge === 'judge3@eval.org' ? 'selected' : ''}>judge3@eval.org</option>
-            <option value="Unassigned" ${t.assignedJudge === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
-          </select>
-        </td>
-        <td style="text-align:center;">
-          <button type="button" class="eval-btn edit-btn" style="padding:6px 12px; font-size:0.75rem;" onclick="assignJudgeToTeam('${t.id}')">
-            ASSIGN
-          </button>
-        </td>
-      `;
-      teamsTbody.appendChild(tr);
+    const filter = window.currentAdminTeamsFilter || 'unassigned';
+    const filteredTeams = teams.filter(t => {
+      const isAssigned = t.assignedJudge && t.assignedJudge !== 'Unassigned';
+      if (filter === 'unassigned') return !isAssigned;
+      if (filter === 'assigned') return isAssigned;
+      return true;
     });
+
+    if (filteredTeams.length === 0 && filter === 'unassigned') {
+      const tr = document.createElement('tr');
+      tr.innerHTML = `<td colspan="5" style="text-align:center; padding: 20px; color:#00ffcc; font-family:'Press Start 2P', monospace; font-size:0.7rem;">🎉 ALL TEAMS HAVE BEEN ASSIGNED TO JUDGES!</td>`;
+      teamsTbody.appendChild(tr);
+    } else {
+      filteredTeams.forEach(t => {
+        const tr = document.createElement('tr');
+        const isAssigned = t.assignedJudge && t.assignedJudge !== 'Unassigned';
+        tr.innerHTML = `
+          <td class="criterion-name">${t.teamName}</td>
+          <td>${t.leaderName} (${t.leaderId})<br><small style="color:var(--text-muted);">${t.leaderEmail}</small></td>
+          <td>${t.projectTitle}<br><small style="color:var(--text-muted);">${t.techStack}</small></td>
+          <td>
+            ${isAssigned ? `<span className="status-pill status-completed" style="background:rgba(0,255,204,0.15); color:#00ffcc; padding:4px 8px; border-radius:4px; font-size:0.7rem;">✅ ASSIGNED TO ${t.assignedJudge}</span><br><br>` : `<span className="status-pill status-pending" style="background:rgba(255,0,85,0.15); color:#ff0055; padding:4px 8px; border-radius:4px; font-size:0.7rem;">⚠️ UNASSIGNED</span><br><br>`}
+            <select id="judge-select-${t.id}" class="retro-select admin-judge-select">
+              <option value="judge@eval.org" ${t.assignedJudge === 'judge@eval.org' ? 'selected' : ''}>judge@eval.org</option>
+              <option value="judge2@eval.org" ${t.assignedJudge === 'judge2@eval.org' ? 'selected' : ''}>judge2@eval.org</option>
+              <option value="judge3@eval.org" ${t.assignedJudge === 'judge3@eval.org' ? 'selected' : ''}>judge3@eval.org</option>
+              <option value="Unassigned" ${!t.assignedJudge || t.assignedJudge === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
+            </select>
+          </td>
+          <td style="text-align:center;">
+            <button type="button" class="eval-btn edit-btn" style="padding:6px 12px; font-size:0.75rem;" onclick="assignJudgeToTeam('${t.id}')">
+              SAVE
+            </button>
+          </td>
+        `;
+        teamsTbody.appendChild(tr);
+      });
+    }
   }
 
   // 2. Render Live Leaderboard & Evaluation Scores Table
