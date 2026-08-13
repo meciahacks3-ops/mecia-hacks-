@@ -301,251 +301,404 @@ export default function ProjectSubmissionPage() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit}>
-          {/* SECTION 1: TEAM LEADER DETAILS */}
-          <div className="form-section">
-            <h3 className="section-title"><span className="pacman-bullet"></span> 1. TEAM LEADER DETAILS (COMPULSORY)</h3>
-            <div className="leader-grid">
-              <div className="form-group span-2">
-                <label htmlFor="team-name">Team Name</label>
-                <input
-                  type="text"
-                  id="team-name"
-                  placeholder="e.g., Cyber Byte Squad"
-                  required
-                  value={teamName}
-                  onChange={(e) => setTeamName(e.target.value)}
-                />
+        {/* Registered Team Summary Dashboard View OR Edit Form */}
+        {isExistingRecord && !isEditing ? (
+          <div className="registered-summary-card" style={{
+            background: 'rgba(13, 14, 27, 0.95)',
+            border: '2px solid var(--maze-blue, #2121ff)',
+            borderRadius: '16px',
+            padding: '32px 24px',
+            boxShadow: '0 0 25px rgba(33, 33, 255, 0.3)',
+            marginBottom: '32px'
+          }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '2px dashed rgba(33, 33, 255, 0.5)', paddingBottom: '20px', marginBottom: '24px' }}>
+              <div>
+                <span className="role-badge" style={{ background: '#00ffcc', color: '#000', marginBottom: '8px', display: 'inline-block' }}>✅ REGISTRATION CONFIRMED</span>
+                <h2 style={{ color: '#fdff00', fontSize: '1.4rem', margin: '4px 0', fontFamily: 'Press Start 2P, monospace', textShadow: '0 0 10px rgba(253, 255, 0, 0.5)' }}>{teamName}</h2>
+                <p style={{ color: '#aaa', fontSize: '0.82rem', margin: 0 }}>Registered Project Entry • Mecia Hack 3.0</p>
               </div>
-              <div className="form-group">
-                <label htmlFor="leader-name">Leader Full Name</label>
-                <input
-                  type="text"
-                  id="leader-name"
-                  placeholder="Alex Johnson"
-                  required
-                  value={leaderName}
-                  onChange={(e) => setLeaderName(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="leader-email">Leader Email ID</label>
-                <input
-                  type="email"
-                  id="leader-email"
-                  placeholder="alex@cyber.edu"
-                  required
-                  value={leaderEmail}
-                  onChange={(e) => setLeaderEmail(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="leader-id">Enrollment No. / ID</label>
-                <input
-                  type="text"
-                  id="leader-id"
-                  placeholder="EN2026101"
-                  required
-                  value={leaderId}
-                  onChange={(e) => setLeaderId(e.target.value)}
-                />
-              </div>
-              <div className="form-group">
-                <label htmlFor="leader-branch">Leader Branch</label>
-                <select
-                  id="leader-branch"
-                  required
-                  value={leaderBranch}
-                  onChange={(e) => setLeaderBranch(e.target.value)}
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(true)}
+                  style={{
+                    background: '#fdff00',
+                    color: '#000',
+                    border: '2px solid #fdff00',
+                    borderRadius: '8px',
+                    padding: '12px 18px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.62rem',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
+                  }}
                 >
-                  <option value="Computer Engineering (CE)">Computer Engineering (CE)</option>
-                  <option value="Information Technology (IT)">Information Technology (IT)</option>
-                  <option value="Computer Science & Design (CSD)">Computer Science & Design (CSD)</option>
-                  <option value="Aeronautical Engineering">Aeronautical Engineering</option>
-                  <option value="Diploma">Diploma</option>
-                  <option value="BSc IT">BSc IT</option>
-                  <option value="BCA">BCA</option>
-                  <option value="MCA">MCA</option>
-                  <option value="Electronics & Communication (EC)">Electronics & Communication (EC)</option>
-                  <option value="Electrical Engineering (EE)">Electrical Engineering (EE)</option>
-                  <option value="Mechanical Engineering (ME)">Mechanical Engineering (ME)</option>
-                  <option value="Civil Engineering (CL)">Civil Engineering (CL)</option>
-                  <option value="Other">Other</option>
-                </select>
+                  ✏️ EDIT REGISTRATION DETAILS
+                </button>
+                <button
+                  type="button"
+                  onClick={() => window.print()}
+                  style={{
+                    background: '#2121ff',
+                    color: '#fff',
+                    border: '2px solid #2121ff',
+                    borderRadius: '8px',
+                    padding: '12px 18px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.62rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  🖨️ PRINT
+                </button>
               </div>
-              <div className="form-group">
-                <label htmlFor="leader-phone">Phone Number (10 digits)</label>
-                <input
-                  type="tel"
-                  id="leader-phone"
-                  placeholder="e.g., 9876543210"
-                  required
-                  maxLength={10}
-                  pattern="[0-9]{10}"
-                  inputMode="numeric"
-                  value={leaderPhone}
-                  onChange={(e) => setLeaderPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
-                />
+            </div>
+
+            {/* Section 1: Leader Details Summary */}
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ color: '#00ffcc', fontSize: '0.85rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '14px' }}>
+                👤 TEAM LEADER DETAILS
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>FULL NAME</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>{leaderName}</div>
+                </div>
+                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>EMAIL ID</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>{leaderEmail}</div>
+                </div>
+                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>ENROLLMENT NO. / ID</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>{leaderId}</div>
+                </div>
+                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>BRANCH / DEPT</div>
+                  <div style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '0.9rem' }}>{leaderBranch}</div>
+                </div>
+                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>PHONE NUMBER</div>
+                  <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>{leaderPhone}</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section 2: Team Members Summary */}
+            <div style={{ marginBottom: '24px' }}>
+              <h3 style={{ color: '#00ffcc', fontSize: '0.85rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '14px' }}>
+                👥 TEAM MEMBERS ({members.length})
+              </h3>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {members.map((m, idx) => (
+                  <div key={idx} style={{ background: '#000', border: '1px solid rgba(33, 33, 255, 0.4)', padding: '12px 16px', borderRadius: '8px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+                    <div>
+                      <div style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.85rem' }}>{idx + 1}. {m.name}</div>
+                      <div style={{ color: '#8888aa', fontSize: '0.75rem' }}>{m.email} • ID: {m.idNo}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div style={{ color: '#00ffcc', fontSize: '0.75rem', fontWeight: 'bold' }}>{m.branch}</div>
+                      <div style={{ color: '#aaa', fontSize: '0.75rem' }}>📞 {m.phone}</div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Section 3: Project & Solution Details Summary */}
+            <div>
+              <h3 style={{ color: '#00ffcc', fontSize: '0.85rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '14px' }}>
+                💡 PROJECT & SOLUTION DETAILS
+              </h3>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '14px', marginBottom: '14px' }}>
+                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>PROJECT TITLE</div>
+                  <div style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.95rem' }}>{projectTitle || 'N/A'}</div>
+                </div>
+                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>PROJECT TYPE</div>
+                  <div style={{ color: '#ff0055', fontWeight: 'bold', fontSize: '0.95rem', textTransform: 'uppercase' }}>{projectType}</div>
+                </div>
+              </div>
+
+              <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '14px 16px', borderRadius: '8px', marginBottom: '14px' }}>
+                <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '6px' }}>MAIN IDEA & PROBLEM STATEMENT</div>
+                <div style={{ color: '#eee', fontSize: '0.82rem', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>{projectIdea || 'N/A'}</div>
+              </div>
+
+              <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '14px 16px', borderRadius: '8px' }}>
+                <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '6px' }}>TECH STACK & TOOLS</div>
+                <div style={{ color: '#00ffcc', fontSize: '0.85rem', fontWeight: 'bold' }}>{techStack || 'N/A'}</div>
               </div>
             </div>
           </div>
+        ) : (
+          <form onSubmit={handleSubmit}>
+            {isExistingRecord && (
+              <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-start' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  style={{
+                    background: 'rgba(33, 33, 255, 0.2)',
+                    color: '#00ffcc',
+                    border: '1px solid #00ffcc',
+                    borderRadius: '8px',
+                    padding: '10px 16px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.6rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ← BACK TO SUMMARY DASHBOARD
+                </button>
+              </div>
+            )}
 
-          {/* SECTION 2: TEAM MEMBERS */}
-          <div className={`form-section locked-until-leader ${!isLeaderComplete ? 'section-disabled' : ''}`}>
-            <h3 className="section-title"><span className="pacman-bullet"></span> 2. OTHER TEAM MEMBERS DETAILS</h3>
-
-            <div>
-              {members.map((member, index) => (
-                <div key={index} className="member-row">
+            {/* SECTION 1: TEAM LEADER DETAILS */}
+            <div className="form-section">
+              <h3 className="section-title"><span className="pacman-bullet"></span> 1. TEAM LEADER DETAILS (COMPULSORY)</h3>
+              <div className="leader-grid">
+                <div className="form-group span-2">
+                  <label htmlFor="team-name">Team Name</label>
                   <input
                     type="text"
-                    placeholder="Member Name"
+                    id="team-name"
+                    placeholder="e.g., Cyber Byte Squad"
                     required
-                    disabled={!isLeaderComplete}
-                    value={member.name}
-                    onChange={(e) => updateMember(index, 'name', e.target.value)}
+                    value={teamName}
+                    onChange={(e) => setTeamName(e.target.value)}
                   />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="leader-name">Leader Full Name</label>
+                  <input
+                    type="text"
+                    id="leader-name"
+                    placeholder="Alex Johnson"
+                    required
+                    value={leaderName}
+                    onChange={(e) => setLeaderName(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="leader-email">Leader Email ID</label>
                   <input
                     type="email"
-                    placeholder="Email ID"
+                    id="leader-email"
+                    placeholder="alex@cyber.edu"
                     required
-                    disabled={!isLeaderComplete}
-                    value={member.email}
-                    onChange={(e) => updateMember(index, 'email', e.target.value)}
+                    value={leaderEmail}
+                    onChange={(e) => setLeaderEmail(e.target.value)}
                   />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="leader-id">Enrollment No. / ID</label>
                   <input
                     type="text"
-                    placeholder="Enrollment No. / ID"
+                    id="leader-id"
+                    placeholder="EN2026101"
                     required
-                    disabled={!isLeaderComplete}
-                    value={member.idNo}
-                    onChange={(e) => updateMember(index, 'idNo', e.target.value)}
+                    value={leaderId}
+                    onChange={(e) => setLeaderId(e.target.value)}
                   />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="leader-branch">Leader Branch</label>
                   <select
+                    id="leader-branch"
                     required
-                    disabled={!isLeaderComplete}
-                    value={member.branch || 'Computer Engineering (CE)'}
-                    onChange={(e) => updateMember(index, 'branch', e.target.value)}
+                    value={leaderBranch}
+                    onChange={(e) => setLeaderBranch(e.target.value)}
                   >
-                    <option value="Computer Engineering (CE)">CE</option>
-                    <option value="Information Technology (IT)">IT</option>
-                    <option value="Computer Science & Design (CSD)">CSD</option>
-                    <option value="Aeronautical Engineering">Aero</option>
+                    <option value="Computer Engineering (CE)">Computer Engineering (CE)</option>
+                    <option value="Information Technology (IT)">Information Technology (IT)</option>
+                    <option value="Computer Science & Design (CSD)">Computer Science & Design (CSD)</option>
+                    <option value="Aeronautical Engineering">Aeronautical Engineering</option>
                     <option value="Diploma">Diploma</option>
                     <option value="BSc IT">BSc IT</option>
                     <option value="BCA">BCA</option>
                     <option value="MCA">MCA</option>
-                    <option value="Electronics & Communication (EC)">EC</option>
-                    <option value="Electrical Engineering (EE)">EE</option>
-                    <option value="Mechanical Engineering (ME)">ME</option>
-                    <option value="Civil Engineering (CL)">CL</option>
+                    <option value="Electronics & Communication (EC)">Electronics & Communication (EC)</option>
+                    <option value="Electrical Engineering (EE)">Electrical Engineering (EE)</option>
+                    <option value="Mechanical Engineering (ME)">Mechanical Engineering (ME)</option>
+                    <option value="Civil Engineering (CL)">Civil Engineering (CL)</option>
                     <option value="Other">Other</option>
                   </select>
+                </div>
+                <div className="form-group">
+                  <label htmlFor="leader-phone">Phone Number (10 digits)</label>
                   <input
                     type="tel"
-                    placeholder="10-digit Phone No."
+                    id="leader-phone"
+                    placeholder="e.g., 9876543210"
                     required
                     maxLength={10}
                     pattern="[0-9]{10}"
                     inputMode="numeric"
-                    disabled={!isLeaderComplete}
-                    value={member.phone}
-                    onChange={(e) => updateMember(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    value={leaderPhone}
+                    onChange={(e) => setLeaderPhone(e.target.value.replace(/\D/g, '').slice(0, 10))}
                   />
-                  <button
-                    type="button"
-                    className="remove-btn"
-                    onClick={() => removeMember(index)}
-                    disabled={!isLeaderComplete}
-                    title="Remove Member"
-                  >
-                    &times;
-                  </button>
                 </div>
-              ))}
+              </div>
+            </div>
+
+            {/* SECTION 2: TEAM MEMBERS */}
+            <div className={`form-section locked-until-leader ${!isLeaderComplete ? 'section-disabled' : ''}`}>
+              <h3 className="section-title"><span className="pacman-bullet"></span> 2. OTHER TEAM MEMBERS DETAILS</h3>
+
+              <div>
+                {members.map((member, index) => (
+                  <div key={index} className="member-row">
+                    <input
+                      type="text"
+                      placeholder="Member Name"
+                      required
+                      disabled={!isLeaderComplete}
+                      value={member.name}
+                      onChange={(e) => updateMember(index, 'name', e.target.value)}
+                    />
+                    <input
+                      type="email"
+                      placeholder="Email ID"
+                      required
+                      disabled={!isLeaderComplete}
+                      value={member.email}
+                      onChange={(e) => updateMember(index, 'email', e.target.value)}
+                    />
+                    <input
+                      type="text"
+                      placeholder="Enrollment No. / ID"
+                      required
+                      disabled={!isLeaderComplete}
+                      value={member.idNo}
+                      onChange={(e) => updateMember(index, 'idNo', e.target.value)}
+                    />
+                    <select
+                      required
+                      disabled={!isLeaderComplete}
+                      value={member.branch || 'Computer Engineering (CE)'}
+                      onChange={(e) => updateMember(index, 'branch', e.target.value)}
+                    >
+                      <option value="Computer Engineering (CE)">CE</option>
+                      <option value="Information Technology (IT)">IT</option>
+                      <option value="Computer Science & Design (CSD)">CSD</option>
+                      <option value="Aeronautical Engineering">Aero</option>
+                      <option value="Diploma">Diploma</option>
+                      <option value="BSc IT">BSc IT</option>
+                      <option value="BCA">BCA</option>
+                      <option value="MCA">MCA</option>
+                      <option value="Electronics & Communication (EC)">EC</option>
+                      <option value="Electrical Engineering (EE)">EE</option>
+                      <option value="Mechanical Engineering (ME)">ME</option>
+                      <option value="Civil Engineering (CL)">CL</option>
+                      <option value="Other">Other</option>
+                    </select>
+                    <input
+                      type="tel"
+                      placeholder="10-digit Phone No."
+                      required
+                      maxLength={10}
+                      pattern="[0-9]{10}"
+                      inputMode="numeric"
+                      disabled={!isLeaderComplete}
+                      value={member.phone}
+                      onChange={(e) => updateMember(index, 'phone', e.target.value.replace(/\D/g, '').slice(0, 10))}
+                    />
+                    <button
+                      type="button"
+                      className="remove-btn"
+                      onClick={() => removeMember(index)}
+                      disabled={!isLeaderComplete}
+                      title="Remove Member"
+                    >
+                      &times;
+                    </button>
+                  </div>
+                ))}
+              </div>
+
+              <button
+                type="button"
+                className="add-member-btn"
+                onClick={addMember}
+                disabled={!isLeaderComplete}
+              >
+                + ADD ANOTHER MEMBER
+              </button>
+            </div>
+
+            {/* SECTION 3: PROJECT DETAILS & MAIN IDEA */}
+            <div className={`form-section locked-until-leader ${!isLeaderComplete ? 'section-disabled' : ''}`}>
+              <h3 className="section-title"><span className="pacman-bullet"></span> 3. PROJECT & SOLUTION DETAILS</h3>
+
+              <div className="form-group">
+                <label htmlFor="project-title">Project Title / Name</label>
+                <input
+                  type="text"
+                  id="project-title"
+                  placeholder="e.g., Autonomous Maze Navigator Bot"
+                  required
+                  disabled={!isLeaderComplete}
+                  value={projectTitle}
+                  onChange={(e) => setProjectTitle(e.target.value)}
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="project-type">Project Type</label>
+                <select
+                  id="project-type"
+                  value={projectType}
+                  onChange={(e) => setProjectType(e.target.value)}
+                  disabled={!isLeaderComplete}
+                  required
+                >
+                  <option value="hardware">Hardware</option>
+                  <option value="software">Software</option>
+                  <option value="hybrid">Hybrid</option>
+                </select>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="project-idea">Main Project Idea & Problem Statement</label>
+                <textarea
+                  id="project-idea"
+                  rows="4"
+                  placeholder="Describe your innovation, core problem solved, unique value proposition..."
+                  required
+                  disabled={!isLeaderComplete}
+                  value={projectIdea}
+                  onChange={(e) => setProjectIdea(e.target.value)}
+                ></textarea>
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="tech-stack">Tech Stack & Tools Used</label>
+                <input
+                  type="text"
+                  id="tech-stack"
+                  placeholder="e.g., React Native, Python, TensorFlow, Raspberry Pi, Docker"
+                  required
+                  disabled={!isLeaderComplete}
+                  value={techStack}
+                  onChange={(e) => setTechStack(e.target.value)}
+                />
+              </div>
             </div>
 
             <button
-              type="button"
-              className="add-member-btn"
-              onClick={addMember}
+              type="submit"
+              className="submit-btn full-width-btn locked-until-leader"
               disabled={!isLeaderComplete}
+              style={{
+                background: isExistingRecord ? 'var(--maze-blue, #2121ff)' : undefined,
+                borderColor: isExistingRecord ? '#00ffcc' : undefined
+              }}
             >
-              ➕ ADD ANOTHER TEAM MEMBER
+              <span className="pacman-icon"></span> {isExistingRecord ? '💾 UPDATE & SAVE CHANGES' : '🚀 SUBMIT FINAL PROJECT ENTRY'}
             </button>
-          </div>
-
-          {/* SECTION 3: PROJECT DETAILS */}
-          <div className={`form-section locked-until-leader ${!isLeaderComplete ? 'section-disabled' : ''}`}>
-            <h3 className="section-title"><span className="pacman-bullet"></span> 3. PROJECT & SOLUTION DETAILS</h3>
-
-            <div className="form-group">
-              <label htmlFor="project-title">Project Title</label>
-              <input
-                type="text"
-                id="project-title"
-                placeholder="e.g., AI-Powered Autonomous Telemetry Monitor"
-                required
-                disabled={!isLeaderComplete}
-                value={projectTitle}
-                onChange={(e) => setProjectTitle(e.target.value)}
-              />
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="project-type">Project Type</label>
-              <select
-                id="project-type"
-                required
-                disabled={!isLeaderComplete}
-                value={projectType}
-                onChange={(e) => setProjectType(e.target.value)}
-              >
-                <option value="hardware">Hardware</option>
-                <option value="software">Software</option>
-                <option value="hybrid">Hybrid</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="project-idea">Main Project Idea & Problem Statement</label>
-              <textarea
-                id="project-idea"
-                rows="4"
-                placeholder="Describe your innovation, core problem solved, unique value proposition..."
-                required
-                disabled={!isLeaderComplete}
-                value={projectIdea}
-                onChange={(e) => setProjectIdea(e.target.value)}
-              ></textarea>
-            </div>
-
-            <div className="form-group">
-              <label htmlFor="tech-stack">Tech Stack & Tools Used</label>
-              <input
-                type="text"
-                id="tech-stack"
-                placeholder="e.g., React Native, Python, TensorFlow, Raspberry Pi, Docker"
-                required
-                disabled={!isLeaderComplete}
-                value={techStack}
-                onChange={(e) => setTechStack(e.target.value)}
-              />
-            </div>
-          </div>
-
-          <button
-            type="submit"
-            className="submit-btn full-width-btn locked-until-leader"
-            disabled={!isLeaderComplete || (isExistingRecord && !isEditing)}
-            style={{
-              background: isExistingRecord ? 'var(--maze-blue, #2121ff)' : undefined,
-              borderColor: isExistingRecord ? '#00ffcc' : undefined
-            }}
-          >
-            <span className="pacman-icon"></span> {isExistingRecord ? '💾 UPDATE & SAVE CHANGES' : '🚀 SUBMIT FINAL PROJECT ENTRY'}
-          </button>
-        </form>
+          </form>
+        )}
 
         <div className="arcade-footer">
           <span>PROJECT ENTRY FORM</span>
