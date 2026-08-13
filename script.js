@@ -146,24 +146,32 @@ function switchRole(role) {
   }
 }
 
-// Handle Student Login & Redirect to Project Submission Page
-async function handleStudentLogin(event) {
-  if (event) event.preventDefault();
-  const studentId = getInputValue('student-id');
-  const projectType = getInputValue('project-type') || 'hardware';
+// Handle Student Google SSO Login & Redirect to Project Submission Page
+async function handleStudentGoogleLogin() {
+  const projectType = getInputValue('project-type') || sessionStorage.getItem('projectType') || 'hardware';
+  sessionStorage.setItem('targetRole', 'student');
   sessionStorage.setItem('projectType', projectType);
-  if (studentId) {
-    sessionStorage.setItem('studentId', studentId);
-    if (supabaseClient) {
-      try {
-        await supabaseClient.from('user_logins').insert([{ role: 'student', user_identifier: studentId, project_type: projectType }]);
-      } catch (e) {
-        console.warn("Supabase login tracking warning:", e);
-      }
+
+  if (supabaseClient) {
+    try {
+      const originUrl = typeof window !== 'undefined' ? window.location.origin : 'https://mecia-hacks.vercel.app';
+      const { error } = await supabaseClient.auth.signInWithOAuth({
+        provider: 'google',
+        options: { redirectTo: originUrl }
+      });
+      if (!error) return;
+    } catch (e) {
+      console.warn("Supabase Google OAuth fallback warning:", e);
     }
   }
+
+  // Fallback redirect for static environment
   window.location.href = 'project-submission.html';
-  return false;
+}
+
+async function handleStudentLogin(event) {
+  if (event) event.preventDefault();
+  return handleStudentGoogleLogin();
 }
 
 // Handle Judge Login & Redirect to Judge Dashboard
