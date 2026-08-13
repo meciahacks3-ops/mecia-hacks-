@@ -64,15 +64,19 @@ export default function LoginPage() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const userEmail = session.user.email || session.user.user_metadata?.email;
-        const allowed = await isGmailWhitelisted(userEmail);
-        if (!allowed) {
-          await supabase.auth.signOut();
-          sessionStorage.clear();
-          setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized for Mecia Hack 3.0. Please contact an admin.`);
-          return;
+        const targetRole = sessionStorage.getItem('targetRole') || 'student';
+
+        // Student login is OPEN to every Google account! Whitelist check only applies for non-student roles.
+        if (targetRole !== 'student') {
+          const allowed = await isGmailWhitelisted(userEmail);
+          if (!allowed) {
+            await supabase.auth.signOut();
+            sessionStorage.clear();
+            setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized for this portal.`);
+            return;
+          }
         }
         
-        const targetRole = sessionStorage.getItem('targetRole') || 'student';
         if (targetRole === 'judge') {
           sessionStorage.setItem('judgeEmail', userEmail);
           router.push('/judge-dashboard');
@@ -96,15 +100,19 @@ export default function LoginPage() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       if (session?.user) {
         const userEmail = session.user.email || session.user.user_metadata?.email;
-        const allowed = await isGmailWhitelisted(userEmail);
-        if (!allowed) {
-          await supabase.auth.signOut();
-          sessionStorage.clear();
-          setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized for Mecia Hack 3.0.`);
-          return;
+        const targetRole = sessionStorage.getItem('targetRole') || 'student';
+
+        // Student login is OPEN to every Google account!
+        if (targetRole !== 'student') {
+          const allowed = await isGmailWhitelisted(userEmail);
+          if (!allowed) {
+            await supabase.auth.signOut();
+            sessionStorage.clear();
+            setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized.`);
+            return;
+          }
         }
         
-        const targetRole = sessionStorage.getItem('targetRole') || 'student';
         if (targetRole === 'judge') {
           sessionStorage.setItem('judgeEmail', userEmail);
           router.push('/judge-dashboard');
