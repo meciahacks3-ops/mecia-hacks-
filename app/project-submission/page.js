@@ -82,28 +82,31 @@ export default function ProjectSubmissionPage() {
 
     // Save to Supabase DB
     try {
+      const insertPayload = {
+        team_name: teamName,
+        leader_name: leaderName,
+        leader_email: leaderEmail,
+        leader_id: leaderId,
+        leader_phone: leaderPhone,
+        project_title: projectTitle || 'New Project Entry',
+        main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch}]\n\n${projectIdea || 'Project Idea Details'}`,
+        tech_stack: techStack || 'HTML, CSS, JS'
+      };
+
       const { data: teamRes, error: teamErr } = await supabase
         .from('teams')
-        .insert([{
-          team_name: teamName,
-          leader_name: leaderName,
-          leader_email: leaderEmail,
-          leader_id: leaderId,
-          leader_phone: leaderPhone,
-          project_title: projectTitle || 'New Project Entry',
-          project_type: projectType,
-          main_idea: projectIdea || 'Project Idea Details',
-          tech_stack: techStack || 'HTML, CSS, JS'
-        }])
+        .insert([insertPayload])
         .select()
         .single();
 
-      if (!teamErr && teamRes) {
+      if (teamErr) {
+        console.error("Supabase team insert error:", teamErr);
+      } else if (teamRes) {
         const validMembers = members.filter(m => m.name.trim());
         if (validMembers.length > 0) {
           const memberRecords = validMembers.map(m => ({
             team_id: teamRes.id,
-            member_name: m.name,
+            member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
             member_email: m.email,
             member_id: m.idNo,
             member_phone: m.phone

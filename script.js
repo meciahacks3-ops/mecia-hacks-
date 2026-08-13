@@ -384,25 +384,27 @@ async function handleProjectSubmission(event) {
   // Supabase Database Insert (if connected)
   if (supabaseClient) {
     try {
+      const insertPayload = {
+        team_name: teamName,
+        leader_name: leaderName,
+        leader_email: leaderEmail,
+        leader_id: leaderId,
+        leader_phone: leaderPhone,
+        project_title: projectTitle,
+        main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch}]\n\n${mainIdea}`,
+        tech_stack: techStack
+      };
+
       const { data: teamRes, error: teamErr } = await supabaseClient
         .from('teams')
-        .insert([{
-          team_name: teamName,
-          leader_name: leaderName,
-          leader_email: leaderEmail,
-          leader_id: leaderId,
-          leader_phone: leaderPhone,
-          project_title: projectTitle,
-          main_idea: mainIdea,
-          tech_stack: techStack
-        }])
+        .insert([insertPayload])
         .select()
         .single();
 
       if (!teamErr && teamRes && members.length > 0) {
         const memberRecords = members.map(m => ({
           team_id: teamRes.id,
-          member_name: m.name,
+          member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
           member_email: m.email,
           member_id: m.idNo,
           member_phone: m.phone
