@@ -62,8 +62,16 @@ function JudgeEvaluationContent() {
         setC2(data.c2_execution ?? 0);
         setC3(data.c3_feasibility ?? 0);
         setC4(data.c4_presentation ?? 0);
-        setC5(data.c5_details ?? 0);
-        setRemarks(data.remarks ?? '');
+        
+        let rem = data.remarks ?? '';
+        const c5Match = rem.match(/^\[C5 Implementation:\s*(\d+)\/10\]\s*/i);
+        if (c5Match) {
+          setC5(parseInt(c5Match[1]));
+          rem = rem.replace(/^\[C5 Implementation:\s*\d+\/10\]\s*/i, '');
+        } else {
+          setC5(0);
+        }
+        setRemarks(rem);
       } else if (name.toLowerCase() === 'quantum hackers') {
         setC1(9);
         setC2(9);
@@ -93,43 +101,40 @@ function JudgeEvaluationContent() {
         .eq('judge_email', judgeEmail)
         .maybeSingle();
 
+      const numC5 = parseInt(c5) || 0;
+      const formattedRemarks = numC5 > 0 ? `[C5 Implementation: ${numC5}/10] ${remarks}` : remarks;
+      const totalNum = totalScore === 'INVALID' ? 0 : Number(totalScore);
+
+      const evalPayload = {
+        team_name: teamName,
+        judge_email: judgeEmail,
+        c1_innovation: parseInt(c1) || 0,
+        c2_execution: parseInt(c2) || 0,
+        c3_feasibility: parseInt(c3) || 0,
+        c4_presentation: parseInt(c4) || 0,
+        total_score: totalNum,
+        remarks: formattedRemarks,
+        updated_at: new Date()
+      };
+
       let evalErr = null;
       if (existingEval && existingEval.id) {
         const { error } = await supabase
           .from('evaluations')
-          .update({
-            c1_innovation: parseInt(c1) || 0,
-            c2_execution: parseInt(c2) || 0,
-            c3_feasibility: parseInt(c3) || 0,
-            c4_presentation: parseInt(c4) || 0,
-            c5_details: parseInt(c5) || 0,
-            total_score: totalScore,
-            remarks: remarks,
-            updated_at: new Date()
-          })
+          .update(evalPayload)
           .eq('id', existingEval.id);
         evalErr = error;
       } else {
         const { error } = await supabase
           .from('evaluations')
-          .insert([{
-            team_name: teamName,
-            judge_email: judgeEmail,
-            c1_innovation: parseInt(c1) || 0,
-            c2_execution: parseInt(c2) || 0,
-            c3_feasibility: parseInt(c3) || 0,
-            c4_presentation: parseInt(c4) || 0,
-            c5_details: parseInt(c5) || 0,
-            total_score: totalScore,
-            remarks: remarks,
-            updated_at: new Date()
-          }]);
+          .insert([evalPayload]);
         evalErr = error;
       }
 
       if (evalErr) {
         console.error("Supabase evaluation save error:", evalErr);
         alert("Supabase Database Notice: " + evalErr.message);
+        return;
       }
     } catch (err) {
       console.warn("Evaluation submit error:", err);
