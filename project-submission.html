@@ -196,19 +196,31 @@
 
   <!-- Arcade Victory Modal -->
   <div id="victory-modal" class="modal-overlay">
-    <div class="modal-card">
-      <div class="modal-ghost-row">
+    <div class="modal-card" style="max-width: 560px; width: 92%; padding: 28px 24px; text-align: center;">
+      <div class="modal-ghost-row" style="margin-bottom: 16px;">
         <div class="ghost blinky"></div>
         <div class="ghost pinky"></div>
         <div class="ghost inky"></div>
         <div class="ghost clyde"></div>
       </div>
-      <h2 class="victory-title">STAGE CLEAR!</h2>
-      <p class="victory-subtitle">PROJECT SUBMITTED SUCCESSFULLY!</p>
-      <div class="score-box">
-        <span>SUBMISSION SCORE: <span class="hud-yellow">+10000 PTS</span></span>
+      <h2 class="victory-title" style="color: #fdff00; font-size: 1.1rem; text-shadow: 0 0 10px rgba(253, 255, 0, 0.5); margin-bottom: 8px;">🎉 REGISTRATION COMPLETED!</h2>
+      <p class="victory-subtitle" style="color: #00ffcc; font-size: 0.62rem; margin-bottom: 20px;">YOUR ENTRY IS OFFICIALLY REGISTERED IN MECIA HACK 3.0</p>
+      
+      <div style="background: rgba(0, 0, 0, 0.85); border: 2px solid #2121ff; border-radius: 10px; padding: 16px; text-align: left; margin-bottom: 20px; box-shadow: 0 0 15px rgba(33, 33, 255, 0.3);">
+        <div style="display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255, 255, 255, 0.1); padding-bottom: 8px; margin-bottom: 10px;">
+          <span style="font-size: 0.58rem; color: #8888aa;">STATUS:</span>
+          <span style="font-size: 0.58rem; color: #00ffcc; font-weight: bold;">✅ VERIFIED & STORED IN DATABASE</span>
+        </div>
+        <div style="display: flex; justify-content: space-between;">
+          <span style="font-size: 0.58rem; color: #8888aa;">STAGE:</span>
+          <span style="font-size: 0.58rem; color: #fdff00; font-weight: bold;">READY FOR JUDGING EVALUATION</span>
+        </div>
       </div>
-      <button type="button" class="submit-btn" onclick="closeVictoryModal()">BACK TO LOGIN</button>
+
+      <div style="display: flex; gap: 10px; margin-top: 16px;">
+        <button type="button" class="submit-btn" onclick="window.print()" style="flex: 1; background: #2121ff; color: #fff; font-size: 0.58rem; padding: 12px 8px;">🖨️ PRINT CONFIRMATION</button>
+        <button type="button" class="submit-btn" onclick="closeVictoryModal()" style="flex: 1; background: #ff0055; color: #fff; font-size: 0.58rem; padding: 12px 8px;">🏠 RETURN TO HOME</button>
+      </div>
     </div>
   </div>
 

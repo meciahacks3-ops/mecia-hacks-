@@ -428,6 +428,7 @@ function closeVictoryModal() {
   if (modal) {
     modal.classList.remove('show');
   }
+  sessionStorage.clear();
   window.location.href = 'mecia03.html';
 }
 

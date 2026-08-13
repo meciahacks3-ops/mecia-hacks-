@@ -403,28 +403,72 @@ export default function ProjectSubmissionPage() {
         </div>
       </div>
 
-      {/* Victory Modal */}
+      {/* Registration Completed Victory Modal Pop-up */}
       {showModal && (
-        <div className="modal-overlay show">
-          <div className="modal-card">
-            <div className="modal-ghost-row">
+        <div className="modal-overlay show" style={{ zIndex: 99999 }}>
+          <div className="modal-card" style={{ maxWidth: '560px', width: '92%', padding: '28px 24px', textAlign: 'center' }}>
+            <div className="modal-ghost-row" style={{ marginBottom: '16px' }}>
               <div className="ghost blinky"></div>
               <div className="ghost pinky"></div>
               <div className="ghost inky"></div>
               <div className="ghost clyde"></div>
             </div>
-            <h2 className="victory-title">PROJECT SUBMITTED!</h2>
-            <p className="victory-subtitle">ENTRY RECORDED SUCCESSFULLY IN DATABASE</p>
-            <div className="score-box">
-              <span>TEAM STATUS: <span className="hud-yellow">READY FOR JUDGING</span></span>
+            <h2 className="victory-title" style={{ color: '#fdff00', fontSize: '1.1rem', textShadow: '0 0 10px rgba(253, 255, 0, 0.5)', marginBottom: '8px' }}>
+              🎉 REGISTRATION COMPLETED!
+            </h2>
+            <p className="victory-subtitle" style={{ color: '#00ffcc', fontSize: '0.62rem', marginBottom: '20px' }}>
+              YOUR ENTRY IS OFFICIALLY REGISTERED IN MECIA HACK 3.0
+            </p>
+
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.85)',
+              border: '2px solid var(--maze-blue, #2121ff)',
+              borderRadius: '10px',
+              padding: '16px',
+              textAlign: 'left',
+              marginBottom: '20px',
+              boxShadow: '0 0 15px rgba(33, 33, 255, 0.3)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.58rem', color: '#8888aa' }}>TEAM NAME:</span>
+                <span style={{ fontSize: '0.62rem', color: '#fdff00', fontWeight: 'bold' }}>{teamName}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.58rem', color: '#8888aa' }}>TEAM LEADER:</span>
+                <span style={{ fontSize: '0.62rem', color: '#fff' }}>{leaderName} ({leaderBranch})</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.58rem', color: '#8888aa' }}>PROJECT TITLE:</span>
+                <span style={{ fontSize: '0.62rem', color: '#00ffcc' }}>{projectTitle || 'New Project Entry'}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.58rem', color: '#8888aa' }}>PROJECT TYPE:</span>
+                <span style={{ fontSize: '0.62rem', color: '#ff0055', textTransform: 'uppercase' }}>{projectType}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span style={{ fontSize: '0.58rem', color: '#8888aa' }}>STATUS:</span>
+                <span style={{ fontSize: '0.58rem', color: '#00ffcc', fontWeight: 'bold' }}>✅ VERIFIED & STORED IN DATABASE</span>
+              </div>
             </div>
-            <button
-              type="button"
-              className="submit-btn full-width-btn"
-              onClick={() => setShowModal(false)}
-            >
-              CLOSE
-            </button>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+              <button
+                type="button"
+                className="submit-btn"
+                onClick={() => window.print()}
+                style={{ flex: 1, background: '#2121ff', color: '#fff', fontSize: '0.58rem', padding: '12px 8px' }}
+              >
+                🖨️ PRINT CONFIRMATION
+              </button>
+              <button
+                type="button"
+                className="submit-btn"
+                onClick={handleLogout}
+                style={{ flex: 1, background: '#ff0055', color: '#fff', fontSize: '0.58rem', padding: '12px 8px' }}
+              >
+                🏠 RETURN TO HOME
+              </button>
+            </div>
           </div>
         </div>
       )}
