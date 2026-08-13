@@ -334,23 +334,6 @@ export default function LoginPage() {
         {/* 1. Student Login Form (Strictly Google Account Only) */}
         {role === 'student' && (
           <div className="login-form active">
-            <div className="form-group">
-              <label htmlFor="project-type">Project Type</label>
-              <select
-                id="project-type"
-                value={projectType}
-                onChange={(e) => {
-                  setProjectType(e.target.value);
-                  sessionStorage.setItem('projectType', e.target.value);
-                }}
-                required
-              >
-                <option value="hardware">Hardware</option>
-                <option value="software">Software</option>
-                <option value="hybrid">Hybrid</option>
-              </select>
-            </div>
-
             <div style={{
               background: 'rgba(33, 33, 255, 0.12)',
               border: '1px dashed rgba(33, 33, 255, 0.6)',
