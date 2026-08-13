@@ -288,7 +288,11 @@ function addTeamMember() {
       <option value="Computer Engineering (CE)">CE</option>
       <option value="Information Technology (IT)">IT</option>
       <option value="Computer Science & Design (CSD)">CSD</option>
-      <option value="AI & Machine Learning (AIML)">AIML</option>
+      <option value="Aeronautical Engineering">Aero</option>
+      <option value="Diploma">Diploma</option>
+      <option value="BSc IT">BSc IT</option>
+      <option value="BCA">BCA</option>
+      <option value="MCA">MCA</option>
       <option value="Electronics & Communication (EC)">EC</option>
       <option value="Electrical Engineering (EE)">EE</option>
       <option value="Mechanical Engineering (ME)">ME</option>

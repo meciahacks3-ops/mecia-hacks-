@@ -212,7 +212,11 @@ export default function ProjectSubmissionPage() {
                   <option value="Computer Engineering (CE)">Computer Engineering (CE)</option>
                   <option value="Information Technology (IT)">Information Technology (IT)</option>
                   <option value="Computer Science & Design (CSD)">Computer Science & Design (CSD)</option>
-                  <option value="AI & Machine Learning (AIML)">AI & Machine Learning (AIML)</option>
+                  <option value="Aeronautical Engineering">Aeronautical Engineering</option>
+                  <option value="Diploma">Diploma</option>
+                  <option value="BSc IT">BSc IT</option>
+                  <option value="BCA">BCA</option>
+                  <option value="MCA">MCA</option>
                   <option value="Electronics & Communication (EC)">Electronics & Communication (EC)</option>
                   <option value="Electrical Engineering (EE)">Electrical Engineering (EE)</option>
                   <option value="Mechanical Engineering (ME)">Mechanical Engineering (ME)</option>
@@ -277,7 +281,11 @@ export default function ProjectSubmissionPage() {
                     <option value="Computer Engineering (CE)">CE</option>
                     <option value="Information Technology (IT)">IT</option>
                     <option value="Computer Science & Design (CSD)">CSD</option>
-                    <option value="AI & Machine Learning (AIML)">AIML</option>
+                    <option value="Aeronautical Engineering">Aero</option>
+                    <option value="Diploma">Diploma</option>
+                    <option value="BSc IT">BSc IT</option>
+                    <option value="BCA">BCA</option>
+                    <option value="MCA">MCA</option>
                     <option value="Electronics & Communication (EC)">EC</option>
                     <option value="Electrical Engineering (EE)">EE</option>
                     <option value="Mechanical Engineering (ME)">ME</option>
