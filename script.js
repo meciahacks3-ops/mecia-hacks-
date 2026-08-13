@@ -235,6 +235,87 @@ async function handleAdminLogin(event) {
   return false;
 }
 
+// Fetch existing registration details from Supabase if already registered
+async function loadExistingRegistration(savedId) {
+  if (!savedId || !supabaseClient) return;
+  try {
+    const { data: teamData } = await supabaseClient
+      .from('teams')
+      .select('*')
+      .or(`leader_email.ilike.${savedId},leader_id.ilike.${savedId}`)
+      .maybeSingle();
+
+    if (teamData) {
+      window.existingTeamId = teamData.id;
+      const setVal = (id, val) => { const el = document.getElementById(id); if (el && val) el.value = val; };
+      setVal('team-name', teamData.team_name);
+      setVal('leader-name', teamData.leader_name);
+      setVal('leader-email', teamData.leader_email);
+      setVal('leader-id', teamData.leader_id);
+      setVal('leader-phone', teamData.leader_phone);
+      setVal('project-title', teamData.project_title);
+      setVal('tech-stack', teamData.tech_stack);
+
+      const mainIdeaStr = teamData.main_idea || '';
+      const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^\]]+)\]/i);
+      if (match) {
+        setVal('project-type', match[1].trim().toLowerCase());
+        setVal('leader-branch', match[2].trim());
+        setVal('main-idea', mainIdeaStr.replace(/\[Type:[^\]]+\]\s*/i, '').trim());
+      } else {
+        setVal('main-idea', mainIdeaStr);
+      }
+
+      const { data: memberData } = await supabaseClient
+        .from('team_members')
+        .select('*')
+        .eq('team_id', teamData.id);
+
+      if (memberData && memberData.length > 0) {
+        const container = document.getElementById('team-members-container');
+        if (container) {
+          container.innerHTML = '';
+          memberData.forEach(m => {
+            let name = m.member_name || '';
+            let branch = 'Computer Engineering (CE)';
+            const mMatch = name.match(/^(.*?)\s*\((.*?)\)$/);
+            if (mMatch) { name = mMatch[1].trim(); branch = mMatch[2].trim(); }
+
+            const row = document.createElement('div');
+            row.className = 'member-row';
+            row.innerHTML = `
+              <input type="text" placeholder="Member Name" value="${name}" required>
+              <input type="email" placeholder="Email ID" value="${m.member_email || ''}" required>
+              <input type="text" placeholder="Enrollment No. / ID" value="${m.member_id || ''}" required>
+              <select required>
+                <option value="Computer Engineering (CE)" ${branch.includes('Computer Engineering') ? 'selected' : ''}>CE</option>
+                <option value="Information Technology (IT)" ${branch.includes('Information') ? 'selected' : ''}>IT</option>
+                <option value="Computer Science & Design (CSD)" ${branch.includes('Design') ? 'selected' : ''}>CSD</option>
+                <option value="Aeronautical Engineering" ${branch.includes('Aeronautical') ? 'selected' : ''}>Aero</option>
+                <option value="Diploma" ${branch.includes('Diploma') ? 'selected' : ''}>Diploma</option>
+                <option value="BSc IT" ${branch.includes('BSc') ? 'selected' : ''}>BSc IT</option>
+                <option value="BCA" ${branch.includes('BCA') ? 'selected' : ''}>BCA</option>
+                <option value="MCA" ${branch.includes('MCA') ? 'selected' : ''}>MCA</option>
+                <option value="Electronics & Communication (EC)" ${branch.includes('Electronics') ? 'selected' : ''}>EC</option>
+                <option value="Electrical Engineering (EE)" ${branch.includes('Electrical') ? 'selected' : ''}>EE</option>
+                <option value="Mechanical Engineering (ME)" ${branch.includes('Mechanical') ? 'selected' : ''}>ME</option>
+                <option value="Civil Engineering (CL)" ${branch.includes('Civil') ? 'selected' : ''}>CL</option>
+                <option value="Other" ${branch.includes('Other') ? 'selected' : ''}>Other</option>
+              </select>
+              <input type="tel" placeholder="10-digit Phone No." value="${m.member_phone || ''}" maxlength="10" pattern="[0-9]{10}" inputmode="numeric" required oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)">
+              <button type="button" class="remove-btn" onclick="removeMember(this)" title="Remove Member">&times;</button>
+            `;
+            container.appendChild(row);
+          });
+        }
+      }
+      validateLeaderDetails();
+    }
+  } catch (e) {
+    console.warn("Load existing registration error:", e);
+  }
+}
+
 // Validate Team Leader details to unlock subsequent sections
 function validateLeaderDetails() {
   const teamName = getInputValue('team-name');
@@ -963,6 +1044,7 @@ document.addEventListener('DOMContentLoaded', () => {
       if (leaderIdInput && !leaderIdInput.value) {
         leaderIdInput.value = savedId;
       }
+      loadExistingRegistration(savedId);
     }
   }
 

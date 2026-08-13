@@ -27,6 +27,12 @@ export default function ProjectSubmissionPage() {
   const [projectIdea, setProjectIdea] = useState('');
   const [techStack, setTechStack] = useState('');
 
+  // Existing Registration State
+  const [existingTeamId, setExistingTeamId] = useState(null);
+  const [isExistingRecord, setIsExistingRecord] = useState(false);
+  const [isEditing, setIsEditing] = useState(true);
+  const [modalAction, setModalAction] = useState('created');
+
   // UI state
   const [showModal, setShowModal] = useState(false);
 
@@ -34,6 +40,68 @@ export default function ProjectSubmissionPage() {
   const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && isLeaderPhoneValid && leaderBranch);
 
   useEffect(() => {
+    const fetchExistingRegistration = async (idToSearch) => {
+      if (!idToSearch) return;
+      try {
+        const { data: teamData } = await supabase
+          .from('teams')
+          .select('*')
+          .or(`leader_email.ilike.${idToSearch},leader_id.ilike.${idToSearch}`)
+          .maybeSingle();
+
+        if (teamData) {
+          setExistingTeamId(teamData.id);
+          setIsExistingRecord(true);
+          setIsEditing(false); // Lock to view mode with Edit button
+
+          if (teamData.team_name) setTeamName(teamData.team_name);
+          if (teamData.leader_name) setLeaderName(teamData.leader_name);
+          if (teamData.leader_email) setLeaderEmail(teamData.leader_email);
+          if (teamData.leader_id) setLeaderId(teamData.leader_id);
+          if (teamData.leader_phone) setLeaderPhone(teamData.leader_phone);
+          if (teamData.project_title) setProjectTitle(teamData.project_title);
+          if (teamData.tech_stack) setTechStack(teamData.tech_stack);
+
+          const mainIdeaStr = teamData.main_idea || '';
+          const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^\]]+)\]/i);
+          if (match) {
+            setProjectType(match[1].trim().toLowerCase());
+            setLeaderBranch(match[2].trim());
+            setProjectIdea(mainIdeaStr.replace(/\[Type:[^\]]+\]\s*/i, '').trim());
+          } else {
+            setProjectIdea(mainIdeaStr);
+          }
+
+          const { data: memberData } = await supabase
+            .from('team_members')
+            .select('*')
+            .eq('team_id', teamData.id);
+
+          if (memberData && memberData.length > 0) {
+            const parsedMembers = memberData.map(m => {
+              let name = m.member_name || '';
+              let branch = 'Computer Engineering (CE)';
+              const mMatch = name.match(/^(.*?)\s*\((.*?)\)$/);
+              if (mMatch) {
+                name = mMatch[1].trim();
+                branch = mMatch[2].trim();
+              }
+              return {
+                name,
+                email: m.member_email || '',
+                idNo: m.member_id || '',
+                branch,
+                phone: m.member_phone || ''
+              };
+            });
+            setMembers(parsedMembers);
+          }
+        }
+      } catch (e) {
+        console.warn("Fetch existing registration error:", e);
+      }
+    };
+
     const savedId = sessionStorage.getItem('studentId');
     if (savedId) {
       setStudentId(savedId);
@@ -42,6 +110,7 @@ export default function ProjectSubmissionPage() {
       } else {
         setLeaderId(savedId);
       }
+      fetchExistingRegistration(savedId);
     }
     const savedType = sessionStorage.getItem('projectType');
     if (savedType) {
@@ -80,42 +149,73 @@ export default function ProjectSubmissionPage() {
       return;
     }
 
-    // Save to Supabase DB
+    const insertPayload = {
+      team_name: teamName,
+      leader_name: leaderName,
+      leader_email: leaderEmail,
+      leader_id: leaderId,
+      leader_phone: leaderPhone,
+      project_title: projectTitle || 'New Project Entry',
+      main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch}]\n\n${projectIdea || 'Project Idea Details'}`,
+      tech_stack: techStack || 'HTML, CSS, JS'
+    };
+
     try {
-      const insertPayload = {
-        team_name: teamName,
-        leader_name: leaderName,
-        leader_email: leaderEmail,
-        leader_id: leaderId,
-        leader_phone: leaderPhone,
-        project_title: projectTitle || 'New Project Entry',
-        main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch}]\n\n${projectIdea || 'Project Idea Details'}`,
-        tech_stack: techStack || 'HTML, CSS, JS'
-      };
+      if (existingTeamId) {
+        // Update existing registration
+        const { error: updateErr } = await supabase
+          .from('teams')
+          .update(insertPayload)
+          .eq('id', existingTeamId);
 
-      const { data: teamRes, error: teamErr } = await supabase
-        .from('teams')
-        .insert([insertPayload])
-        .select()
-        .single();
+        if (!updateErr) {
+          await supabase.from('team_members').delete().eq('team_id', existingTeamId);
+          const validMembers = members.filter(m => m.name.trim());
+          if (validMembers.length > 0) {
+            const memberRecords = validMembers.map(m => ({
+              team_id: existingTeamId,
+              member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
+              member_email: m.email,
+              member_id: m.idNo,
+              member_phone: m.phone
+            }));
+            await supabase.from('team_members').insert(memberRecords);
+          }
+          setIsExistingRecord(true);
+          setIsEditing(false);
+          setModalAction('updated');
+        } else {
+          console.error("Supabase update error:", updateErr);
+        }
+      } else {
+        // Insert new registration
+        const { data: teamRes, error: teamErr } = await supabase
+          .from('teams')
+          .insert([insertPayload])
+          .select()
+          .single();
 
-      if (teamErr) {
-        console.error("Supabase team insert error:", teamErr);
-      } else if (teamRes) {
-        const validMembers = members.filter(m => m.name.trim());
-        if (validMembers.length > 0) {
-          const memberRecords = validMembers.map(m => ({
-            team_id: teamRes.id,
-            member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
-            member_email: m.email,
-            member_id: m.idNo,
-            member_phone: m.phone
-          }));
-          await supabase.from('team_members').insert(memberRecords);
+        if (teamRes) {
+          setExistingTeamId(teamRes.id);
+          setIsExistingRecord(true);
+          setIsEditing(false);
+          setModalAction('created');
+
+          const validMembers = members.filter(m => m.name.trim());
+          if (validMembers.length > 0) {
+            const memberRecords = validMembers.map(m => ({
+              team_id: teamRes.id,
+              member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
+              member_email: m.email,
+              member_id: m.idNo,
+              member_phone: m.phone
+            }));
+            await supabase.from('team_members').insert(memberRecords);
+          }
         }
       }
     } catch (err) {
-      console.warn("Supabase team submission error:", err);
+      console.warn("Supabase save exception:", err);
     }
     setShowModal(true);
   };
@@ -154,6 +254,52 @@ export default function ProjectSubmissionPage() {
           <h2>HACKATHON ENTRY FORM</h2>
           <p>Register your team leader, add team members, and outline your project details.</p>
         </div>
+
+        {/* Existing Registration Banner & Edit Control */}
+        {isExistingRecord && (
+          <div style={{
+            background: 'rgba(0, 255, 204, 0.1)',
+            border: '2px solid #00ffcc',
+            borderRadius: '10px',
+            padding: '16px 20px',
+            marginBottom: '28px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            gap: '16px',
+            flexWrap: 'wrap',
+            boxShadow: '0 0 15px rgba(0, 255, 204, 0.2)'
+          }}>
+            <div>
+              <div style={{ color: '#00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.68rem', marginBottom: '6px' }}>
+                ✅ REGISTERED TEAM ENTRY FOUND
+              </div>
+              <div style={{ color: '#ccc', fontSize: '0.78rem', lineHeight: '1.4' }}>
+                {isEditing 
+                  ? '✏️ EDITING MODE ACTIVE: Modify any details below and click "💾 UPDATE & SAVE CHANGES".' 
+                  : '🔒 VIEW MODE: Your team details have been loaded. Click "✏️ EDIT REGISTRATION DETAILS" to make changes.'}
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsEditing(!isEditing)}
+              style={{
+                background: isEditing ? '#ff0055' : '#fdff00',
+                color: isEditing ? '#fff' : '#000',
+                border: '2px solid ' + (isEditing ? '#ff0055' : '#fdff00'),
+                borderRadius: '8px',
+                padding: '10px 18px',
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.62rem',
+                cursor: 'pointer',
+                whiteSpace: 'nowrap',
+                boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
+              }}
+            >
+              {isEditing ? '🔒 LOCK VIEW' : '✏️ EDIT REGISTRATION DETAILS'}
+            </button>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit}>
           {/* SECTION 1: TEAM LEADER DETAILS */}
@@ -391,9 +537,13 @@ export default function ProjectSubmissionPage() {
           <button
             type="submit"
             className="submit-btn full-width-btn locked-until-leader"
-            disabled={!isLeaderComplete}
+            disabled={!isLeaderComplete || (isExistingRecord && !isEditing)}
+            style={{
+              background: isExistingRecord ? 'var(--maze-blue, #2121ff)' : undefined,
+              borderColor: isExistingRecord ? '#00ffcc' : undefined
+            }}
           >
-            <span className="pacman-icon"></span> SUBMIT FINAL PROJECT ENTRY
+            <span className="pacman-icon"></span> {isExistingRecord ? '💾 UPDATE & SAVE CHANGES' : '🚀 SUBMIT FINAL PROJECT ENTRY'}
           </button>
         </form>
 
@@ -414,10 +564,10 @@ export default function ProjectSubmissionPage() {
               <div className="ghost clyde"></div>
             </div>
             <h2 className="victory-title" style={{ color: '#fdff00', fontSize: '1.1rem', textShadow: '0 0 10px rgba(253, 255, 0, 0.5)', marginBottom: '8px' }}>
-              🎉 REGISTRATION COMPLETED!
+              {modalAction === 'updated' ? '🎉 REGISTRATION UPDATED!' : '🎉 REGISTRATION COMPLETED!'}
             </h2>
             <p className="victory-subtitle" style={{ color: '#00ffcc', fontSize: '0.62rem', marginBottom: '20px' }}>
-              YOUR ENTRY IS OFFICIALLY REGISTERED IN MECIA HACK 3.0
+              {modalAction === 'updated' ? 'YOUR CHANGES HAVE BEEN SUCCESSFULLY SAVED TO DATABASE' : 'YOUR ENTRY IS OFFICIALLY REGISTERED IN MECIA HACK 3.0'}
             </p>
 
             <div style={{
