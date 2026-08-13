@@ -241,10 +241,11 @@ function validateLeaderDetails() {
   const leaderName = getInputValue('leader-name');
   const leaderEmail = getInputValue('leader-email');
   const leaderId = getInputValue('leader-id');
+  const leaderBranch = getInputValue('leader-branch');
   const leaderPhone = getInputValue('leader-phone');
 
   const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone);
-  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && isLeaderPhoneValid);
+  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && leaderBranch && isLeaderPhoneValid);
 
   const lockedElements = document.querySelectorAll('.locked-until-leader');
   const lockStatusBadge = document.getElementById('lock-status-badge');
@@ -282,7 +283,18 @@ function addTeamMember() {
   memberRow.innerHTML = `
     <input type="text" placeholder="Member Name" required>
     <input type="email" placeholder="Email ID" required>
-    <input type="text" placeholder="Enrollment No. / ID Number" required>
+    <input type="text" placeholder="Enrollment No. / ID" required>
+    <select required>
+      <option value="Computer Engineering (CE)">CE</option>
+      <option value="Information Technology (IT)">IT</option>
+      <option value="Computer Science & Design (CSD)">CSD</option>
+      <option value="AI & Machine Learning (AIML)">AIML</option>
+      <option value="Electronics & Communication (EC)">EC</option>
+      <option value="Electrical Engineering (EE)">EE</option>
+      <option value="Mechanical Engineering (ME)">ME</option>
+      <option value="Civil Engineering (CL)">CL</option>
+      <option value="Other">Other</option>
+    </select>
     <input type="tel" placeholder="10-digit Phone No." maxlength="10" pattern="[0-9]{10}" inputmode="numeric" required oninput="this.value=this.value.replace(/\\D/g,'').slice(0,10)">
     <button type="button" class="remove-btn" onclick="removeMember(this)" title="Remove Member">&times;</button>
   `;
@@ -308,6 +320,7 @@ async function handleProjectSubmission(event) {
   const leaderName = getInputValue('leader-name');
   const leaderEmail = getInputValue('leader-email');
   const leaderId = getInputValue('leader-id');
+  const leaderBranch = getInputValue('leader-branch') || 'Computer Engineering (CE)';
   const leaderPhone = getInputValue('leader-phone');
   const projectTitle = getInputValue('project-title') || 'New Project Entry';
   const projectType = getInputValue('project-type') || 'hardware';
@@ -331,12 +344,14 @@ async function handleProjectSubmission(event) {
   const members = [];
   memberRows.forEach(row => {
     const inputs = row.querySelectorAll('input');
-    if (inputs.length >= 4 && inputs[0].value.trim()) {
+    const select = row.querySelector('select');
+    if (inputs.length >= 3 && inputs[0].value.trim()) {
       members.push({
         name: inputs[0].value.trim(),
         email: inputs[1].value.trim(),
         idNo: inputs[2].value.trim(),
-        phone: inputs[3].value.trim()
+        branch: select ? select.value : 'Computer Engineering (CE)',
+        phone: inputs[3] ? inputs[3].value.trim() : ''
       });
     }
   });

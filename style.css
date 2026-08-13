@@ -924,18 +924,18 @@ body {
 
 .member-row {
   display: grid;
-  grid-template-columns: 1.1fr 1.1fr 1.1fr 1fr auto;
+  grid-template-columns: 1.1fr 1.1fr 1fr 1fr 1fr auto;
   gap: 8px;
   align-items: center;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px) {
   .member-row {
     grid-template-columns: 1fr 1fr;
   }
 }
 
-.member-row input {
+.member-row input, .member-row select {
   width: 100%;
   padding: 10px 12px;
   background: #000;
@@ -946,7 +946,12 @@ body {
   outline: none;
 }
 
-.member-row input:focus {
+.member-row select option {
+  background: #0d0e1b;
+  color: #fff;
+}
+
+.member-row input:focus, .member-row select:focus {
   border-color: var(--inky-cyan);
 }
 

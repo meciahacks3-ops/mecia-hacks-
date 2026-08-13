@@ -14,10 +14,11 @@ export default function ProjectSubmissionPage() {
   const [leaderEmail, setLeaderEmail] = useState('');
   const [leaderId, setLeaderId] = useState('');
   const [leaderPhone, setLeaderPhone] = useState('');
+  const [leaderBranch, setLeaderBranch] = useState('Computer Engineering (CE)');
 
   // Team members state
   const [members, setMembers] = useState([
-    { name: '', email: '', idNo: '', phone: '' }
+    { name: '', email: '', idNo: '', branch: 'Computer Engineering (CE)', phone: '' }
   ]);
 
   // Project details state
@@ -30,7 +31,7 @@ export default function ProjectSubmissionPage() {
   const [showModal, setShowModal] = useState(false);
 
   const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone);
-  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && isLeaderPhoneValid);
+  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && isLeaderPhoneValid && leaderBranch);
 
   useEffect(() => {
     const savedId = sessionStorage.getItem('studentId');
@@ -49,7 +50,7 @@ export default function ProjectSubmissionPage() {
   }, []);
 
   const addMember = () => {
-    setMembers([...members, { name: '', email: '', idNo: '', phone: '' }]);
+    setMembers([...members, { name: '', email: '', idNo: '', branch: 'Computer Engineering (CE)', phone: '' }]);
   };
 
   const removeMember = (index) => {
@@ -201,6 +202,25 @@ export default function ProjectSubmissionPage() {
                 />
               </div>
               <div className="form-group">
+                <label htmlFor="leader-branch">Leader Branch</label>
+                <select
+                  id="leader-branch"
+                  required
+                  value={leaderBranch}
+                  onChange={(e) => setLeaderBranch(e.target.value)}
+                >
+                  <option value="Computer Engineering (CE)">Computer Engineering (CE)</option>
+                  <option value="Information Technology (IT)">Information Technology (IT)</option>
+                  <option value="Computer Science & Design (CSD)">Computer Science & Design (CSD)</option>
+                  <option value="AI & Machine Learning (AIML)">AI & Machine Learning (AIML)</option>
+                  <option value="Electronics & Communication (EC)">Electronics & Communication (EC)</option>
+                  <option value="Electrical Engineering (EE)">Electrical Engineering (EE)</option>
+                  <option value="Mechanical Engineering (ME)">Mechanical Engineering (ME)</option>
+                  <option value="Civil Engineering (CL)">Civil Engineering (CL)</option>
+                  <option value="Other">Other</option>
+                </select>
+              </div>
+              <div className="form-group">
                 <label htmlFor="leader-phone">Phone Number (10 digits)</label>
                 <input
                   type="tel"
@@ -242,12 +262,28 @@ export default function ProjectSubmissionPage() {
                   />
                   <input
                     type="text"
-                    placeholder="Enrollment No. / ID Number"
+                    placeholder="Enrollment No. / ID"
                     required
                     disabled={!isLeaderComplete}
                     value={member.idNo}
                     onChange={(e) => updateMember(index, 'idNo', e.target.value)}
                   />
+                  <select
+                    required
+                    disabled={!isLeaderComplete}
+                    value={member.branch || 'Computer Engineering (CE)'}
+                    onChange={(e) => updateMember(index, 'branch', e.target.value)}
+                  >
+                    <option value="Computer Engineering (CE)">CE</option>
+                    <option value="Information Technology (IT)">IT</option>
+                    <option value="Computer Science & Design (CSD)">CSD</option>
+                    <option value="AI & Machine Learning (AIML)">AIML</option>
+                    <option value="Electronics & Communication (EC)">EC</option>
+                    <option value="Electrical Engineering (EE)">EE</option>
+                    <option value="Mechanical Engineering (ME)">ME</option>
+                    <option value="Civil Engineering (CL)">CL</option>
+                    <option value="Other">Other</option>
+                  </select>
                   <input
                     type="tel"
                     placeholder="10-digit Phone No."

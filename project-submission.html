@@ -81,6 +81,20 @@
               <input type="text" id="leader-id" placeholder="e.g. EN2026101" required>
             </div>
             <div class="form-group">
+              <label for="leader-branch">Leader Branch *</label>
+              <select id="leader-branch" required onchange="validateLeaderDetails()">
+                <option value="Computer Engineering (CE)">Computer Engineering (CE)</option>
+                <option value="Information Technology (IT)">Information Technology (IT)</option>
+                <option value="Computer Science & Design (CSD)">Computer Science & Design (CSD)</option>
+                <option value="AI & Machine Learning (AIML)">AI & Machine Learning (AIML)</option>
+                <option value="Electronics & Communication (EC)">Electronics & Communication (EC)</option>
+                <option value="Electrical Engineering (EE)">Electrical Engineering (EE)</option>
+                <option value="Mechanical Engineering (ME)">Mechanical Engineering (ME)</option>
+                <option value="Civil Engineering (CL)">Civil Engineering (CL)</option>
+                <option value="Other">Other</option>
+              </select>
+            </div>
+            <div class="form-group">
               <label for="leader-phone">Phone Number (10 digits) *</label>
               <input type="tel" id="leader-phone" placeholder="e.g. 9876543210" maxlength="10" pattern="[0-9]{10}" inputmode="numeric" required>
             </div>
@@ -97,10 +111,21 @@
           <div id="team-members-container" class="team-members-list">
             <!-- Initial Member Row -->
             <div class="member-row">
-              <input type="text" placeholder="Member Name" disabled>
-              <input type="email" placeholder="Email ID" disabled>
-              <input type="text" placeholder="Enrollment No. / ID Number" disabled>
-              <input type="tel" placeholder="10-digit Phone No." maxlength="10" pattern="[0-9]{10}" inputmode="numeric" disabled>
+              <input type="text" placeholder="Member Name" disabled required>
+              <input type="email" placeholder="Email ID" disabled required>
+              <input type="text" placeholder="Enrollment No. / ID" disabled required>
+              <select disabled required>
+                <option value="Computer Engineering (CE)">CE</option>
+                <option value="Information Technology (IT)">IT</option>
+                <option value="Computer Science & Design (CSD)">CSD</option>
+                <option value="AI & Machine Learning (AIML)">AIML</option>
+                <option value="Electronics & Communication (EC)">EC</option>
+                <option value="Electrical Engineering (EE)">EE</option>
+                <option value="Mechanical Engineering (ME)">ME</option>
+                <option value="Civil Engineering (CL)">CL</option>
+                <option value="Other">Other</option>
+              </select>
+              <input type="tel" placeholder="10-digit Phone No." maxlength="10" pattern="[0-9]{10}" inputmode="numeric" disabled required>
               <button type="button" class="remove-btn" onclick="removeMember(this)" title="Remove Member" disabled>&times;</button>
             </div>
           </div>
