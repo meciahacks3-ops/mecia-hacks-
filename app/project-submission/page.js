@@ -10,6 +10,7 @@ export default function ProjectSubmissionPage() {
   
   // Team leader state
   const [teamName, setTeamName] = useState('');
+  const [teamIdNo, setTeamIdNo] = useState('');
   const [leaderName, setLeaderName] = useState('');
   const [leaderEmail, setLeaderEmail] = useState('');
   const [leaderId, setLeaderId] = useState('');
@@ -37,7 +38,7 @@ export default function ProjectSubmissionPage() {
   const [showModal, setShowModal] = useState(false);
 
   const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone);
-  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && isLeaderPhoneValid && leaderBranch);
+  const isLeaderComplete = Boolean(teamName && teamIdNo && leaderName && leaderEmail && leaderId && isLeaderPhoneValid && leaderBranch);
 
   useEffect(() => {
     const fetchExistingRegistration = async (idToSearch) => {
@@ -63,10 +64,13 @@ export default function ProjectSubmissionPage() {
           if (teamData.tech_stack) setTechStack(teamData.tech_stack);
 
           const mainIdeaStr = teamData.main_idea || '';
-          const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^\]]+)\]/i);
+          const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^|\]]+)(?:\|\s*Team ID:\s*([^\]]+))?\]/i);
           if (match) {
             setProjectType(match[1].trim().toLowerCase());
             setLeaderBranch(match[2].trim());
+            if (match[3]) {
+              setTeamIdNo(match[3].trim());
+            }
             setProjectIdea(mainIdeaStr.replace(/\[Type:[^\]]+\]\s*/i, '').trim());
           } else {
             setProjectIdea(mainIdeaStr);
@@ -139,7 +143,7 @@ export default function ProjectSubmissionPage() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!isLeaderComplete) {
-      alert("Please complete all compulsory Team Leader details first (including a valid 10-digit mobile number).");
+      alert("Please complete all compulsory Team Details first (including Team ID Number, Team Name, and a valid 10-digit mobile number).");
       return;
     }
 
@@ -156,7 +160,7 @@ export default function ProjectSubmissionPage() {
       leader_id: leaderId,
       leader_phone: leaderPhone,
       project_title: projectTitle || 'New Project Entry',
-      main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch}]\n\n${projectIdea || 'Project Idea Details'}`,
+      main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch} | Team ID: ${teamIdNo || 'N/A'}]\n\n${projectIdea || 'Project Idea Details'}`,
       tech_stack: techStack || 'HTML, CSS, JS'
     };
 
@@ -354,12 +358,16 @@ export default function ProjectSubmissionPage() {
               </div>
             </div>
 
-            {/* Section 1: Leader Details Summary */}
+            {/* Section 1: Team & Leader Details Summary */}
             <div style={{ marginBottom: '24px' }}>
               <h3 style={{ color: '#00ffcc', fontSize: '0.85rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '14px' }}>
-                👤 TEAM LEADER DETAILS
+                👤 TEAM & LEADER DETAILS
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                  <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>TEAM ID NUMBER</div>
+                  <div style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.95rem' }}>{teamIdNo || 'N/A'}</div>
+                </div>
                 <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
                   <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>FULL NAME</div>
                   <div style={{ color: '#fff', fontWeight: 'bold', fontSize: '0.9rem' }}>{leaderName}</div>
@@ -458,7 +466,7 @@ export default function ProjectSubmissionPage() {
             <div className="form-section">
               <h3 className="section-title"><span className="pacman-bullet"></span> 1. TEAM LEADER DETAILS (COMPULSORY)</h3>
               <div className="leader-grid">
-                <div className="form-group span-2">
+                <div className="form-group">
                   <label htmlFor="team-name">Team Name</label>
                   <input
                     type="text"
@@ -467,6 +475,17 @@ export default function ProjectSubmissionPage() {
                     required
                     value={teamName}
                     onChange={(e) => setTeamName(e.target.value)}
+                  />
+                </div>
+                <div className="form-group">
+                  <label htmlFor="team-id-no">Team ID Number</label>
+                  <input
+                    type="text"
+                    id="team-id-no"
+                    placeholder="e.g., TEAM-101 / MH-042"
+                    required
+                    value={teamIdNo}
+                    onChange={(e) => setTeamIdNo(e.target.value)}
                   />
                 </div>
                 <div className="form-group">
@@ -732,6 +751,10 @@ export default function ProjectSubmissionPage() {
               marginBottom: '20px',
               boxShadow: '0 0 15px rgba(33, 33, 255, 0.3)'
             }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', marginBottom: '10px' }}>
+                <span style={{ fontSize: '0.58rem', color: '#8888aa' }}>TEAM ID:</span>
+                <span style={{ fontSize: '0.62rem', color: '#fdff00', fontWeight: 'bold' }}>{teamIdNo || 'N/A'}</span>
+              </div>
               <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '8px', marginBottom: '10px' }}>
                 <span style={{ fontSize: '0.58rem', color: '#8888aa' }}>TEAM NAME:</span>
                 <span style={{ fontSize: '0.62rem', color: '#fdff00', fontWeight: 'bold' }}>{teamName}</span>

@@ -257,10 +257,13 @@ async function loadExistingRegistration(savedId) {
       setVal('tech-stack', teamData.tech_stack);
 
       const mainIdeaStr = teamData.main_idea || '';
-      const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^\]]+)\]/i);
+      const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^|\]]+)(?:\|\s*Team ID:\s*([^\]]+))?\]/i);
       if (match) {
         setVal('project-type', match[1].trim().toLowerCase());
         setVal('leader-branch', match[2].trim());
+        if (match[3]) {
+          setVal('team-id-no', match[3].trim());
+        }
         setVal('main-idea', mainIdeaStr.replace(/\[Type:[^\]]+\]\s*/i, '').trim());
       } else {
         setVal('main-idea', mainIdeaStr);
@@ -319,6 +322,7 @@ async function loadExistingRegistration(savedId) {
 // Validate Team Leader details to unlock subsequent sections
 function validateLeaderDetails() {
   const teamName = getInputValue('team-name');
+  const teamIdNo = getInputValue('team-id-no');
   const leaderName = getInputValue('leader-name');
   const leaderEmail = getInputValue('leader-email');
   const leaderId = getInputValue('leader-id');
@@ -326,7 +330,7 @@ function validateLeaderDetails() {
   const leaderPhone = getInputValue('leader-phone');
 
   const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone);
-  const isLeaderComplete = Boolean(teamName && leaderName && leaderEmail && leaderId && leaderBranch && isLeaderPhoneValid);
+  const isLeaderComplete = Boolean(teamName && teamIdNo && leaderName && leaderEmail && leaderId && leaderBranch && isLeaderPhoneValid);
 
   const lockedElements = document.querySelectorAll('.locked-until-leader');
   const lockStatusBadge = document.getElementById('lock-status-badge');
@@ -402,6 +406,7 @@ async function handleProjectSubmission(event) {
   if (event) event.preventDefault();
 
   const teamName = getInputValue('team-name');
+  const teamIdNo = getInputValue('team-id-no');
   const leaderName = getInputValue('leader-name');
   const leaderEmail = getInputValue('leader-email');
   const leaderId = getInputValue('leader-id');
@@ -414,8 +419,8 @@ async function handleProjectSubmission(event) {
 
   sessionStorage.setItem('projectType', projectType);
 
-  if (!teamName || !leaderName || !leaderEmail || !leaderId || !leaderPhone) {
-    alert("Please complete all compulsory Team Leader details first.");
+  if (!teamName || !teamIdNo || !leaderName || !leaderEmail || !leaderId || !leaderPhone) {
+    alert("Please complete all compulsory Team Details first (including Team ID Number).");
     return false;
   }
 
@@ -472,7 +477,7 @@ async function handleProjectSubmission(event) {
         leader_id: leaderId,
         leader_phone: leaderPhone,
         project_title: projectTitle,
-        main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch}]\n\n${mainIdea}`,
+        main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch} | Team ID: ${teamIdNo || 'N/A'}]\n\n${mainIdea}`,
         tech_stack: techStack
       };
 
@@ -1141,7 +1146,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   // Attach event listeners to Team Leader fields if present
-  const leaderInputs = ['team-name', 'leader-name', 'leader-email', 'leader-id', 'leader-phone'];
+  const leaderInputs = ['team-name', 'team-id-no', 'leader-name', 'leader-email', 'leader-id', 'leader-phone'];
   leaderInputs.forEach(id => {
     const input = document.getElementById(id);
     if (input) {

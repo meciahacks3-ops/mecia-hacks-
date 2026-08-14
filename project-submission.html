@@ -55,19 +55,22 @@
       <!-- SECTION 1: TEAM DETAILS -->
       <div class="form-section">
         <h3 class="section-title"><span class="pacman-bullet"></span> 1. TEAM DETAILS</h3>
-        
-        <div class="form-group">
-          <label for="team-name">Team Name</label>
-          <input type="text" id="team-name" placeholder="e.g. Cyber Byte Squad" required>
-        </div>
 
         <!-- FIRST BLOCK: TEAM LEADER DETAILS -->
         <div class="sub-block leader-block">
           <div class="block-header">
-            <span class="block-title">👑 TEAM LEADER DETAILS (COMPULSORY)</span>
+            <span class="block-title">👑 TEAM & LEADER DETAILS (COMPULSORY)</span>
             <span id="lock-status-badge" class="lock-badge locked">🔒 ENTER LEADER DETAILS FIRST</span>
           </div>
           <div class="form-grid">
+            <div class="form-group">
+              <label for="team-name">Team Name *</label>
+              <input type="text" id="team-name" placeholder="e.g. Cyber Byte Squad" required>
+            </div>
+            <div class="form-group">
+              <label for="team-id-no">Team ID Number *</label>
+              <input type="text" id="team-id-no" placeholder="e.g. TEAM-101 / MH-042" required>
+            </div>
             <div class="form-group">
               <label for="leader-name">Leader Full Name *</label>
               <input type="text" id="leader-name" placeholder="e.g. Alex Johnson" required>
