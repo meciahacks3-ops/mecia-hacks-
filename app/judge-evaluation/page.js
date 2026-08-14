@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
+import { getJudgeProfile } from '@/lib/judgeProfiles';
 
 function JudgeEvaluationContent() {
   const router = useRouter();
@@ -153,21 +154,51 @@ function JudgeEvaluationContent() {
     router.push('/');
   };
 
+  const judgeProfile = getJudgeProfile(judgeEmail);
+
   return (
     <>
       <div className="scanlines"></div>
 
       <div className="judge-container">
-        {/* Navigation Bar */}
-        <div className="nav-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '32px' }}>
-          <button type="button" className="nav-back-btn" onClick={() => router.push('/judge-dashboard')}>
-            <span className="pacman-bullet" style={{ transform: 'rotate(180deg)', width: '10px', height: '10px', margin: 0 }}></span>
-            RETURN TO DASHBOARD
-          </button>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <div className="student-hud-badge">
-              <span className="ghost cyan-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> JUDGE: <span>{judgeEmail}</span>
+        {/* Navigation Bar: Top-Left Return & Judge Profile */}
+        <div className="nav-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+            <button type="button" className="nav-back-btn" onClick={() => router.push('/judge-dashboard')}>
+              <span className="pacman-bullet" style={{ transform: 'rotate(180deg)', width: '10px', height: '10px', margin: 0 }}></span>
+              RETURN TO DASHBOARD
+            </button>
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.85)',
+              border: '1.5px solid var(--neon-cyan, #00ffcc)',
+              boxShadow: '0 0 12px rgba(0, 255, 204, 0.25)',
+              borderRadius: '8px',
+              padding: '8px 14px',
+              maxWidth: '550px',
+              textAlign: 'left'
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                <span className="ghost cyan-ghost" style={{ width: '12px', height: '12px', display: 'inline-block' }}></span>
+                <span style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.62rem', color: '#00ffcc' }}>
+                  JUDGE PANEL: {judgeEmail.toUpperCase()} {judgeProfile?.group ? `• ${judgeProfile.group}` : ''}
+                </span>
+              </div>
+              {judgeProfile && (
+                <div>
+                  <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 'bold', lineHeight: '1.3' }}>
+                    👨‍⚖️ {judgeProfile.names.join(' • ')}
+                  </div>
+                  {judgeProfile.location && (
+                    <div style={{ color: '#fdff00', fontSize: '0.68rem', marginTop: '2px', fontWeight: '600' }}>
+                      📍 {judgeProfile.location}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
+          </div>
+
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <button type="button" className="logout-btn" onClick={handleLogout}>
               🚪 LOG OUT
             </button>
