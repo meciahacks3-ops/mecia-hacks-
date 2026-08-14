@@ -186,7 +186,7 @@ export default function LoginPage() {
     const cleanId = (judgeId || '').trim().toUpperCase();
     if (!VALID_JUDGE_IDS.includes(cleanId)) {
       setIsLoggingIn(false);
-      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Judge ID. Only registered Judge IDs (${VALID_JUDGE_IDS.join(', ')}) can access the Judge Portal.`);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Judge ID. Access is strictly restricted.`);
       return;
     }
 
@@ -382,7 +382,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* 2. Judge Login Form (Strictly Judge ID JM001 to JM011 + Password) */}
+        {/* 2. Judge Login Form (Strictly Judge ID + Password) */}
         {role === 'judge' && (
           <form className="login-form active" onSubmit={handleJudgeLogin}>
             <div style={{
@@ -397,15 +397,15 @@ export default function LoginPage() {
               marginBottom: '18px',
               textAlign: 'center'
             }}>
-              ⚖️ AUTHORIZED JUDGE ACCESS: USER ID (JM001 - JM011)
+              ⚖️ AUTHORIZED JUDGE ACCESS: USER ID & PASSWORD REQUIRED
             </div>
 
             <div className="form-group">
-              <label htmlFor="judge-id">Judge User ID (JM001 - JM011)</label>
+              <label htmlFor="judge-id">Judge User ID</label>
               <input
                 type="text"
                 id="judge-id"
-                placeholder="e.g., JM001"
+                placeholder="Enter Judge User ID"
                 required
                 value={judgeId}
                 onChange={(e) => setJudgeId(e.target.value.toUpperCase())}

@@ -188,7 +188,7 @@ async function handleJudgeLogin(event) {
 
   const cleanId = (judgeIdInput || '').trim().toUpperCase();
   if (!VALID_JUDGE_IDS.includes(cleanId)) {
-    alert(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Judge ID. Only registered Judge IDs (${VALID_JUDGE_IDS.join(', ')}) can access the Judge Portal.`);
+    alert(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Judge ID. Access is strictly restricted.`);
     return false;
   }
 
