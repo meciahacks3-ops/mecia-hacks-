@@ -436,12 +436,13 @@ export default function AdminDashboardPage() {
                     <table className="eval-table admin-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '20%' }}>Team Name</th>
-                          <th style={{ width: '22%' }}>Team Leader</th>
-                          <th style={{ width: '23%' }}>Project Title</th>
-                          <th style={{ width: '15%' }}>Status</th>
-                          <th style={{ width: '20%' }}>Assign Judge</th>
-                          <th style={{ width: '10%', textAlign: 'center' }}>Action</th>
+                          <th style={{ width: '12%', textAlign: 'center' }}>Team ID</th>
+                          <th style={{ width: '18%' }}>Team Name</th>
+                          <th style={{ width: '20%' }}>Team Leader</th>
+                          <th style={{ width: '20%' }}>Project Title</th>
+                          <th style={{ width: '12%' }}>Status</th>
+                          <th style={{ width: '20%' }}>Assign Judge Panel</th>
+                          <th style={{ width: '8%', textAlign: 'center' }}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -456,12 +457,24 @@ export default function AdminDashboardPage() {
 
                           return (
                             <tr key={t.id || t.teamName}>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{
+                                  display: 'inline-block',
+                                  background: 'rgba(253, 255, 0, 0.15)',
+                                  color: '#fdff00',
+                                  border: '1.5px solid #fdff00',
+                                  borderRadius: '6px',
+                                  padding: '4px 8px',
+                                  fontFamily: 'Press Start 2P, monospace',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 'bold',
+                                  boxShadow: '0 0 8px rgba(253, 255, 0, 0.25)'
+                                }}>
+                                  {t.teamIdNo && t.teamIdNo !== 'N/A' ? t.teamIdNo : 'N/A'}
+                                </span>
+                              </td>
                               <td className="criterion-name">
                                 {t.teamName}
-                                <br />
-                                <span style={{ display: 'inline-block', marginTop: '4px', background: 'rgba(253, 255, 0, 0.12)', color: '#fdff00', border: '1px solid rgba(253, 255, 0, 0.4)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 'bold' }}>
-                                  🆔 {t.teamIdNo || 'N/A'}
-                                </span>
                               </td>
                               <td>{t.leaderName} ({t.leaderId})<br /><small style={{ color: 'var(--text-muted)' }}>{t.leaderEmail}</small></td>
                               <td>{t.projectTitle}<br /><small style={{ color: 'var(--text-muted)' }}>{t.techStack}</small></td>
@@ -477,6 +490,9 @@ export default function AdminDashboardPage() {
                                 )}
                               </td>
                               <td>
+                                <div style={{ fontSize: '0.6rem', color: '#00ffcc', marginBottom: '4px', fontFamily: 'Press Start 2P, monospace' }}>
+                                  🆔 ASSIGN FOR: {t.teamIdNo || t.teamName}
+                                </div>
                                 <select
                                   className="retro-select admin-judge-select"
                                   value={isCustom ? 'CUSTOM' : selectedVal}
@@ -595,15 +611,16 @@ export default function AdminDashboardPage() {
                     <thead>
                       <tr>
                         <th style={{ width: '8%', textAlign: 'center' }}>Rank</th>
-                        <th style={{ width: '20%' }}>Team Name</th>
-                        <th style={{ width: '18%' }}>Assigned Judge</th>
+                        <th style={{ width: '12%', textAlign: 'center' }}>Team ID</th>
+                        <th style={{ width: '18%' }}>Team Name</th>
+                        <th style={{ width: '16%' }}>Assigned Judge</th>
                         <th style={{ textAlign: 'center' }}>Arch (10)</th>
                         <th style={{ textAlign: 'center' }}>Scope (10)</th>
                         <th style={{ textAlign: 'center' }}>Avail (10)</th>
                         <th style={{ textAlign: 'center' }}>Timeline (10)</th>
                         <th style={{ textAlign: 'center' }}>Impl (10)</th>
                         <th style={{ textAlign: 'center', width: '12%' }}>Total Score (50)</th>
-                        <th style={{ width: '12%' }}>Status</th>
+                        <th style={{ width: '10%' }}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -631,13 +648,24 @@ export default function AdminDashboardPage() {
                             <td style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem', color: index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff' }}>
                               {rankBadge}
                             </td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span style={{
+                                display: 'inline-block',
+                                background: 'rgba(253, 255, 0, 0.15)',
+                                color: '#fdff00',
+                                border: '1.5px solid #fdff00',
+                                borderRadius: '6px',
+                                padding: '3px 6px',
+                                fontFamily: 'Press Start 2P, monospace',
+                                fontSize: '0.62rem',
+                                fontWeight: 'bold'
+                              }}>
+                                {item.teamIdNo && item.teamIdNo !== 'N/A' ? item.teamIdNo : 'N/A'}
+                              </span>
+                            </td>
                             <td className="criterion-name">
                               {item.teamName}
                               {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
-                              <br />
-                              <span style={{ display: 'inline-block', marginTop: '2px', background: 'rgba(253, 255, 0, 0.12)', color: '#fdff00', border: '1px solid rgba(253, 255, 0, 0.4)', borderRadius: '4px', padding: '1px 5px', fontSize: '0.62rem', fontWeight: 'bold' }}>
-                                🆔 {item.teamIdNo || 'N/A'}
-                              </span>
                             </td>
                             <td>{item.judge}</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>

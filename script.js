@@ -839,18 +839,25 @@ async function renderAdminTables() {
 
     if (filteredTeams.length === 0 && filter === 'unassigned') {
       const tr = document.createElement('tr');
-      tr.innerHTML = `<td colspan="5" style="text-align:center; padding: 20px; color:#00ffcc; font-family:'Press Start 2P', monospace; font-size:0.7rem;">🎉 ALL TEAMS HAVE BEEN ASSIGNED TO JUDGES!</td>`;
+      tr.innerHTML = `<td colspan="6" style="text-align:center; padding: 20px; color:#00ffcc; font-family:'Press Start 2P', monospace; font-size:0.7rem;">🎉 ALL TEAMS HAVE BEEN ASSIGNED TO JUDGES!</td>`;
       teamsTbody.appendChild(tr);
     } else {
       filteredTeams.forEach(t => {
         const tr = document.createElement('tr');
         const isAssigned = t.assignedJudge && t.assignedJudge !== 'Unassigned';
+        const parsedTeamId = t.teamIdNo || t.teamId || 'N/A';
         tr.innerHTML = `
+          <td style="text-align:center;">
+            <span style="display:inline-block; background:rgba(253,255,0,0.15); color:#fdff00; border:1.5px solid #fdff00; border-radius:6px; padding:3px 6px; font-family:'Press Start 2P', monospace; font-size:0.65rem; font-weight:bold;">
+              ${parsedTeamId}
+            </span>
+          </td>
           <td class="criterion-name">${t.teamName}</td>
           <td>${t.leaderName} (${t.leaderId})<br><small style="color:var(--text-muted);">${t.leaderEmail}</small></td>
           <td>${t.projectTitle}<br><small style="color:var(--text-muted);">${t.techStack}</small></td>
           <td>
             ${isAssigned ? `<span className="status-pill status-completed" style="background:rgba(0,255,204,0.15); color:#00ffcc; padding:4px 8px; border-radius:4px; font-size:0.7rem;">✅ ASSIGNED TO ${t.assignedJudge}</span><br><br>` : `<span className="status-pill status-pending" style="background:rgba(255,0,85,0.15); color:#ff0055; padding:4px 8px; border-radius:4px; font-size:0.7rem;">⚠️ UNASSIGNED</span><br><br>`}
+            <div style="font-size:0.6rem; color:#00ffcc; margin-bottom:4px; font-family:'Press Start 2P', monospace;">ID: ${parsedTeamId}</div>
             <select id="judge-select-${t.id}" class="retro-select admin-judge-select">
               <option value="Unassigned" ${!t.assignedJudge || t.assignedJudge === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
               <option value="JM001" ${t.assignedJudge === 'JM001' ? 'selected' : ''}>JM001</option>
@@ -868,7 +875,7 @@ async function renderAdminTables() {
           </td>
           <td style="text-align:center;">
             <button type="button" class="eval-btn edit-btn" style="padding:6px 12px; font-size:0.75rem;" onclick="assignJudgeToTeam('${t.id}')">
-              SAVE
+              ASSIGN
             </button>
           </td>
         `;
@@ -898,11 +905,6 @@ async function renderAdminTables() {
         c5 = evalEntry.c5;
         remarks = evalEntry.remarks || 'Scored';
         if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
-      } else if (t.teamName.toLowerCase() === 'quantum hackers') {
-        isScored = true;
-        score = 44;
-        c1 = 9; c2 = 9; c3 = 9; c4 = 8; c5 = 9;
-        remarks = 'Strong post-quantum security architecture and live demo.';
       }
 
       return {
@@ -941,8 +943,10 @@ async function renderAdminTables() {
 
       const tr = document.createElement('tr');
       if (rowBg) tr.setAttribute('style', rowBg);
+      const parsedTeamId = item.teamIdNo || item.teamId || 'N/A';
       tr.innerHTML = `
         <td style="text-align:center; font-weight:bold; font-size:0.85rem; color:${index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff'};">${rankBadge}</td>
+        <td style="text-align:center;"><span style="display:inline-block; background:rgba(253,255,0,0.15); color:#fdff00; border:1.5px solid #fdff00; border-radius:6px; padding:3px 6px; font-family:'Press Start 2P', monospace; font-size:0.62rem; font-weight:bold;">${parsedTeamId}</span></td>
         <td class="criterion-name">${item.teamName} ${index === 0 && item.isScored ? '👑' : ''}</td>
         <td>${item.judge}</td>
         <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c1}</td>
@@ -973,6 +977,7 @@ function exportAdminDataToExcel() {
   csvRows.push(["Report Date", new Date().toLocaleString()]);
   csvRows.push([]);
   csvRows.push([
+    "Team ID",
     "Team Name",
     "Leader Name",
     "Leader Email",
@@ -1009,14 +1014,10 @@ function exportAdminDataToExcel() {
       total = evalEntry.totalScore;
       remarks = evalEntry.remarks || '';
       timestamp = evalEntry.timestamp || '';
-    } else if (t.teamName.toLowerCase() === 'quantum hackers') {
-      status = "SCORED";
-      c1 = 22; c2 = 23; c3 = 21; c4 = 22; total = 88;
-      remarks = "Strong post-quantum security architecture and live demo.";
-      timestamp = new Date().toLocaleString();
     }
 
     csvRows.push([
+      `"${t.teamIdNo || t.teamId || 'N/A'}"`,
       `"${t.teamName || ''}"`,
       `"${t.leaderName || ''}"`,
       `"${t.leaderEmail || ''}"`,
