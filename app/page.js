@@ -33,30 +33,16 @@ export default function LoginPage() {
 
   const recordLoginToSupabase = async (email, roleDescription) => {
     if (!email) return;
-    const cleanEmail = email.trim().toLowerCase();
-    const loginTimestamp = new Date().toLocaleString();
+    const cleanIdentifier = email.trim().toLowerCase();
     try {
-      const { data: existing } = await supabase
-        .from('allowed_users')
-        .select('id, email')
-        .ilike('email', cleanEmail)
-        .maybeSingle();
-
-      if (existing && existing.id) {
-        await supabase
-          .from('allowed_users')
-          .update({ added_by: `${roleDescription} | Last Active: ${loginTimestamp}` })
-          .eq('id', existing.id);
-      } else {
-        await supabase
-          .from('allowed_users')
-          .insert([{
-            email: cleanEmail,
-            added_by: `${roleDescription} | First Login: ${loginTimestamp}`
-          }]);
-      }
+      await supabase
+        .from('user_logins')
+        .insert([{
+          role: roleDescription,
+          user_identifier: cleanIdentifier
+        }]);
     } catch (err) {
-      console.warn("Supabase login tracking warning:", err);
+      console.warn("Supabase user_logins tracking warning:", err);
     }
   };
 

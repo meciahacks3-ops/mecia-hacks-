@@ -216,18 +216,6 @@ export default function ProjectSubmissionPage() {
             }));
             await supabase.from('team_members').insert(memberRecords);
           }
-
-          if (leaderEmail) {
-            try {
-              await supabase.from('allowed_users').upsert([
-                { email: leaderEmail.toLowerCase().trim(), added_by: `STUDENT LEADER (Team: ${teamName} | ${new Date().toLocaleString()})` }
-              ], { onConflict: 'email' });
-            } catch (e) {
-              await supabase.from('allowed_users').insert([
-                { email: leaderEmail.toLowerCase().trim(), added_by: `STUDENT LEADER (Team: ${teamName} | ${new Date().toLocaleString()})` }
-              ]);
-            }
-          }
         }
       }
     } catch (err) {

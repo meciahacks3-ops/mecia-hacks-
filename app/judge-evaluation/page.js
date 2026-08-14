@@ -136,18 +136,6 @@ function JudgeEvaluationContent() {
         alert("Supabase Database Notice: " + evalErr.message);
         return;
       }
-
-      if (judgeEmail) {
-        try {
-          await supabase.from('allowed_users').upsert([
-            { email: judgeEmail.toLowerCase().trim(), added_by: `JUDGE EVALUATOR (Evaluated: ${teamName} | ${new Date().toLocaleString()})` }
-          ], { onConflict: 'email' });
-        } catch (e) {
-          await supabase.from('allowed_users').insert([
-            { email: judgeEmail.toLowerCase().trim(), added_by: `JUDGE EVALUATOR (Evaluated: ${teamName} | ${new Date().toLocaleString()})` }
-          ]);
-        }
-      }
     } catch (err) {
       console.warn("Evaluation submit error:", err);
     }
