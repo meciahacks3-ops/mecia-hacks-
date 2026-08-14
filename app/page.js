@@ -81,36 +81,25 @@ export default function LoginPage() {
       document.body.classList.remove('simple-theme');
     }
 
-    // Check for Google OAuth returning session
+    // Check for Google OAuth returning session (Strictly for Student Portal)
     const checkOAuthSession = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         const userEmail = session.user.email || session.user.user_metadata?.email;
         const targetRole = sessionStorage.getItem('targetRole') || 'student';
 
-        // Student login is OPEN to every Google account! Whitelist check only applies for non-student roles.
-        if (targetRole !== 'student') {
-          const allowed = await isGmailWhitelisted(userEmail);
-          if (!allowed) {
-            await supabase.auth.signOut();
-            sessionStorage.clear();
-            setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized for this portal.`);
-            return;
-          }
+        // Judge and Admin portals strictly require their respective ID/credentials
+        if (targetRole === 'judge' || targetRole === 'admin') {
+          await supabase.auth.signOut();
+          sessionStorage.clear();
+          setAuthError(`⛔ ACCESS DENIED: Google OAuth is not permitted for the ${targetRole.toUpperCase()} portal. Please use official credentials.`);
+          return;
         }
-        
-        await recordLoginToSupabase(userEmail, `${targetRole.toUpperCase()} (Google OAuth)`);
 
-        if (targetRole === 'judge') {
-          sessionStorage.setItem('judgeEmail', userEmail);
-          router.push('/judge-dashboard');
-        } else if (targetRole === 'admin') {
-          sessionStorage.setItem('adminUser', userEmail);
-          router.push('/admin-dashboard');
-        } else {
-          sessionStorage.setItem('studentId', userEmail);
-          router.push('/project-submission');
-        }
+        // Student Google OAuth login
+        sessionStorage.setItem('studentId', userEmail);
+        await recordLoginToSupabase(userEmail, 'STUDENT (Google OAuth)');
+        router.push('/project-submission');
       }
     };
     checkOAuthSession();
@@ -120,29 +109,18 @@ export default function LoginPage() {
         const userEmail = session.user.email || session.user.user_metadata?.email;
         const targetRole = sessionStorage.getItem('targetRole') || 'student';
 
-        // Student login is OPEN to every Google account!
-        if (targetRole !== 'student') {
-          const allowed = await isGmailWhitelisted(userEmail);
-          if (!allowed) {
-            await supabase.auth.signOut();
-            sessionStorage.clear();
-            setAuthError(`⛔ ACCESS DENIED: Your email (${userEmail}) is not authorized.`);
-            return;
-          }
+        // Judge and Admin portals strictly require their respective ID/credentials
+        if (targetRole === 'judge' || targetRole === 'admin') {
+          await supabase.auth.signOut();
+          sessionStorage.clear();
+          setAuthError(`⛔ ACCESS DENIED: Google OAuth is not permitted for the ${targetRole.toUpperCase()} portal.`);
+          return;
         }
-        
-        await recordLoginToSupabase(userEmail, `${targetRole.toUpperCase()} (Google OAuth)`);
 
-        if (targetRole === 'judge') {
-          sessionStorage.setItem('judgeEmail', userEmail);
-          router.push('/judge-dashboard');
-        } else if (targetRole === 'admin') {
-          sessionStorage.setItem('adminUser', userEmail);
-          router.push('/admin-dashboard');
-        } else {
-          sessionStorage.setItem('studentId', userEmail);
-          router.push('/project-submission');
-        }
+        // Student Google OAuth login
+        sessionStorage.setItem('studentId', userEmail);
+        await recordLoginToSupabase(userEmail, 'STUDENT (Google OAuth)');
+        router.push('/project-submission');
       }
     });
 
