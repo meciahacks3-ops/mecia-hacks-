@@ -21,74 +21,10 @@ function getInputValue(id) {
   return el ? el.value.trim() : '';
 }
 
-const teamInfoMap = {
-  'cyber byte squad': {
-    name: 'Cyber Byte Squad',
-    sub: 'Leader: Alex Johnson (EN2026101) | Project: AI-Powered Autonomous Health Monitor'
-  },
-  'quantum hackers': {
-    name: 'Quantum Hackers',
-    sub: 'Leader: Sarah Chen (EN2026204) | Project: Post-Quantum Cryptography Ledger'
-  },
-  'visionary ai': {
-    name: 'Visionary AI',
-    sub: 'Leader: Rahul Sharma (EN2026309) | Project: Smart Urban Traffic Grid Optimization'
-  }
-};
+const teamInfoMap = {};
 
-// Default Hackathon Teams Data Store
-const defaultTeamsData = [
-  {
-    id: 'team-1',
-    teamName: 'Cyber Byte Squad',
-    leaderName: 'Alex Johnson',
-    leaderEmail: 'alex@cyber.edu',
-    leaderId: 'EN2026101',
-    leaderPhone: '+91 9876543210',
-    members: [
-      { name: 'Rohan Verma', email: 'rohan@cyber.edu', idNo: 'EN2026102', phone: '+91 9876543211' },
-      { name: 'Priya Patel', email: 'priya@cyber.edu', idNo: 'EN2026103', phone: '+91 9876543212' },
-      { name: 'David Miller', email: 'david@cyber.edu', idNo: 'EN2026104', phone: '+91 9876543213' }
-    ],
-    projectTitle: 'AI-Powered Autonomous Health Monitor',
-    mainIdea: 'Real-time patient telemetry monitoring using wearable sensor fusion and edge AI anomaly detection.',
-    techStack: 'Python, TensorFlow, React Native, Raspberry Pi',
-    assignedJudge: 'judge@eval.org'
-  },
-  {
-    id: 'team-2',
-    teamName: 'Quantum Hackers',
-    leaderName: 'Sarah Chen',
-    leaderEmail: 'sarah@quantum.edu',
-    leaderId: 'EN2026204',
-    leaderPhone: '+91 9812345678',
-    members: [
-      { name: 'Michael Scott', email: 'michael@quantum.edu', idNo: 'EN2026205', phone: '+91 9812345679' },
-      { name: 'Dwight Schrute', email: 'dwight@quantum.edu', idNo: 'EN2026206', phone: '+91 9812345680' }
-    ],
-    projectTitle: 'Post-Quantum Cryptography Ledger',
-    mainIdea: 'Lattice-based encryption system for decentralized transaction validation resistant to quantum attacks.',
-    techStack: 'Rust, WebAssembly, Go, Docker',
-    assignedJudge: 'judge@eval.org'
-  },
-  {
-    id: 'team-3',
-    teamName: 'Visionary AI',
-    leaderName: 'Rahul Sharma',
-    leaderEmail: 'rahul@vision.edu',
-    leaderId: 'EN2026309',
-    leaderPhone: '+91 9765432109',
-    members: [
-      { name: 'Neha Gupta', email: 'neha@vision.edu', idNo: 'EN2026310', phone: '+91 9765432110' },
-      { name: 'Aniket Das', email: 'aniket@vision.edu', idNo: 'EN2026311', phone: '+91 9765432111' },
-      { name: 'Sophia Lee', email: 'sophia@vision.edu', idNo: 'EN2026312', phone: '+91 9765432112' }
-    ],
-    projectTitle: 'Smart Urban Traffic Grid Optimization',
-    mainIdea: 'Computer-vision driven dynamic signal timing to minimize congestion and emergency vehicle response times.',
-    techStack: 'OpenCV, PyTorch, Node.js, Leaflet.js',
-    assignedJudge: 'judge2@eval.org'
-  }
-];
+// Default Hackathon Teams Data Store (Clean for launch)
+const defaultTeamsData = [];
 
 function getTeamsData() {
   try {
@@ -97,8 +33,7 @@ function getTeamsData() {
   } catch (e) {
     console.error(e);
   }
-  localStorage.setItem('hackathonTeamsData', JSON.stringify(defaultTeamsData));
-  return defaultTeamsData;
+  return [];
 }
 
 function saveTeamsData(data) {

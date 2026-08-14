@@ -9,11 +9,11 @@ import { getJudgeProfile } from '@/lib/judgeProfiles';
 function JudgeEvaluationContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const teamParam = searchParams.get('team') || 'Cyber Byte Squad';
+  const teamParam = searchParams.get('team') || '';
 
   const [judgeEmail, setJudgeEmail] = useState('judge@eval.org');
-  const [teamName, setTeamName] = useState(teamParam);
-  const [teamSub, setTeamSub] = useState(`Evaluating team: ${teamParam}`);
+  const [teamName, setTeamName] = useState(teamParam || 'Select Team');
+  const [teamSub, setTeamSub] = useState(teamParam ? `Evaluating team: ${teamParam}` : 'Please select a team from the dashboard');
 
   // Rubric scores (Round 2 Evaluation Sheet - Max 10 marks per section)
   const [c1, setC1] = useState(0); // System Architecture & Technical Readiness (Max 10)

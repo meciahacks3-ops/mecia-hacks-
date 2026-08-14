@@ -6,49 +6,12 @@ import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 
-const initialDemoTeams = [
-  {
-    id: 'team-1',
-    teamName: 'Cyber Byte Squad',
-    leaderName: 'Alex Johnson',
-    leaderEmail: 'alex@cyber.edu',
-    leaderId: 'EN2026101',
-    leaderPhone: '+91 9876543210',
-    projectTitle: 'AI-Powered Autonomous Health Monitor',
-    mainIdea: 'Real-time patient telemetry monitoring using wearable sensor fusion and edge AI anomaly detection.',
-    techStack: 'Python, TensorFlow, React Native, Raspberry Pi',
-    assignedJudge: 'judge@eval.org'
-  },
-  {
-    id: 'team-2',
-    teamName: 'Quantum Hackers',
-    leaderName: 'Sarah Chen',
-    leaderEmail: 'sarah@quantum.edu',
-    leaderId: 'EN2026204',
-    leaderPhone: '+91 9812345678',
-    projectTitle: 'Post-Quantum Cryptography Ledger',
-    mainIdea: 'Lattice-based encryption system for decentralized transaction validation resistant to quantum attacks.',
-    techStack: 'Rust, WebAssembly, Go, Docker',
-    assignedJudge: 'judge2@eval.org'
-  },
-  {
-    id: 'team-3',
-    teamName: 'Visionary AI',
-    leaderName: 'Rahul Sharma',
-    leaderEmail: 'rahul@vision.edu',
-    leaderId: 'EN2026309',
-    leaderPhone: '+91 9765432109',
-    projectTitle: 'Smart Urban Traffic Grid Optimization',
-    mainIdea: 'Computer-vision driven dynamic signal timing to minimize congestion and emergency vehicle response times.',
-    techStack: 'OpenCV, PyTorch, Node.js, Leaflet.js',
-    assignedJudge: 'judge3@eval.org'
-  }
-];
+const initialDemoTeams = [];
 
 export default function JudgeDashboardPage() {
   const router = useRouter();
   const [judgeEmail, setJudgeEmail] = useState('judge@eval.org');
-  const [teams, setTeams] = useState(initialDemoTeams);
+  const [teams, setTeams] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRubrics, setShowRubrics] = useState(false);
@@ -81,6 +44,8 @@ export default function JudgeDashboardPage() {
           assignedJudge: st.assigned_judge
         }));
         setTeams(formattedTeams);
+      } else {
+        setTeams([]);
       }
 
       // 2. Fetch Evaluations from Supabase
@@ -93,6 +58,8 @@ export default function JudgeDashboardPage() {
           remarks: se.remarks
         }));
         setEvaluations(formattedEvals);
+      } else {
+        setEvaluations([]);
       }
     } catch (e) {
       console.warn("Supabase fetch error on judge dashboard:", e);

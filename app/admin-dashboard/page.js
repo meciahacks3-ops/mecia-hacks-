@@ -5,48 +5,14 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { JUDGE_PROFILES } from '@/lib/judgeProfiles';
 
-const initialDemoTeams = [
-  {
-    id: 'team-1',
-    teamName: 'Cyber Byte Squad',
-    leaderName: 'Alex Johnson',
-    leaderEmail: 'alex@cyber.edu',
-    leaderId: 'EN2026101',
-    leaderPhone: '+91 9876543210',
-    projectTitle: 'AI-Powered Autonomous Health Monitor',
-    techStack: 'Python, TensorFlow, React Native, Raspberry Pi',
-    assignedJudge: 'judge@eval.org'
-  },
-  {
-    id: 'team-2',
-    teamName: 'Quantum Hackers',
-    leaderName: 'Sarah Chen',
-    leaderEmail: 'sarah@quantum.edu',
-    leaderId: 'EN2026204',
-    leaderPhone: '+91 9812345678',
-    projectTitle: 'Post-Quantum Cryptography Ledger',
-    techStack: 'Rust, WebAssembly, Go, Docker',
-    assignedJudge: 'judge@eval.org'
-  },
-  {
-    id: 'team-3',
-    teamName: 'Visionary AI',
-    leaderName: 'Rahul Sharma',
-    leaderEmail: 'rahul@vision.edu',
-    leaderId: 'EN2026309',
-    leaderPhone: '+91 9765432109',
-    projectTitle: 'Smart Urban Traffic Grid Optimization',
-    techStack: 'OpenCV, PyTorch, Node.js, Leaflet.js',
-    assignedJudge: 'judge2@eval.org'
-  }
-];
+const initialDemoTeams = [];
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [adminUser, setAdminUser] = useState('admin_user');
   const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab', 'scores-tab', 'whitelist-tab'
   const [teamsFilter, setTeamsFilter] = useState('unassigned'); // 'unassigned', 'assigned', 'all'
-  const [teams, setTeams] = useState(initialDemoTeams);
+  const [teams, setTeams] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
   const [judgeSelections, setJudgeSelections] = useState({});
   const [allowedUsers, setAllowedUsers] = useState([]);
@@ -165,15 +131,8 @@ export default function AdminDashboardPage() {
           return next;
         });
       } else {
-        setJudgeSelections(prev => {
-          const next = { ...prev };
-          initialDemoTeams.forEach(t => {
-            if (next[t.id] === undefined) {
-              next[t.id] = t.assignedJudge;
-            }
-          });
-          return next;
-        });
+        setTeams([]);
+        setJudgeSelections({});
       }
 
       // 2. Fetch Evaluations
@@ -191,6 +150,8 @@ export default function AdminDashboardPage() {
           remarks: se.remarks
         }));
         setEvaluations(formattedEvals);
+      } else {
+        setEvaluations([]);
       }
     } catch (e) {
       console.warn("Supabase admin fetch error:", e);
