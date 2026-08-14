@@ -52,6 +52,23 @@ function JudgeEvaluationContent() {
 
   const loadExistingMarks = async (name) => {
     try {
+      // 1. Fetch team metadata
+      const { data: teamData } = await supabase
+        .from('teams')
+        .select('*')
+        .ilike('team_name', name)
+        .maybeSingle();
+
+      if (teamData) {
+        let parsedTeamId = '';
+        if (teamData.main_idea && teamData.main_idea.includes('Team ID:')) {
+          const match = teamData.main_idea.match(/Team ID:\s*([^\]\n]+)/i);
+          if (match && match[1]) parsedTeamId = match[1].trim();
+        }
+        setTeamSub(`👑 Leader: ${teamData.leader_name} (${teamData.leader_id}) | 💡 Project: ${teamData.project_title}${parsedTeamId ? ` | 🆔 Team ID: ${parsedTeamId}` : ''}`);
+      }
+
+      // 2. Fetch marks
       const { data, error } = await supabase
         .from('evaluations')
         .select('*')
@@ -73,13 +90,6 @@ function JudgeEvaluationContent() {
           setC5(0);
         }
         setRemarks(rem);
-      } else if (name.toLowerCase() === 'quantum hackers') {
-        setC1(9);
-        setC2(9);
-        setC3(9);
-        setC4(8);
-        setC5(9);
-        setRemarks('Strong post-quantum security architecture and live demo.');
       }
     } catch (e) {
       console.warn("Supabase fetch marks warning:", e);

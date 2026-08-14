@@ -31,18 +31,26 @@ export default function JudgeDashboardPage() {
       // 1. Fetch Teams from Supabase
       const { data: supaTeams } = await supabase.from('teams').select('*');
       if (supaTeams && supaTeams.length > 0) {
-        const formattedTeams = supaTeams.map(st => ({
-          id: st.id,
-          teamName: st.team_name,
-          leaderName: st.leader_name,
-          leaderEmail: st.leader_email,
-          leaderId: st.leader_id,
-          leaderPhone: st.leader_phone,
-          projectTitle: st.project_title,
-          mainIdea: st.main_idea,
-          techStack: st.tech_stack,
-          assignedJudge: st.assigned_judge
-        }));
+        const formattedTeams = supaTeams.map(st => {
+          let parsedTeamId = 'N/A';
+          if (st.main_idea && st.main_idea.includes('Team ID:')) {
+            const match = st.main_idea.match(/Team ID:\s*([^\]\n]+)/i);
+            if (match && match[1]) parsedTeamId = match[1].trim();
+          }
+          return {
+            id: st.id,
+            teamName: st.team_name,
+            teamIdNo: parsedTeamId,
+            leaderName: st.leader_name,
+            leaderEmail: st.leader_email,
+            leaderId: st.leader_id,
+            leaderPhone: st.leader_phone,
+            projectTitle: st.project_title,
+            mainIdea: st.main_idea,
+            techStack: st.tech_stack,
+            assignedJudge: st.assigned_judge
+          };
+        });
         setTeams(formattedTeams);
       } else {
         setTeams([]);
@@ -180,8 +188,8 @@ export default function JudgeDashboardPage() {
             ) : (
               assignedTeams.map(t => {
                 const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
-                const isScored = Boolean(evalEntry) || (t.teamName.toLowerCase() === 'quantum hackers');
-                const scoreVal = evalEntry ? evalEntry.totalScore : (t.teamName.toLowerCase() === 'quantum hackers' ? 44 : 0);
+                const isScored = Boolean(evalEntry);
+                const scoreVal = evalEntry ? evalEntry.totalScore : 0;
 
                 return (
                   <div key={t.id || t.teamName} className="team-card">
@@ -210,6 +218,10 @@ export default function JudgeDashboardPage() {
                     </div>
 
                     <div className="team-card-body">
+                      <div className="info-block">
+                        <span className="info-label">🆔 Team ID Number:</span>
+                        <span className="info-val" style={{ color: '#fdff00', fontWeight: 'bold' }}>{t.teamIdNo || 'N/A'}</span>
+                      </div>
                       <div className="info-block">
                         <span className="info-label">👑 Team Leader:</span>
                         <span className="info-val">{t.leaderName} ({t.leaderId}) | {t.leaderEmail} | {t.leaderPhone}</span>

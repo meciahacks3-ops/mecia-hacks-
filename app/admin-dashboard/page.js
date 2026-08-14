@@ -108,17 +108,25 @@ export default function AdminDashboardPage() {
       // 1. Fetch Teams
       const { data: supaTeams } = await supabase.from('teams').select('*');
       if (supaTeams && supaTeams.length > 0) {
-        const formattedTeams = supaTeams.map(st => ({
-          id: st.id,
-          teamName: st.team_name,
-          leaderName: st.leader_name,
-          leaderEmail: st.leader_email,
-          leaderId: st.leader_id,
-          leaderPhone: st.leader_phone,
-          projectTitle: st.project_title,
-          techStack: st.tech_stack,
-          assignedJudge: st.assigned_judge || 'Unassigned'
-        }));
+        const formattedTeams = supaTeams.map(st => {
+          let parsedTeamId = 'N/A';
+          if (st.main_idea && st.main_idea.includes('Team ID:')) {
+            const match = st.main_idea.match(/Team ID:\s*([^\]\n]+)/i);
+            if (match && match[1]) parsedTeamId = match[1].trim();
+          }
+          return {
+            id: st.id,
+            teamName: st.team_name,
+            teamIdNo: parsedTeamId,
+            leaderName: st.leader_name,
+            leaderEmail: st.leader_email,
+            leaderId: st.leader_id,
+            leaderPhone: st.leader_phone,
+            projectTitle: st.project_title,
+            techStack: st.tech_stack,
+            assignedJudge: st.assigned_judge || 'Unassigned'
+          };
+        });
         setTeams(formattedTeams);
 
         setJudgeSelections(prev => {
@@ -209,6 +217,7 @@ export default function AdminDashboardPage() {
     csvRows.push(["Report Date", new Date().toLocaleString()]);
     csvRows.push([]);
     csvRows.push([
+      "Team ID",
       "Team Name",
       "Leader Name",
       "Leader Email",
@@ -241,13 +250,10 @@ export default function AdminDashboardPage() {
         c5 = evalEntry.c5;
         total = evalEntry.totalScore;
         remarks = evalEntry.remarks || '';
-      } else if (t.teamName.toLowerCase() === 'quantum hackers') {
-        status = "SCORED";
-        c1 = 9; c2 = 9; c3 = 9; c4 = 8; c5 = 9; total = 44;
-        remarks = "Strong post-quantum security architecture and live demo.";
       }
 
       csvRows.push([
+        `"${t.teamIdNo || 'N/A'}"`,
         `"${t.teamName || ''}"`,
         `"${t.leaderName || ''}"`,
         `"${t.leaderEmail || ''}"`,
@@ -450,7 +456,13 @@ export default function AdminDashboardPage() {
 
                           return (
                             <tr key={t.id || t.teamName}>
-                              <td className="criterion-name">{t.teamName}</td>
+                              <td className="criterion-name">
+                                {t.teamName}
+                                <br />
+                                <span style={{ display: 'inline-block', marginTop: '4px', background: 'rgba(253, 255, 0, 0.12)', color: '#fdff00', border: '1px solid rgba(253, 255, 0, 0.4)', borderRadius: '4px', padding: '2px 6px', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                                  🆔 {t.teamIdNo || 'N/A'}
+                                </span>
+                              </td>
                               <td>{t.leaderName} ({t.leaderId})<br /><small style={{ color: 'var(--text-muted)' }}>{t.leaderEmail}</small></td>
                               <td>{t.projectTitle}<br /><small style={{ color: 'var(--text-muted)' }}>{t.techStack}</small></td>
                               <td>
@@ -549,11 +561,6 @@ export default function AdminDashboardPage() {
               c5 = evalEntry.c5;
               remarks = evalEntry.remarks || 'Scored';
               if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
-            } else if (t.teamName.toLowerCase() === 'quantum hackers') {
-              isScored = true;
-              score = 44;
-              c1 = 9; c2 = 9; c3 = 9; c4 = 8; c5 = 9;
-              remarks = 'Strong post-quantum security architecture and live demo.';
             }
 
             return {
@@ -627,6 +634,10 @@ export default function AdminDashboardPage() {
                             <td className="criterion-name">
                               {item.teamName}
                               {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
+                              <br />
+                              <span style={{ display: 'inline-block', marginTop: '2px', background: 'rgba(253, 255, 0, 0.12)', color: '#fdff00', border: '1px solid rgba(253, 255, 0, 0.4)', borderRadius: '4px', padding: '1px 5px', fontSize: '0.62rem', fontWeight: 'bold' }}>
+                                🆔 {item.teamIdNo || 'N/A'}
+                              </span>
                             </td>
                             <td>{item.judge}</td>
                             <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>
