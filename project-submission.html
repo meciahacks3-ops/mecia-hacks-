@@ -68,7 +68,7 @@
               <input type="text" id="team-name" placeholder="e.g. Cyber Byte Squad" required>
             </div>
             <div class="form-group">
-              <label for="team-id-no">Team ID Number *</label>
+              <label for="team-id-no">Team ID Number <span style="color: #ff0055;">* (COMPULSORY)</span></label>
               <input type="text" id="team-id-no" placeholder="e.g. TEAM-101 / MH-042" required>
             </div>
             <div class="form-group">
@@ -111,8 +111,8 @@
         <!-- SECOND BLOCK: TEAM MEMBERS DETAILS (LOCKED UNTIL LEADER DETAILS ARE ENTERED) -->
         <div class="sub-block members-block locked-until-leader section-disabled">
           <div class="block-header">
-            <span class="block-title">👥 TEAM MEMBERS</span>
-            <button type="button" class="add-member-btn" onclick="addTeamMember()" disabled>+ ADD MEMBER</button>
+            <span class="block-title">👥 TEAM MEMBERS (MAX 3 MEMBERS)</span>
+            <button type="button" class="add-member-btn" onclick="addTeamMember()" disabled>+ ADD MEMBER (1/3)</button>
           </div>
 
           <div id="team-members-container" class="team-members-list">

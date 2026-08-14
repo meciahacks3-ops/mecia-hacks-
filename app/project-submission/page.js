@@ -37,8 +37,17 @@ export default function ProjectSubmissionPage() {
   // UI state
   const [showModal, setShowModal] = useState(false);
 
-  const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone);
-  const isLeaderComplete = Boolean(teamName && teamIdNo && leaderName && leaderEmail && leaderId && isLeaderPhoneValid && leaderBranch);
+  const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone ? leaderPhone.trim() : '');
+  const isTeamIdValid = Boolean(teamIdNo && teamIdNo.trim().length > 0 && teamIdNo.trim().toUpperCase() !== 'N/A');
+  const isLeaderComplete = Boolean(
+    teamName && teamName.trim() &&
+    isTeamIdValid &&
+    leaderName && leaderName.trim() &&
+    leaderEmail && leaderEmail.trim() &&
+    leaderId && leaderId.trim() &&
+    isLeaderPhoneValid &&
+    leaderBranch
+  );
 
   useEffect(() => {
     const fetchExistingRegistration = async (idToSearch) => {
@@ -53,7 +62,6 @@ export default function ProjectSubmissionPage() {
         if (teamData) {
           setExistingTeamId(teamData.id);
           setIsExistingRecord(true);
-          setIsEditing(false); // Lock to view mode with Edit button
 
           if (teamData.team_name) setTeamName(teamData.team_name);
           if (teamData.leader_name) setLeaderName(teamData.leader_name);
@@ -63,17 +71,40 @@ export default function ProjectSubmissionPage() {
           if (teamData.project_title) setProjectTitle(teamData.project_title);
           if (teamData.tech_stack) setTechStack(teamData.tech_stack);
 
+          let foundTeamId = '';
+          if (teamData.team_id_no && teamData.team_id_no.trim() !== 'N/A') {
+            foundTeamId = teamData.team_id_no.trim();
+            setTeamIdNo(foundTeamId);
+          }
+
           const mainIdeaStr = teamData.main_idea || '';
           const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^|\]]+)(?:\|\s*Team ID:\s*([^\]]+))?\]/i);
           if (match) {
             setProjectType(match[1].trim().toLowerCase());
             setLeaderBranch(match[2].trim());
-            if (match[3]) {
-              setTeamIdNo(match[3].trim());
+            if (!foundTeamId && match[3] && match[3].trim() !== 'N/A') {
+              foundTeamId = match[3].trim();
+              setTeamIdNo(foundTeamId);
             }
             setProjectIdea(mainIdeaStr.replace(/\[Type:[^\]]+\]\s*/i, '').trim());
           } else {
             setProjectIdea(mainIdeaStr);
+          }
+
+          // Fallback regex to parse Team ID if formatted differently
+          if (!foundTeamId) {
+            const idMatch = mainIdeaStr.match(/Team ID:\s*([^\]\n|]+)/i);
+            if (idMatch && idMatch[1] && idMatch[1].trim() !== 'N/A') {
+              foundTeamId = idMatch[1].trim();
+              setTeamIdNo(foundTeamId);
+            }
+          }
+
+          // If previously registered without Team ID, open immediately in edit mode
+          if (!foundTeamId) {
+            setIsEditing(true);
+          } else {
+            setIsEditing(false); // Lock to view mode if team ID already present
           }
 
           const { data: memberData } = await supabase
@@ -98,7 +129,7 @@ export default function ProjectSubmissionPage() {
                 phone: m.member_phone || ''
               };
             });
-            setMembers(parsedMembers);
+            setMembers(parsedMembers.slice(0, 3));
           }
         }
       } catch (e) {
@@ -123,6 +154,10 @@ export default function ProjectSubmissionPage() {
   }, []);
 
   const addMember = () => {
+    if (members.length >= 3) {
+      alert("⚠️ Maximum Limit Reached: You can add up to 3 team members only.");
+      return;
+    }
     setMembers([...members, { name: '', email: '', idNo: '', branch: 'Computer Engineering (CE)', phone: '' }]);
   };
 
@@ -142,26 +177,55 @@ export default function ProjectSubmissionPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // 1. Strictly enforce compulsory Team ID for all student portal users
+    if (!teamIdNo || !teamIdNo.trim() || teamIdNo.trim().toUpperCase() === 'N/A') {
+      alert("⚠️ Team ID Number is compulsory for all users in the Student Portal! Please enter your official Team ID before submitting.");
+      return;
+    }
+
+    if (!teamName || !teamName.trim()) {
+      alert("⚠️ Team Name is compulsory! Please enter your Team Name before submitting.");
+      return;
+    }
+
+    if (!leaderName || !leaderName.trim() || !leaderEmail || !leaderEmail.trim() || !leaderId || !leaderId.trim()) {
+      alert("⚠️ Please fill in all compulsory Team Leader details before submitting.");
+      return;
+    }
+
+    if (!isLeaderPhoneValid) {
+      alert("⚠️ Please enter a valid 10-digit numeric mobile number for the Team Leader.");
+      return;
+    }
+
     if (!isLeaderComplete) {
       alert("Please complete all compulsory Team Details first (including Team ID Number, Team Name, and a valid 10-digit mobile number).");
       return;
     }
 
-    const invalidMembers = members.filter(m => m.name.trim() && (!m.phone || !/^\d{10}$/.test(m.phone)));
+    const invalidMembers = members.filter(m => m.name.trim() && (!m.phone || !/^\d{10}$/.test(m.phone.trim())));
     if (invalidMembers.length > 0) {
       alert("Please enter a valid 10-digit numeric mobile number for all added team members.");
       return;
     }
 
+    const validMembers = members.filter(m => m.name.trim());
+    if (validMembers.length > 3) {
+      alert("⚠️ A maximum of 3 team members are allowed. Please remove extra members before submitting.");
+      return;
+    }
+
     const insertPayload = {
-      team_name: teamName,
-      leader_name: leaderName,
-      leader_email: leaderEmail,
-      leader_id: leaderId,
-      leader_phone: leaderPhone,
-      project_title: projectTitle || 'New Project Entry',
-      main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch} | Team ID: ${teamIdNo || 'N/A'}]\n\n${projectIdea || 'Project Idea Details'}`,
-      tech_stack: techStack || 'HTML, CSS, JS'
+      team_name: teamName.trim(),
+      team_id_no: teamIdNo.trim(),
+      leader_name: leaderName.trim(),
+      leader_email: leaderEmail.trim(),
+      leader_id: leaderId.trim(),
+      leader_phone: leaderPhone.trim(),
+      project_title: projectTitle.trim() || 'New Project Entry',
+      main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch} | Team ID: ${teamIdNo.trim()}]\n\n${projectIdea.trim() || 'Project Idea Details'}`,
+      tech_stack: techStack.trim() || 'HTML, CSS, JS'
     };
 
     try {
@@ -174,9 +238,9 @@ export default function ProjectSubmissionPage() {
 
         if (!updateErr) {
           await supabase.from('team_members').delete().eq('team_id', existingTeamId);
-          const validMembers = members.filter(m => m.name.trim());
-          if (validMembers.length > 0) {
-            const memberRecords = validMembers.map(m => ({
+          const membersToInsert = validMembers.slice(0, 3);
+          if (membersToInsert.length > 0) {
+            const memberRecords = membersToInsert.map(m => ({
               team_id: existingTeamId,
               member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
               member_email: m.email,
@@ -205,9 +269,9 @@ export default function ProjectSubmissionPage() {
           setIsEditing(false);
           setModalAction('created');
 
-          const validMembers = members.filter(m => m.name.trim());
-          if (validMembers.length > 0) {
-            const memberRecords = validMembers.map(m => ({
+          const membersToInsert = validMembers.slice(0, 3);
+          if (membersToInsert.length > 0) {
+            const memberRecords = membersToInsert.map(m => ({
               team_id: teamRes.id,
               member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
               member_email: m.email,
@@ -262,8 +326,8 @@ export default function ProjectSubmissionPage() {
         {/* Existing Registration Banner & Edit Control */}
         {isExistingRecord && (
           <div style={{
-            background: 'rgba(0, 255, 204, 0.1)',
-            border: '2px solid #00ffcc',
+            background: !isTeamIdValid ? 'rgba(255, 0, 85, 0.15)' : 'rgba(0, 255, 204, 0.1)',
+            border: `2px solid ${!isTeamIdValid ? '#ff0055' : '#00ffcc'}`,
             borderRadius: '10px',
             padding: '16px 20px',
             marginBottom: '28px',
@@ -272,16 +336,18 @@ export default function ProjectSubmissionPage() {
             justifyContent: 'space-between',
             gap: '16px',
             flexWrap: 'wrap',
-            boxShadow: '0 0 15px rgba(0, 255, 204, 0.2)'
+            boxShadow: `0 0 15px ${!isTeamIdValid ? 'rgba(255, 0, 85, 0.3)' : 'rgba(0, 255, 204, 0.2)'}`
           }}>
             <div>
-              <div style={{ color: '#00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.68rem', marginBottom: '6px' }}>
-                ✅ REGISTERED TEAM ENTRY FOUND
+              <div style={{ color: !isTeamIdValid ? '#ff0055' : '#00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.68rem', marginBottom: '6px' }}>
+                {!isTeamIdValid ? '⚠️ ACTION REQUIRED: COMPULSORY TEAM ID MISSING' : '✅ REGISTERED TEAM ENTRY FOUND'}
               </div>
               <div style={{ color: '#ccc', fontSize: '0.78rem', lineHeight: '1.4' }}>
-                {isEditing 
-                  ? '✏️ EDITING MODE ACTIVE: Modify any details below and click "💾 UPDATE & SAVE CHANGES".' 
-                  : '🔒 VIEW MODE: Your team details have been loaded. Click "✏️ EDIT REGISTRATION DETAILS" to make changes.'}
+                {!isTeamIdValid
+                  ? 'Your previously submitted registration is missing an official Team ID. Please enter your Team ID Number below and click "💾 UPDATE & SAVE CHANGES".'
+                  : isEditing 
+                    ? '✏️ EDITING MODE ACTIVE: Modify any details below and click "💾 UPDATE & SAVE CHANGES".' 
+                    : '🔒 VIEW MODE: Your team details have been loaded. Click "✏️ EDIT REGISTRATION DETAILS" to make changes.'}
               </div>
             </div>
             <button
@@ -364,9 +430,11 @@ export default function ProjectSubmissionPage() {
                 👤 TEAM & LEADER DETAILS
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-                <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
+                <div style={{ background: '#000', border: `1px solid ${!isTeamIdValid ? '#ff0055' : 'rgba(255, 255, 255, 0.1)'}`, padding: '12px 16px', borderRadius: '8px' }}>
                   <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>TEAM ID NUMBER</div>
-                  <div style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.95rem' }}>{teamIdNo || 'N/A'}</div>
+                  <div style={{ color: !isTeamIdValid ? '#ff0055' : '#fdff00', fontWeight: 'bold', fontSize: '0.95rem' }}>
+                    {isTeamIdValid ? teamIdNo : '⚠️ MISSING (Click Edit to Add)'}
+                  </div>
                 </div>
                 <div style={{ background: '#000', border: '1px solid rgba(255, 255, 255, 0.1)', padding: '12px 16px', borderRadius: '8px' }}>
                   <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>FULL NAME</div>
@@ -467,7 +535,7 @@ export default function ProjectSubmissionPage() {
               <h3 className="section-title"><span className="pacman-bullet"></span> 1. TEAM LEADER DETAILS (COMPULSORY)</h3>
               <div className="leader-grid">
                 <div className="form-group">
-                  <label htmlFor="team-name">Team Name</label>
+                  <label htmlFor="team-name">Team Name <span style={{ color: '#ff0055' }}>*</span></label>
                   <input
                     type="text"
                     id="team-name"
@@ -478,7 +546,9 @@ export default function ProjectSubmissionPage() {
                   />
                 </div>
                 <div className="form-group">
-                  <label htmlFor="team-id-no">Team ID Number</label>
+                  <label htmlFor="team-id-no">
+                    Team ID Number <span style={{ color: '#ff0055' }}>* (COMPULSORY)</span>
+                  </label>
                   <input
                     type="text"
                     id="team-id-no"
@@ -487,6 +557,11 @@ export default function ProjectSubmissionPage() {
                     value={teamIdNo}
                     onChange={(e) => setTeamIdNo(e.target.value)}
                   />
+                  {!teamIdNo.trim() && (
+                    <span style={{ color: '#ff0055', fontSize: '0.62rem', marginTop: '4px', display: 'block' }}>
+                      ⚠️ Team ID is compulsory to unlock other sections & submit
+                    </span>
+                  )}
                 </div>
                 <div className="form-group">
                   <label htmlFor="leader-name">Leader Full Name</label>
@@ -563,7 +638,7 @@ export default function ProjectSubmissionPage() {
 
             {/* SECTION 2: TEAM MEMBERS */}
             <div className={`form-section locked-until-leader ${!isLeaderComplete ? 'section-disabled' : ''}`}>
-              <h3 className="section-title"><span className="pacman-bullet"></span> 2. OTHER TEAM MEMBERS DETAILS</h3>
+              <h3 className="section-title"><span className="pacman-bullet"></span> 2. OTHER TEAM MEMBERS DETAILS (MAX 3 MEMBERS)</h3>
 
               <div>
                 {members.map((member, index) => (
@@ -636,14 +711,23 @@ export default function ProjectSubmissionPage() {
                 ))}
               </div>
 
-              <button
-                type="button"
-                className="add-member-btn"
-                onClick={addMember}
-                disabled={!isLeaderComplete}
-              >
-                + ADD ANOTHER MEMBER
-              </button>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '14px', flexWrap: 'wrap', gap: '12px' }}>
+                <button
+                  type="button"
+                  className="add-member-btn"
+                  onClick={addMember}
+                  disabled={!isLeaderComplete || members.length >= 3}
+                  style={{
+                    opacity: (!isLeaderComplete || members.length >= 3) ? 0.5 : 1,
+                    cursor: (!isLeaderComplete || members.length >= 3) ? 'not-allowed' : 'pointer'
+                  }}
+                >
+                  {members.length >= 3 ? '⛔ MAX 3 MEMBERS LIMIT REACHED' : `+ ADD ANOTHER MEMBER (${members.length}/3)`}
+                </button>
+                <span style={{ fontSize: '0.62rem', color: '#8888aa', fontFamily: 'Press Start 2P, monospace' }}>
+                  MEMBERS: <span style={{ color: members.length >= 3 ? '#ff0055' : '#00ffcc' }}>{members.length} / 3</span>
+                </span>
+              </div>
             </div>
 
             {/* SECTION 3: PROJECT DETAILS & MAIN IDEA */}
@@ -708,10 +792,13 @@ export default function ProjectSubmissionPage() {
             <button
               type="submit"
               className="submit-btn full-width-btn locked-until-leader"
-              disabled={!isLeaderComplete}
+              disabled={!isLeaderComplete || !isTeamIdValid}
+              title={!isTeamIdValid ? "Please enter Team ID Number first" : undefined}
               style={{
                 background: isExistingRecord ? 'var(--maze-blue, #2121ff)' : undefined,
-                borderColor: isExistingRecord ? '#00ffcc' : undefined
+                borderColor: isExistingRecord ? '#00ffcc' : undefined,
+                opacity: (!isLeaderComplete || !isTeamIdValid) ? 0.5 : 1,
+                cursor: (!isLeaderComplete || !isTeamIdValid) ? 'not-allowed' : 'pointer'
               }}
             >
               <span className="pacman-icon"></span> {isExistingRecord ? '💾 UPDATE & SAVE CHANGES' : '🚀 SUBMIT FINAL PROJECT ENTRY'}

@@ -297,17 +297,28 @@ async function loadExistingRegistration(savedId) {
       setVal('project-title', teamData.project_title);
       setVal('tech-stack', teamData.tech_stack);
 
+      if (teamData.team_id_no && teamData.team_id_no.trim() !== 'N/A') {
+        setVal('team-id-no', teamData.team_id_no.trim());
+      }
+
       const mainIdeaStr = teamData.main_idea || '';
       const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^|\]]+)(?:\|\s*Team ID:\s*([^\]]+))?\]/i);
       if (match) {
         setVal('project-type', match[1].trim().toLowerCase());
         setVal('leader-branch', match[2].trim());
-        if (match[3]) {
+        if (!teamData.team_id_no && match[3] && match[3].trim() !== 'N/A') {
           setVal('team-id-no', match[3].trim());
         }
         setVal('main-idea', mainIdeaStr.replace(/\[Type:[^\]]+\]\s*/i, '').trim());
       } else {
         setVal('main-idea', mainIdeaStr);
+      }
+
+      if (!teamData.team_id_no && (!match || !match[3])) {
+        const idMatch = mainIdeaStr.match(/Team ID:\s*([^\]\n|]+)/i);
+        if (idMatch && idMatch[1] && idMatch[1].trim() !== 'N/A') {
+          setVal('team-id-no', idMatch[1].trim());
+        }
       }
 
       const { data: memberData } = await supabaseClient
@@ -319,7 +330,7 @@ async function loadExistingRegistration(savedId) {
         const container = document.getElementById('team-members-container');
         if (container) {
           container.innerHTML = '';
-          memberData.forEach(m => {
+          memberData.slice(0, 3).forEach(m => {
             let name = m.member_name || '';
             let branch = 'Computer Engineering (CE)';
             const mMatch = name.match(/^(.*?)\s*\((.*?)\)$/);
@@ -360,18 +371,53 @@ async function loadExistingRegistration(savedId) {
   }
 }
 
+function updateAddMemberBtnState() {
+  const container = document.getElementById('team-members-container');
+  const addBtn = document.querySelector('.add-member-btn');
+  if (!container || !addBtn) return;
+  const count = container.querySelectorAll('.member-row').length;
+  const isLeaderComplete = document.getElementById('lock-status-badge')?.classList.contains('unlocked');
+  
+  if (count >= 3) {
+    addBtn.textContent = '⛔ MAX 3 MEMBERS REACHED';
+    addBtn.setAttribute('disabled', 'true');
+    addBtn.style.opacity = '0.5';
+    addBtn.style.cursor = 'not-allowed';
+  } else {
+    addBtn.textContent = `+ ADD MEMBER (${count}/3)`;
+    if (isLeaderComplete) {
+      addBtn.removeAttribute('disabled');
+      addBtn.style.opacity = '1';
+      addBtn.style.cursor = 'pointer';
+    } else {
+      addBtn.setAttribute('disabled', 'true');
+      addBtn.style.opacity = '0.5';
+      addBtn.style.cursor = 'not-allowed';
+    }
+  }
+}
+
 // Validate Team Leader details to unlock subsequent sections
 function validateLeaderDetails() {
-  const teamName = getInputValue('team-name');
-  const teamIdNo = getInputValue('team-id-no');
-  const leaderName = getInputValue('leader-name');
-  const leaderEmail = getInputValue('leader-email');
-  const leaderId = getInputValue('leader-id');
+  const teamName = getInputValue('team-name').trim();
+  const teamIdNo = getInputValue('team-id-no').trim();
+  const leaderName = getInputValue('leader-name').trim();
+  const leaderEmail = getInputValue('leader-email').trim();
+  const leaderId = getInputValue('leader-id').trim();
   const leaderBranch = getInputValue('leader-branch');
-  const leaderPhone = getInputValue('leader-phone');
+  const leaderPhone = getInputValue('leader-phone').trim();
 
   const isLeaderPhoneValid = /^\d{10}$/.test(leaderPhone);
-  const isLeaderComplete = Boolean(teamName && teamIdNo && leaderName && leaderEmail && leaderId && leaderBranch && isLeaderPhoneValid);
+  const isTeamIdValid = Boolean(teamIdNo && teamIdNo.length > 0 && teamIdNo.toUpperCase() !== 'N/A');
+  const isLeaderComplete = Boolean(
+    teamName &&
+    isTeamIdValid &&
+    leaderName &&
+    leaderEmail &&
+    leaderId &&
+    leaderBranch &&
+    isLeaderPhoneValid
+  );
 
   const lockedElements = document.querySelectorAll('.locked-until-leader');
   const lockStatusBadge = document.getElementById('lock-status-badge');
@@ -397,12 +443,21 @@ function validateLeaderDetails() {
       lockStatusBadge.className = 'lock-badge locked';
     }
   }
+
+  updateAddMemberBtnState();
 }
 
-// Dynamic Team Member Rows Management
+// Dynamic Team Member Rows Management (Max 3 Members)
 function addTeamMember() {
   const container = document.getElementById('team-members-container');
   if (!container) return;
+
+  const currentRows = container.querySelectorAll('.member-row');
+  if (currentRows.length >= 3) {
+    alert("⚠️ Maximum Limit Reached: You can add up to 3 team members only.");
+    updateAddMemberBtnState();
+    return;
+  }
 
   const memberRow = document.createElement('div');
   memberRow.className = 'member-row';
@@ -429,6 +484,7 @@ function addTeamMember() {
     <button type="button" class="remove-btn" onclick="removeMember(this)" title="Remove Member">&times;</button>
   `;
   container.appendChild(memberRow);
+  updateAddMemberBtnState();
 }
 
 function removeMember(btn) {
@@ -437,6 +493,7 @@ function removeMember(btn) {
   const rows = container.querySelectorAll('.member-row');
   if (rows.length > 1) {
     btn.parentElement.remove();
+    updateAddMemberBtnState();
   } else {
     alert("At least one team member is required.");
   }
@@ -446,21 +503,29 @@ function removeMember(btn) {
 async function handleProjectSubmission(event) {
   if (event) event.preventDefault();
 
-  const teamName = getInputValue('team-name');
-  const teamIdNo = getInputValue('team-id-no');
-  const leaderName = getInputValue('leader-name');
-  const leaderEmail = getInputValue('leader-email');
-  const leaderId = getInputValue('leader-id');
+  const teamName = getInputValue('team-name').trim();
+  const teamIdNo = getInputValue('team-id-no').trim();
+  const leaderName = getInputValue('leader-name').trim();
+  const leaderEmail = getInputValue('leader-email').trim();
+  const leaderId = getInputValue('leader-id').trim();
   const leaderBranch = getInputValue('leader-branch') || 'Computer Engineering (CE)';
-  const leaderPhone = getInputValue('leader-phone');
-  const projectTitle = getInputValue('project-title') || 'New Project Entry';
+  const leaderPhone = getInputValue('leader-phone').trim();
+  const projectTitle = getInputValue('project-title').trim() || 'New Project Entry';
   const projectType = getInputValue('project-type') || 'hardware';
-  const mainIdea = getInputValue('project-idea') || getInputValue('main-idea') || 'Project Idea Details';
-  const techStack = getInputValue('tech-stack') || 'HTML, CSS, JS';
+  const mainIdea = getInputValue('project-idea').trim() || getInputValue('main-idea').trim() || 'Project Idea Details';
+  const techStack = getInputValue('tech-stack').trim() || 'HTML, CSS, JS';
 
   sessionStorage.setItem('projectType', projectType);
 
-  if (!teamName || !teamIdNo || !leaderName || !leaderEmail || !leaderId || !leaderPhone) {
+  // 1. Strictly enforce compulsory Team ID for all student portal users
+  if (!teamIdNo || teamIdNo.toUpperCase() === 'N/A') {
+    alert("⚠️ Team ID Number is compulsory for all users in the Student Portal! Please enter your official Team ID before submitting.");
+    const teamIdInput = document.getElementById('team-id-no');
+    if (teamIdInput) teamIdInput.focus();
+    return false;
+  }
+
+  if (!teamName || !leaderName || !leaderEmail || !leaderId || !leaderPhone) {
     alert("Please complete all compulsory Team Details first (including Team ID Number).");
     return false;
   }
@@ -470,7 +535,7 @@ async function handleProjectSubmission(event) {
     return false;
   }
 
-  // Parse Team Members
+  // Parse Team Members (Max 3)
   const memberRows = document.querySelectorAll('#team-members-container .member-row');
   const members = [];
   memberRows.forEach(row => {
@@ -487,6 +552,13 @@ async function handleProjectSubmission(event) {
     }
   });
 
+  if (members.length > 3) {
+    alert("⚠️ A maximum of 3 team members are allowed. Please remove excess members before submitting.");
+    return false;
+  }
+
+  const finalMembers = members.slice(0, 3);
+
   // Local Storage Save
   const currentTeams = getTeamsData();
   const newTeam = {
@@ -496,7 +568,7 @@ async function handleProjectSubmission(event) {
     leaderEmail,
     leaderId,
     leaderPhone,
-    members,
+    members: finalMembers,
     projectTitle,
     projectType,
     mainIdea,
@@ -508,35 +580,60 @@ async function handleProjectSubmission(event) {
   updatedTeams.push(newTeam);
   saveTeamsData(updatedTeams);
 
-  // Supabase Database Insert (if connected)
+  // Supabase Database Insert / Update (if connected)
   if (supabaseClient) {
     try {
       const insertPayload = {
         team_name: teamName,
+        team_id_no: teamIdNo,
         leader_name: leaderName,
         leader_email: leaderEmail,
         leader_id: leaderId,
         leader_phone: leaderPhone,
         project_title: projectTitle,
-        main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch} | Team ID: ${teamIdNo || 'N/A'}]\n\n${mainIdea}`,
+        main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch} | Team ID: ${teamIdNo}]\n\n${mainIdea}`,
         tech_stack: techStack
       };
 
-      const { data: teamRes, error: teamErr } = await supabaseClient
-        .from('teams')
-        .insert([insertPayload])
-        .select()
-        .single();
+      if (window.existingTeamId) {
+        // Update existing registration
+        const { error: updateErr } = await supabaseClient
+          .from('teams')
+          .update(insertPayload)
+          .eq('id', window.existingTeamId);
 
-      if (!teamErr && teamRes && members.length > 0) {
-        const memberRecords = members.map(m => ({
-          team_id: teamRes.id,
-          member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
-          member_email: m.email,
-          member_id: m.idNo,
-          member_phone: m.phone
-        }));
-        await supabaseClient.from('team_members').insert(memberRecords);
+        if (!updateErr && finalMembers.length > 0) {
+          await supabaseClient.from('team_members').delete().eq('team_id', window.existingTeamId);
+          const memberRecords = finalMembers.map(m => ({
+            team_id: window.existingTeamId,
+            member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
+            member_email: m.email,
+            member_id: m.idNo,
+            member_phone: m.phone
+          }));
+          await supabaseClient.from('team_members').insert(memberRecords);
+        }
+      } else {
+        // Insert new registration
+        const { data: teamRes, error: teamErr } = await supabaseClient
+          .from('teams')
+          .insert([insertPayload])
+          .select()
+          .single();
+
+        if (!teamErr && teamRes) {
+          window.existingTeamId = teamRes.id;
+          if (finalMembers.length > 0) {
+            const memberRecords = finalMembers.map(m => ({
+              team_id: teamRes.id,
+              member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
+              member_email: m.email,
+              member_id: m.idNo,
+              member_phone: m.phone
+            }));
+            await supabaseClient.from('team_members').insert(memberRecords);
+          }
+        }
       }
     } catch (e) {
       console.warn("Supabase sync warning:", e);

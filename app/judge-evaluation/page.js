@@ -60,9 +60,9 @@ function JudgeEvaluationContent() {
         .maybeSingle();
 
       if (teamData) {
-        let parsedTeamId = '';
-        if (teamData.main_idea && teamData.main_idea.includes('Team ID:')) {
-          const match = teamData.main_idea.match(/Team ID:\s*([^\]\n]+)/i);
+        let parsedTeamId = teamData.team_id_no && teamData.team_id_no.trim() !== 'N/A' ? teamData.team_id_no.trim() : '';
+        if (!parsedTeamId && teamData.main_idea && teamData.main_idea.includes('Team ID:')) {
+          const match = teamData.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
           if (match && match[1]) parsedTeamId = match[1].trim();
         }
         setTeamSub(`👑 Leader: ${teamData.leader_name} (${teamData.leader_id}) | 💡 Project: ${teamData.project_title}${parsedTeamId ? ` | 🆔 Team ID: ${parsedTeamId}` : ''}`);

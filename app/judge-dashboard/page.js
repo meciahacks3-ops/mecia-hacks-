@@ -32,9 +32,9 @@ export default function JudgeDashboardPage() {
       const { data: supaTeams } = await supabase.from('teams').select('*');
       if (supaTeams && supaTeams.length > 0) {
         const formattedTeams = supaTeams.map(st => {
-          let parsedTeamId = 'N/A';
-          if (st.main_idea && st.main_idea.includes('Team ID:')) {
-            const match = st.main_idea.match(/Team ID:\s*([^\]\n]+)/i);
+          let parsedTeamId = st.team_id_no && st.team_id_no.trim() !== 'N/A' ? st.team_id_no.trim() : 'N/A';
+          if (parsedTeamId === 'N/A' && st.main_idea && st.main_idea.includes('Team ID:')) {
+            const match = st.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
             if (match && match[1]) parsedTeamId = match[1].trim();
           }
           return {
