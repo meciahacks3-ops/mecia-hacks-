@@ -144,11 +144,16 @@ export default function JudgeDashboardPage() {
             </div>
             {judgeProfile ? (
               <div>
-                <div style={{ color: '#fff', fontSize: '0.88rem', fontWeight: 'bold', lineHeight: '1.4', marginBottom: '4px' }}>
-                  👨‍⚖️ {judgeProfile.names.join(' • ')}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px', marginBottom: '8px', marginTop: '4px' }}>
+                  {judgeProfile.names.map((name, idx) => (
+                    <div key={idx} style={{ color: '#ffffff', fontSize: '0.86rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ color: '#00ffcc', fontSize: '0.7rem' }}>▸</span>
+                      <span>{name}</span>
+                    </div>
+                  ))}
                 </div>
                 {judgeProfile.location && (
-                  <div style={{ color: '#fdff00', fontSize: '0.72rem', fontWeight: '600' }}>
+                  <div style={{ color: '#fdff00', fontSize: '0.72rem', fontWeight: '600', borderTop: '1px dashed rgba(255, 255, 255, 0.15)', paddingTop: '6px' }}>
                     📍 Location: {judgeProfile.location}
                   </div>
                 )}

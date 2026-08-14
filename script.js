@@ -1228,7 +1228,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const profile = getJudgeProfile(savedJudgeEmail);
       const judgeNamesEl = document.getElementById('logged-judge-names');
       if (judgeNamesEl && profile) {
-        judgeNamesEl.textContent = profile.names.join(' • ');
+        judgeNamesEl.innerHTML = `<div style="display:flex; flex-direction:column; gap:2px; margin-top:2px;">${profile.names.map(n => `<div>▸ ${n}</div>`).join('')}</div>`;
       }
     }
     updateJudgeDashboardStatus();

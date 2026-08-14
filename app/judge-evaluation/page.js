@@ -183,16 +183,25 @@ function JudgeEvaluationContent() {
                   JUDGE PANEL: {judgeEmail.toUpperCase()} {judgeProfile?.group ? `• ${judgeProfile.group}` : ''}
                 </span>
               </div>
-              {judgeProfile && (
+              {judgeProfile ? (
                 <div>
-                  <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 'bold', lineHeight: '1.3' }}>
-                    👨‍⚖️ {judgeProfile.names.join(' • ')}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '6px', marginTop: '4px' }}>
+                    {judgeProfile.names.map((name, idx) => (
+                      <div key={idx} style={{ color: '#ffffff', fontSize: '0.82rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span style={{ color: '#00ffcc', fontSize: '0.65rem' }}>▸</span>
+                        <span>{name}</span>
+                      </div>
+                    ))}
                   </div>
                   {judgeProfile.location && (
-                    <div style={{ color: '#fdff00', fontSize: '0.68rem', marginTop: '2px', fontWeight: '600' }}>
+                    <div style={{ color: '#fdff00', fontSize: '0.68rem', fontWeight: '600', borderTop: '1px dashed rgba(255, 255, 255, 0.15)', paddingTop: '4px' }}>
                       📍 {judgeProfile.location}
                     </div>
                   )}
+                </div>
+              ) : (
+                <div style={{ color: '#fff', fontSize: '0.8rem', fontWeight: '600' }}>
+                  👨‍⚖️ Authorized Evaluation Judge Panel
                 </div>
               )}
             </div>
