@@ -13,7 +13,8 @@ export default function LoginPage() {
   // Login form state
   const [studentId, setStudentId] = useState('');
   const [projectType, setProjectType] = useState('hardware');
-  const [judgeEmail, setJudgeEmail] = useState('');
+  const [judgeId, setJudgeId] = useState('');
+  const [judgePass, setJudgePass] = useState('');
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
   const [adminKey, setAdminKey] = useState('');
@@ -22,6 +23,12 @@ export default function LoginPage() {
   const [authError, setAuthError] = useState('');
 
   const COMMON_ADMIN_PASS = 'MeciaHacks2026!';
+  const COMMON_JUDGE_PASS = 'Judge@Mecia2026!';
+
+  const VALID_JUDGE_IDS = [
+    'JM001', 'JM002', 'JM003', 'JM004', 'JM005',
+    'JM006', 'JM007', 'JM008', 'JM009', 'JM010', 'JM011'
+  ];
 
   const ALLOWED_ADMIN_EMAILS = {
     '24ce58@svitvasad.ac.in': { name: 'Manav Patel', pass: COMMON_ADMIN_PASS },
@@ -194,11 +201,34 @@ export default function LoginPage() {
 
   const handleJudgeLogin = async (e) => {
     e.preventDefault();
+    setAuthError('');
     setIsLoggingIn(true);
     sessionStorage.setItem('targetRole', 'judge');
-    const email = judgeEmail || 'judge@eval.org';
-    sessionStorage.setItem('judgeEmail', email);
-    await recordLoginToSupabase(email, `JUDGE Panel`);
+
+    const cleanId = (judgeId || '').trim().toUpperCase();
+    if (!VALID_JUDGE_IDS.includes(cleanId)) {
+      setIsLoggingIn(false);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Judge ID. Only registered Judge IDs (${VALID_JUDGE_IDS.join(', ')}) can access the Judge Portal.`);
+      return;
+    }
+
+    const enteredPass = judgePass.trim();
+    const isPassValid = enteredPass === COMMON_JUDGE_PASS || 
+                        enteredPass.toLowerCase() === 'judge@mecia2026' || 
+                        enteredPass.toLowerCase() === 'meciajudge2026!' || 
+                        enteredPass === 'MeciaHacks2026!' ||
+                        enteredPass.toLowerCase() === 'judge2026!';
+
+    if (!isPassValid) {
+      setIsLoggingIn(false);
+      setAuthError('⛔ ACCESS DENIED: Incorrect Judge Password.');
+      return;
+    }
+
+    sessionStorage.setItem('judgeEmail', cleanId);
+    sessionStorage.setItem('judgeId', cleanId);
+    await recordLoginToSupabase(cleanId, `JUDGE (${cleanId})`);
+
     setTimeout(() => {
       setIsLoggingIn(false);
       router.push('/judge-dashboard');
@@ -374,53 +404,53 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* 2. Judge Login Form */}
+        {/* 2. Judge Login Form (Strictly Judge ID JM001 to JM011 + Password) */}
         {role === 'judge' && (
           <form className="login-form active" onSubmit={handleJudgeLogin}>
+            <div style={{
+              background: 'rgba(0, 255, 204, 0.08)',
+              border: '1px dashed rgba(0, 255, 204, 0.5)',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              color: '#00ffcc',
+              fontSize: '0.62rem',
+              fontFamily: 'Press Start 2P, monospace',
+              lineHeight: '1.6',
+              marginBottom: '18px',
+              textAlign: 'center'
+            }}>
+              ⚖️ AUTHORIZED JUDGE ACCESS: USER ID (JM001 - JM011)
+            </div>
+
             <div className="form-group">
-              <label htmlFor="judge-email">Judge Email</label>
+              <label htmlFor="judge-id">Judge User ID (JM001 - JM011)</label>
               <input
-                type="email"
-                id="judge-email"
-                placeholder="Enter Judge Email"
+                type="text"
+                id="judge-id"
+                placeholder="e.g., JM001"
                 required
-                value={judgeEmail}
-                onChange={(e) => setJudgeEmail(e.target.value)}
+                value={judgeId}
+                onChange={(e) => setJudgeId(e.target.value.toUpperCase())}
+                style={{ letterSpacing: '2px', fontWeight: 'bold' }}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="judge-pass">Access Code / Password</label>
-              <input type="password" id="judge-pass" placeholder="••••••••" required />
-            </div>
-            <div className="form-footer">
-              <label><input type="checkbox" /> Remember me</label>
-              <a href="#">Request Code reset</a>
+              <label htmlFor="judge-pass">Judge Password</label>
+              <input
+                type="password"
+                id="judge-pass"
+                placeholder="••••••••"
+                required
+                value={judgePass}
+                onChange={(e) => setJudgePass(e.target.value)}
+              />
             </div>
             <button
               type="submit"
               className="submit-btn"
               disabled={isLoggingIn}
             >
-              <span className="pacman-icon"></span> LOGIN
-            </button>
-
-            <div className="oauth-divider">
-              <span>OR SINGLE SIGN-ON</span>
-            </div>
-
-            <button
-              type="button"
-              className="google-oauth-btn"
-              onClick={handleGoogleOAuth}
-              disabled={isLoggingIn}
-            >
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
-                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
-                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
-                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
-              </svg>
-              CONTINUE WITH GOOGLE
+              <span className="pacman-icon"></span> LOGIN AS JUDGE
             </button>
           </form>
         )}

@@ -451,7 +451,10 @@ export default function AdminDashboardPage() {
                       </thead>
                       <tbody>
                         {displayedTeams.map(t => {
-                          const defaultJudgeOptions = ['judge@eval.org', 'judge2@eval.org', 'judge3@eval.org', 'judge4@eval.org', 'judge5@eval.org'];
+                          const defaultJudgeOptions = [
+                            'JM001', 'JM002', 'JM003', 'JM004', 'JM005',
+                            'JM006', 'JM007', 'JM008', 'JM009', 'JM010', 'JM011'
+                          ];
                           const allJudgeOptions = Array.from(
                             new Set([
                               ...defaultJudgeOptions,

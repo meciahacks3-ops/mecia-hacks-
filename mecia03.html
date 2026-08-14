@@ -87,21 +87,17 @@
       </button>
     </div>
 
-    <!-- 2. Judge Panel Login Form -->
+    <!-- 2. Judge Panel Login Form (Strictly Judge ID JM001 to JM011 + Password) -->
     <form id="judge-form" class="login-form" action="judge-dashboard.html" method="GET" onsubmit="handleJudgeLogin(event)">
       <div class="form-group">
-        <label for="judge-email">Judge Email</label>
-        <input type="email" id="judge-email" name="email" placeholder="Enter Judge Email" required>
+        <label for="judge-id">Judge User ID (JM001 - JM011)</label>
+        <input type="text" id="judge-id" name="judgeId" placeholder="e.g. JM001" required style="letter-spacing: 2px; font-weight: bold; text-transform: uppercase;">
       </div>
       <div class="form-group">
-        <label for="judge-pass">Access Code / Password</label>
+        <label for="judge-pass">Judge Password</label>
         <input type="password" id="judge-pass" name="password" placeholder="••••••••" required>
       </div>
-      <div class="form-footer">
-        <label><input type="checkbox"> Remember me</label>
-        <a href="#">Request Code reset</a>
-      </div>
-      <button type="submit" class="submit-btn"><span class="pacman-icon"></span> LOGIN</button>
+      <button type="submit" class="submit-btn"><span class="pacman-icon"></span> LOGIN AS JUDGE</button>
     </form>
 
     <!-- 3. Admin Team Login Form -->

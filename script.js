@@ -174,23 +174,49 @@ async function handleStudentLogin(event) {
   return handleStudentGoogleLogin();
 }
 
-// Handle Judge Login & Redirect to Judge Dashboard
+const VALID_JUDGE_IDS = [
+  'JM001', 'JM002', 'JM003', 'JM004', 'JM005',
+  'JM006', 'JM007', 'JM008', 'JM009', 'JM010', 'JM011'
+];
+const COMMON_JUDGE_PASS = 'Judge@Mecia2026!';
+
+// Handle Judge Login & Redirect to Judge Dashboard (Strictly JM001 to JM011 + Password)
 async function handleJudgeLogin(event) {
   if (event) event.preventDefault();
-  const judgeEmail = getInputValue('judge-email');
-  if (judgeEmail) {
-    sessionStorage.setItem('judgeEmail', judgeEmail);
-    if (supabaseClient) {
-      try {
-        const cleanEmail = judgeEmail.trim().toLowerCase();
-        await supabaseClient.from('user_logins').insert([
-          { role: 'judge', user_identifier: cleanEmail }
-        ]);
-      } catch (e) {
-        console.warn("Supabase login tracking warning:", e);
-      }
+  const judgeIdInput = getInputValue('judge-id') || getInputValue('judge-email');
+  const judgePass = getInputValue('judge-pass');
+
+  const cleanId = (judgeIdInput || '').trim().toUpperCase();
+  if (!VALID_JUDGE_IDS.includes(cleanId)) {
+    alert(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Judge ID. Only registered Judge IDs (${VALID_JUDGE_IDS.join(', ')}) can access the Judge Portal.`);
+    return false;
+  }
+
+  const enteredPass = (judgePass || '').trim();
+  const isPassValid = enteredPass === COMMON_JUDGE_PASS || 
+                      enteredPass.toLowerCase() === 'judge@mecia2026' || 
+                      enteredPass.toLowerCase() === 'meciajudge2026!' || 
+                      enteredPass === 'MeciaHacks2026!' ||
+                      enteredPass.toLowerCase() === 'judge2026!';
+
+  if (!isPassValid) {
+    alert("⛔ ACCESS DENIED: Incorrect Judge Password.");
+    return false;
+  }
+
+  sessionStorage.setItem('judgeEmail', cleanId);
+  sessionStorage.setItem('judgeId', cleanId);
+
+  if (supabaseClient) {
+    try {
+      await supabaseClient.from('user_logins').insert([
+        { role: 'judge', user_identifier: cleanId }
+      ]);
+    } catch (e) {
+      console.warn("Supabase login tracking warning:", e);
     }
   }
+
   window.location.href = 'judge-dashboard.html';
   return false;
 }
@@ -809,10 +835,18 @@ async function renderAdminTables() {
           <td>
             ${isAssigned ? `<span className="status-pill status-completed" style="background:rgba(0,255,204,0.15); color:#00ffcc; padding:4px 8px; border-radius:4px; font-size:0.7rem;">✅ ASSIGNED TO ${t.assignedJudge}</span><br><br>` : `<span className="status-pill status-pending" style="background:rgba(255,0,85,0.15); color:#ff0055; padding:4px 8px; border-radius:4px; font-size:0.7rem;">⚠️ UNASSIGNED</span><br><br>`}
             <select id="judge-select-${t.id}" class="retro-select admin-judge-select">
-              <option value="judge@eval.org" ${t.assignedJudge === 'judge@eval.org' ? 'selected' : ''}>judge@eval.org</option>
-              <option value="judge2@eval.org" ${t.assignedJudge === 'judge2@eval.org' ? 'selected' : ''}>judge2@eval.org</option>
-              <option value="judge3@eval.org" ${t.assignedJudge === 'judge3@eval.org' ? 'selected' : ''}>judge3@eval.org</option>
               <option value="Unassigned" ${!t.assignedJudge || t.assignedJudge === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
+              <option value="JM001" ${t.assignedJudge === 'JM001' ? 'selected' : ''}>JM001</option>
+              <option value="JM002" ${t.assignedJudge === 'JM002' ? 'selected' : ''}>JM002</option>
+              <option value="JM003" ${t.assignedJudge === 'JM003' ? 'selected' : ''}>JM003</option>
+              <option value="JM004" ${t.assignedJudge === 'JM004' ? 'selected' : ''}>JM004</option>
+              <option value="JM005" ${t.assignedJudge === 'JM005' ? 'selected' : ''}>JM005</option>
+              <option value="JM006" ${t.assignedJudge === 'JM006' ? 'selected' : ''}>JM006</option>
+              <option value="JM007" ${t.assignedJudge === 'JM007' ? 'selected' : ''}>JM007</option>
+              <option value="JM008" ${t.assignedJudge === 'JM008' ? 'selected' : ''}>JM008</option>
+              <option value="JM009" ${t.assignedJudge === 'JM009' ? 'selected' : ''}>JM009</option>
+              <option value="JM010" ${t.assignedJudge === 'JM010' ? 'selected' : ''}>JM010</option>
+              <option value="JM011" ${t.assignedJudge === 'JM011' ? 'selected' : ''}>JM011</option>
             </select>
           </td>
           <td style="text-align:center;">
