@@ -31,6 +31,35 @@ export default function LoginPage() {
     'milinpatel.comp@svitvasad.ac.in': { name: 'Milin Patel', pass: COMMON_ADMIN_PASS }
   };
 
+  const recordLoginToSupabase = async (email, roleDescription) => {
+    if (!email) return;
+    const cleanEmail = email.trim().toLowerCase();
+    const loginTimestamp = new Date().toLocaleString();
+    try {
+      const { data: existing } = await supabase
+        .from('allowed_users')
+        .select('id, email')
+        .ilike('email', cleanEmail)
+        .maybeSingle();
+
+      if (existing && existing.id) {
+        await supabase
+          .from('allowed_users')
+          .update({ added_by: `${roleDescription} | Last Active: ${loginTimestamp}` })
+          .eq('id', existing.id);
+      } else {
+        await supabase
+          .from('allowed_users')
+          .insert([{
+            email: cleanEmail,
+            added_by: `${roleDescription} | First Login: ${loginTimestamp}`
+          }]);
+      }
+    } catch (err) {
+      console.warn("Supabase login tracking warning:", err);
+    }
+  };
+
   const isGmailWhitelisted = async (email) => {
     if (!email) return false;
     try {
@@ -77,6 +106,8 @@ export default function LoginPage() {
           }
         }
         
+        await recordLoginToSupabase(userEmail, `${targetRole.toUpperCase()} (Google OAuth)`);
+
         if (targetRole === 'judge') {
           sessionStorage.setItem('judgeEmail', userEmail);
           router.push('/judge-dashboard');
@@ -86,12 +117,6 @@ export default function LoginPage() {
         } else {
           sessionStorage.setItem('studentId', userEmail);
           router.push('/project-submission');
-        }
-
-        try {
-          await supabase.from('user_logins').insert([{ role: `${targetRole}_google_oauth`, user_identifier: userEmail }]);
-        } catch (e) {
-          console.warn("Supabase OAuth login log warning:", e);
         }
       }
     };
@@ -113,6 +138,8 @@ export default function LoginPage() {
           }
         }
         
+        await recordLoginToSupabase(userEmail, `${targetRole.toUpperCase()} (Google OAuth)`);
+
         if (targetRole === 'judge') {
           sessionStorage.setItem('judgeEmail', userEmail);
           router.push('/judge-dashboard');
@@ -169,35 +196,27 @@ export default function LoginPage() {
     setIsLoggingIn(true);
     sessionStorage.setItem('targetRole', 'student');
     sessionStorage.setItem('projectType', projectType);
-    setTimeout(async () => {
-      if (studentId) {
-        sessionStorage.setItem('studentId', studentId);
-        try {
-          await supabase.from('user_logins').insert([{ role: 'student', user_identifier: studentId, project_type: projectType }]);
-        } catch (err) {
-          console.warn("Supabase login tracking warning:", err);
-        }
-      }
+    if (studentId) {
+      sessionStorage.setItem('studentId', studentId);
+      await recordLoginToSupabase(studentId, `STUDENT Direct`);
+    }
+    setTimeout(() => {
       setIsLoggingIn(false);
       router.push('/project-submission');
-    }, 450);
+    }, 400);
   };
 
   const handleJudgeLogin = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
     sessionStorage.setItem('targetRole', 'judge');
-    setTimeout(async () => {
-      const email = judgeEmail || 'judge@eval.org';
-      sessionStorage.setItem('judgeEmail', email);
-      try {
-        await supabase.from('user_logins').insert([{ role: 'judge', user_identifier: email }]);
-      } catch (err) {
-        console.warn("Supabase login tracking warning:", err);
-      }
+    const email = judgeEmail || 'judge@eval.org';
+    sessionStorage.setItem('judgeEmail', email);
+    await recordLoginToSupabase(email, `JUDGE Panel`);
+    setTimeout(() => {
       setIsLoggingIn(false);
       router.push('/judge-dashboard');
-    }, 450);
+    }, 400);
   };
 
   const handleAdminLogin = async (e) => {
@@ -224,17 +243,14 @@ export default function LoginPage() {
       return;
     }
 
-    setTimeout(async () => {
-      sessionStorage.setItem('adminUser', cleanUser);
-      sessionStorage.setItem('adminRoleName', adminAccount.name);
-      try {
-        await supabase.from('user_logins').insert([{ role: 'admin', user_identifier: cleanUser }]);
-      } catch (err) {
-        console.warn("Supabase login tracking warning:", err);
-      }
+    sessionStorage.setItem('adminUser', cleanUser);
+    sessionStorage.setItem('adminRoleName', adminAccount.name);
+    await recordLoginToSupabase(cleanUser, `ADMIN (${adminAccount.name})`);
+
+    setTimeout(() => {
       setIsLoggingIn(false);
       router.push('/admin-dashboard');
-    }, 450);
+    }, 400);
   };
 
   return (

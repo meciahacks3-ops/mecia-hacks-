@@ -182,7 +182,10 @@ async function handleJudgeLogin(event) {
     sessionStorage.setItem('judgeEmail', judgeEmail);
     if (supabaseClient) {
       try {
-        await supabaseClient.from('user_logins').insert([{ role: 'judge', user_identifier: judgeEmail }]);
+        const cleanEmail = judgeEmail.trim().toLowerCase();
+        await supabaseClient.from('allowed_users').upsert([
+          { email: cleanEmail, added_by: `JUDGE Panel | Last Login: ${new Date().toLocaleString()}` }
+        ], { onConflict: 'email' });
       } catch (e) {
         console.warn("Supabase login tracking warning:", e);
       }
@@ -226,7 +229,9 @@ async function handleAdminLogin(event) {
 
   if (supabaseClient) {
     try {
-      await supabaseClient.from('user_logins').insert([{ role: 'admin', user_identifier: adminEmail }]);
+      await supabaseClient.from('allowed_users').upsert([
+        { email: adminEmail, added_by: `ADMIN (${adminAccount.name}) | Last Login: ${new Date().toLocaleString()}` }
+      ], { onConflict: 'email' });
     } catch (e) {
       console.warn("Supabase login tracking warning:", e);
     }
@@ -611,6 +616,13 @@ async function handleEvaluationSubmission(event) {
         alert("Supabase Database Notice: " + evalErr.message);
       } else {
         console.log("✅ Evaluation marks successfully saved to Supabase!");
+        if (judgeEmail) {
+          try {
+            await supabaseClient.from('allowed_users').upsert([
+              { email: judgeEmail.toLowerCase().trim(), added_by: `JUDGE EVALUATOR (Evaluated: ${teamName} | ${new Date().toLocaleString()})` }
+            ], { onConflict: 'email' });
+          } catch (err) {}
+        }
       }
     } catch (e) {
       console.warn("Supabase evaluation sync error:", e);
