@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { JUDGE_PROFILES } from '@/lib/judgeProfiles';
 
 const initialDemoTeams = [
   {
@@ -154,17 +155,25 @@ export default function AdminDashboardPage() {
         }));
         setTeams(formattedTeams);
 
-        const initialMap = {};
-        formattedTeams.forEach(t => {
-          initialMap[t.id] = t.assignedJudge;
+        setJudgeSelections(prev => {
+          const next = { ...prev };
+          formattedTeams.forEach(t => {
+            if (next[t.id] === undefined) {
+              next[t.id] = t.assignedJudge;
+            }
+          });
+          return next;
         });
-        setJudgeSelections(initialMap);
       } else {
-        const initialMap = {};
-        initialDemoTeams.forEach(t => {
-          initialMap[t.id] = t.assignedJudge;
+        setJudgeSelections(prev => {
+          const next = { ...prev };
+          initialDemoTeams.forEach(t => {
+            if (next[t.id] === undefined) {
+              next[t.id] = t.assignedJudge;
+            }
+          });
+          return next;
         });
-        setJudgeSelections(initialMap);
       }
 
       // 2. Fetch Evaluations
@@ -189,6 +198,7 @@ export default function AdminDashboardPage() {
   };
 
   const [customJudgeInputs, setCustomJudgeInputs] = useState({});
+  const [assigningTeamId, setAssigningTeamId] = useState(null);
 
   const handleAssignJudge = async (teamId, teamName) => {
     const currentTeam = teams.find(t => t.id === teamId);
@@ -203,14 +213,32 @@ export default function AdminDashboardPage() {
       }
     }
 
+    setAssigningTeamId(teamId);
+
     try {
-      await supabase.from('teams').update({ assigned_judge: finalJudge }).eq('team_name', teamName);
-      setTeams(teams.map(t => t.id === teamId ? { ...t, assignedJudge: finalJudge } : t));
-      alert(`Successfully assigned ${finalJudge} to team "${teamName}"!`);
+      let updateQuery = supabase.from('teams').update({ assigned_judge: finalJudge });
+      if (teamId && teamId.length > 20) {
+        updateQuery = updateQuery.eq('id', teamId);
+      } else {
+        updateQuery = updateQuery.ilike('team_name', teamName.trim());
+      }
+
+      const { error } = await updateQuery;
+      if (error) {
+        console.error("Judge assignment error:", error);
+        alert("Error saving assignment to Supabase: " + error.message);
+        setAssigningTeamId(null);
+        return;
+      }
+
+      setTeams(prev => prev.map(t => t.id === teamId ? { ...t, assignedJudge: finalJudge } : t));
+      setJudgeSelections(prev => ({ ...prev, [teamId]: finalJudge }));
+      alert(`✅ Successfully assigned ${finalJudge} to team "${teamName}"!`);
     } catch (err) {
       console.error("Judge assignment error:", err);
-      setTeams(teams.map(t => t.id === teamId ? { ...t, assignedJudge: finalJudge } : t));
       alert(`Assigned ${finalJudge} to team "${teamName}"!`);
+    } finally {
+      setAssigningTeamId(null);
     }
   };
 
@@ -451,20 +479,13 @@ export default function AdminDashboardPage() {
                       </thead>
                       <tbody>
                         {displayedTeams.map(t => {
-                          const defaultJudgeOptions = [
-                            'JM001', 'JM002', 'JM003', 'JM004', 'JM005',
-                            'JM006', 'JM007', 'JM008', 'JM009', 'JM010', 'JM011'
-                          ];
-                          const allJudgeOptions = Array.from(
-                            new Set([
-                              ...defaultJudgeOptions,
-                              ...teams.map(item => item.assignedJudge).filter(j => j && j !== 'Unassigned' && j !== 'CUSTOM'),
-                              ...allowedUsers.map(u => u.email).filter(Boolean)
-                            ])
-                          );
+                          const judgeProfilesList = Object.values(JUDGE_PROFILES);
+                          const validJudgeIds = judgeProfilesList.map(p => p.id);
+
                           const selectedVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
-                          const isCustom = selectedVal === 'CUSTOM' || (!allJudgeOptions.includes(selectedVal) && selectedVal !== 'Unassigned');
+                          const isCustom = selectedVal === 'CUSTOM' || (!validJudgeIds.includes(selectedVal) && selectedVal !== 'Unassigned');
                           const isAssigned = t.assignedJudge && t.assignedJudge !== 'Unassigned';
+                          const isSavingThisTeam = assigningTeamId === t.id;
 
                           return (
                             <tr key={t.id || t.teamName}>
@@ -488,16 +509,20 @@ export default function AdminDashboardPage() {
                                   value={isCustom ? 'CUSTOM' : selectedVal}
                                   onChange={(e) => {
                                     const val = e.target.value;
-                                    setJudgeSelections({ ...judgeSelections, [t.id]: val });
+                                    setJudgeSelections(prev => ({ ...prev, [t.id]: val }));
                                     if (val === 'CUSTOM' && !customJudgeInputs[t.id]) {
-                                      setCustomJudgeInputs({ ...customJudgeInputs, [t.id]: t.assignedJudge !== 'Unassigned' ? t.assignedJudge : '' });
+                                      setCustomJudgeInputs(prev => ({ ...prev, [t.id]: t.assignedJudge !== 'Unassigned' ? t.assignedJudge : '' }));
                                     }
                                   }}
                                 >
-                                  <option value="Unassigned">Unassigned</option>
-                                  {allJudgeOptions.map(jOpt => (
-                                    <option key={jOpt} value={jOpt}>{jOpt}</option>
-                                  ))}
+                                  <option value="Unassigned">⚠️ Unassigned</option>
+                                  <optgroup label="── Round-2 Judge IDs (JM001 - JM011) ──">
+                                    {judgeProfilesList.map(p => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.id} • {p.group} ({p.names.slice(0, 2).join(', ')}...)
+                                      </option>
+                                    ))}
+                                  </optgroup>
                                   <option value="CUSTOM">✍️ Enter Custom Judge Email / ID...</option>
                                 </select>
 
@@ -505,8 +530,8 @@ export default function AdminDashboardPage() {
                                   <input
                                     type="text"
                                     placeholder="Type Judge Email or ID..."
-                                    value={customJudgeInputs[t.id] !== undefined ? customJudgeInputs[t.id] : (allJudgeOptions.includes(t.assignedJudge) ? '' : t.assignedJudge)}
-                                    onChange={(e) => setCustomJudgeInputs({ ...customJudgeInputs, [t.id]: e.target.value })}
+                                    value={customJudgeInputs[t.id] !== undefined ? customJudgeInputs[t.id] : (validJudgeIds.includes(t.assignedJudge) ? '' : t.assignedJudge)}
+                                    onChange={(e) => setCustomJudgeInputs(prev => ({ ...prev, [t.id]: e.target.value }))}
                                     style={{
                                       marginTop: '6px',
                                       width: '100%',
@@ -524,10 +549,11 @@ export default function AdminDashboardPage() {
                                 <button
                                   type="button"
                                   className="eval-btn edit-btn"
-                                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                                  style={{ padding: '6px 12px', fontSize: '0.75rem', opacity: isSavingThisTeam ? 0.6 : 1 }}
+                                  disabled={isSavingThisTeam}
                                   onClick={() => handleAssignJudge(t.id, t.teamName)}
                                 >
-                                  ASSIGN
+                                  {isSavingThisTeam ? 'SAVING...' : 'ASSIGN'}
                                 </button>
                               </td>
                             </tr>

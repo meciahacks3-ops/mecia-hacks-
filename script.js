@@ -772,7 +772,14 @@ async function assignJudgeToTeam(teamId) {
     // Sync to Supabase if client is configured
     if (supabaseClient) {
       try {
-        await supabaseClient.from('teams').update({ assigned_judge: judgeEmail }).eq('team_name', team.teamName);
+        let q = supabaseClient.from('teams').update({ assigned_judge: judgeEmail });
+        if (team.id && team.id.length > 20) {
+          q = q.eq('id', team.id);
+        } else {
+          q = q.ilike('team_name', team.teamName.trim());
+        }
+        const { error } = await q;
+        if (error) console.error("Supabase assignment error:", error);
       } catch (e) {
         console.warn("Supabase judge assignment sync error:", e);
       }
