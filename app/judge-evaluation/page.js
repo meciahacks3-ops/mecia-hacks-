@@ -52,10 +52,10 @@ function JudgeEvaluationContent() {
 
   const loadExistingMarks = async (name) => {
     try {
-      // 1. Fetch team metadata
+      // 1. Fetch team metadata along with team members
       const { data: teamData } = await supabase
         .from('teams')
-        .select('*')
+        .select('*, team_members(*)')
         .ilike('team_name', name)
         .maybeSingle();
 
@@ -65,7 +65,14 @@ function JudgeEvaluationContent() {
           const match = teamData.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
           if (match && match[1]) parsedTeamId = match[1].trim();
         }
-        setTeamSub(`👑 Leader: ${teamData.leader_name} (${teamData.leader_id}) | 💡 Project: ${teamData.project_title}${parsedTeamId ? ` | 🆔 Team ID: ${parsedTeamId}` : ''}`);
+
+        const memberSummary = (teamData.team_members || []).map(m => {
+          let mName = m.member_name || '';
+          return `${mName} (${m.member_id || 'No ID'})`;
+        }).join(', ');
+
+        const membersInfo = memberSummary ? ` | 👥 Members: ${memberSummary}` : '';
+        setTeamSub(`👑 Leader: ${teamData.leader_name} (${teamData.leader_id})${membersInfo} | 💡 Project: ${teamData.project_title}${parsedTeamId ? ` | 🆔 Team ID: ${parsedTeamId}` : ''}`);
       }
 
       // 2. Fetch marks

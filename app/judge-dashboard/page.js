@@ -28,8 +28,8 @@ export default function JudgeDashboardPage() {
     setLoading(true);
 
     try {
-      // 1. Fetch Teams from Supabase
-      const { data: supaTeams } = await supabase.from('teams').select('*');
+      // 1. Fetch Teams along with team members from Supabase
+      const { data: supaTeams } = await supabase.from('teams').select('*, team_members(*)');
       if (supaTeams && supaTeams.length > 0) {
         const formattedTeams = supaTeams.map(st => {
           let parsedTeamId = st.team_id_no && st.team_id_no.trim() !== 'N/A' ? st.team_id_no.trim() : 'N/A';
@@ -37,6 +37,25 @@ export default function JudgeDashboardPage() {
             const match = st.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
             if (match && match[1]) parsedTeamId = match[1].trim();
           }
+
+          const parsedMembers = (st.team_members || []).map(m => {
+            let mName = m.member_name || '';
+            let mBranch = '';
+            const mMatch = mName.match(/^(.*?)\s*\((.*?)\)$/);
+            if (mMatch) {
+              mName = mMatch[1].trim();
+              mBranch = mMatch[2].trim();
+            }
+            return {
+              id: m.id,
+              name: mName,
+              email: m.member_email || '',
+              idNo: m.member_id || '',
+              phone: m.member_phone || '',
+              branch: mBranch
+            };
+          });
+
           return {
             id: st.id,
             teamName: st.team_name,
@@ -48,7 +67,8 @@ export default function JudgeDashboardPage() {
             projectTitle: st.project_title,
             mainIdea: st.main_idea,
             techStack: st.tech_stack,
-            assignedJudge: st.assigned_judge
+            assignedJudge: st.assigned_judge,
+            members: parsedMembers
           };
         });
         setTeams(formattedTeams);
@@ -224,8 +244,20 @@ export default function JudgeDashboardPage() {
                       </div>
                       <div className="info-block">
                         <span className="info-label">👑 Team Leader:</span>
-                        <span className="info-val">{t.leaderName} ({t.leaderId}) | {t.leaderEmail} | {t.leaderPhone}</span>
+                        <span className="info-val">{t.leaderName} ({t.leaderId}) | ✉️ {t.leaderEmail} {t.leaderPhone ? `| 📞 ${t.leaderPhone}` : ''}</span>
                       </div>
+                      {t.members && t.members.length > 0 && (
+                        <div className="info-block">
+                          <span className="info-label">👥 Team Members ({t.members.length}):</span>
+                          <div className="info-val" style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '3px' }}>
+                            {t.members.map((m, idx) => (
+                              <div key={m.id || idx} style={{ color: '#00ffcc', fontSize: '0.78rem' }}>
+                                • <strong>{m.name}</strong> ({m.idNo || 'No ID'}) {m.branch ? `[${m.branch}]` : ''} {m.phone ? `• 📞 ${m.phone}` : ''} {m.email ? `• ✉️ ${m.email}` : ''}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
                       <div className="info-block">
                         <span className="info-label">💡 Project Title:</span>
                         <span className="info-val highlight-title">{t.projectTitle}</span>

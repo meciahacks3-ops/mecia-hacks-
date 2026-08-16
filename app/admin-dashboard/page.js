@@ -105,8 +105,8 @@ export default function AdminDashboardPage() {
 
   const fetchData = async () => {
     try {
-      // 1. Fetch Teams
-      const { data: supaTeams } = await supabase.from('teams').select('*');
+      // 1. Fetch Teams along with all team members
+      const { data: supaTeams } = await supabase.from('teams').select('*, team_members(*)');
       if (supaTeams && supaTeams.length > 0) {
         const formattedTeams = supaTeams.map(st => {
           let parsedTeamId = st.team_id_no && st.team_id_no.trim() !== 'N/A' ? st.team_id_no.trim() : 'N/A';
@@ -114,6 +114,31 @@ export default function AdminDashboardPage() {
             const match = st.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
             if (match && match[1]) parsedTeamId = match[1].trim();
           }
+
+          let leaderBranch = '';
+          if (st.main_idea && st.main_idea.includes('Branch:')) {
+            const bMatch = st.main_idea.match(/Branch:\s*([^|\]]+)/i);
+            if (bMatch && bMatch[1]) leaderBranch = bMatch[1].trim();
+          }
+
+          const parsedMembers = (st.team_members || []).map(m => {
+            let mName = m.member_name || '';
+            let mBranch = '';
+            const mMatch = mName.match(/^(.*?)\s*\((.*?)\)$/);
+            if (mMatch) {
+              mName = mMatch[1].trim();
+              mBranch = mMatch[2].trim();
+            }
+            return {
+              id: m.id,
+              name: mName,
+              email: m.member_email || '',
+              idNo: m.member_id || '',
+              phone: m.member_phone || '',
+              branch: mBranch
+            };
+          });
+
           return {
             id: st.id,
             teamName: st.team_name,
@@ -122,9 +147,12 @@ export default function AdminDashboardPage() {
             leaderEmail: st.leader_email,
             leaderId: st.leader_id,
             leaderPhone: st.leader_phone,
+            leaderBranch: leaderBranch,
             projectTitle: st.project_title,
             techStack: st.tech_stack,
-            assignedJudge: st.assigned_judge || 'Unassigned'
+            assignedJudge: st.assigned_judge || 'Unassigned',
+            members: parsedMembers,
+            totalTeamSize: 1 + parsedMembers.length
           };
         });
         setTeams(formattedTeams);
@@ -211,6 +239,7 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // 1. Export Teams Master CSV (with Leader + Member 1, 2, 3 in separate columns)
   const exportCSV = () => {
     let csvRows = [];
     csvRows.push(["Mecia Hack 3.0 - Complete Admin Master Report & Evaluation Sheet (Round 2)"]);
@@ -219,10 +248,28 @@ export default function AdminDashboardPage() {
     csvRows.push([
       "Team ID",
       "Team Name",
+      "Total Team Size",
       "Leader Name",
       "Leader Email",
-      "Leader ID",
+      "Leader Enrollment ID",
       "Leader Phone",
+      "Leader Branch",
+      "Member 1 Name",
+      "Member 1 Email",
+      "Member 1 Enrollment ID",
+      "Member 1 Phone",
+      "Member 1 Branch",
+      "Member 2 Name",
+      "Member 2 Email",
+      "Member 2 Enrollment ID",
+      "Member 2 Phone",
+      "Member 2 Branch",
+      "Member 3 Name",
+      "Member 3 Email",
+      "Member 3 Enrollment ID",
+      "Member 3 Phone",
+      "Member 3 Branch",
+      "All Members Roster Summary",
       "Project Title",
       "Tech Stack",
       "Assigned Judge",
@@ -252,13 +299,40 @@ export default function AdminDashboardPage() {
         remarks = evalEntry.remarks || '';
       }
 
+      const m1 = t.members && t.members[0] ? t.members[0] : null;
+      const m2 = t.members && t.members[1] ? t.members[1] : null;
+      const m3 = t.members && t.members[2] ? t.members[2] : null;
+
+      const allMembersSummary = [
+        `Leader: ${t.leaderName} (${t.leaderId}) [Phone: ${t.leaderPhone}] [Email: ${t.leaderEmail}]`,
+        ...(t.members || []).map((m, idx) => `Member ${idx + 1}: ${m.name} (${m.idNo}) [Phone: ${m.phone}] [Email: ${m.email}]${m.branch ? ` [${m.branch}]` : ''}`)
+      ].join(' | ');
+
       csvRows.push([
         `"${t.teamIdNo || 'N/A'}"`,
         `"${t.teamName || ''}"`,
+        t.totalTeamSize || (1 + (t.members?.length || 0)),
         `"${t.leaderName || ''}"`,
         `"${t.leaderEmail || ''}"`,
         `"${t.leaderId || ''}"`,
         `"${t.leaderPhone || ''}"`,
+        `"${t.leaderBranch || ''}"`,
+        `"${m1 ? m1.name : ''}"`,
+        `"${m1 ? m1.email : ''}"`,
+        `"${m1 ? m1.idNo : ''}"`,
+        `"${m1 ? m1.phone : ''}"`,
+        `"${m1 ? m1.branch : ''}"`,
+        `"${m2 ? m2.name : ''}"`,
+        `"${m2 ? m2.email : ''}"`,
+        `"${m2 ? m2.idNo : ''}"`,
+        `"${m2 ? m2.phone : ''}"`,
+        `"${m2 ? m2.branch : ''}"`,
+        `"${m3 ? m3.name : ''}"`,
+        `"${m3 ? m3.email : ''}"`,
+        `"${m3 ? m3.idNo : ''}"`,
+        `"${m3 ? m3.phone : ''}"`,
+        `"${m3 ? m3.branch : ''}"`,
+        `"${allMembersSummary.replace(/"/g, '""')}"`,
         `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
         `"${(t.techStack || '').replace(/"/g, '""')}"`,
         `"${t.assignedJudge || 'Unassigned'}"`,
@@ -278,7 +352,69 @@ export default function AdminDashboardPage() {
     const url = URL.createObjectURL(blob);
     const downloadAnchor = document.createElement('a');
     downloadAnchor.href = url;
-    downloadAnchor.setAttribute('download', `Mecia_Hack_3.0_Admin_Master_Report_${Date.now()}.csv`);
+    downloadAnchor.setAttribute('download', `Mecia_Hack_3.0_Teams_All_Members_Master_Report_${Date.now()}.csv`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    document.body.removeChild(downloadAnchor);
+  };
+
+  // 2. Export All Students Directory CSV (1 row per participant: Leader or Member)
+  const exportStudentsDirectoryCSV = () => {
+    let csvRows = [];
+    csvRows.push(["Mecia Hack 3.0 - Complete All Students & Participants Directory"]);
+    csvRows.push(["Report Date", new Date().toLocaleString()]);
+    csvRows.push([]);
+    csvRows.push([
+      "Team ID",
+      "Team Name",
+      "Participant Role",
+      "Student Name",
+      "Enrollment No / ID",
+      "Email Address",
+      "Mobile Phone",
+      "Branch / Dept",
+      "Project Title",
+      "Assigned Judge"
+    ]);
+
+    teams.forEach(t => {
+      // Leader row
+      csvRows.push([
+        `"${t.teamIdNo || 'N/A'}"`,
+        `"${t.teamName || ''}"`,
+        `"👑 Team Leader"`,
+        `"${t.leaderName || ''}"`,
+        `"${t.leaderId || ''}"`,
+        `"${t.leaderEmail || ''}"`,
+        `"${t.leaderPhone || ''}"`,
+        `"${t.leaderBranch || ''}"`,
+        `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
+        `"${t.assignedJudge || 'Unassigned'}"`
+      ]);
+
+      // Members rows
+      (t.members || []).forEach((m, idx) => {
+        csvRows.push([
+          `"${t.teamIdNo || 'N/A'}"`,
+          `"${t.teamName || ''}"`,
+          `"👤 Member #${idx + 1}"`,
+          `"${m.name || ''}"`,
+          `"${m.idNo || ''}"`,
+          `"${m.email || ''}"`,
+          `"${m.phone || ''}"`,
+          `"${m.branch || ''}"`,
+          `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
+          `"${t.assignedJudge || 'Unassigned'}"`
+        ]);
+      });
+    });
+
+    const csvContent = csvRows.map(row => row.join(",")).join("\n");
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.href = url;
+    downloadAnchor.setAttribute('download', `Mecia_Hack_3.0_All_Students_Directory_${Date.now()}.csv`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     document.body.removeChild(downloadAnchor);
@@ -341,8 +477,11 @@ export default function AdminDashboardPage() {
           >
             🔐 OAUTH WHITELIST ({allowedUsers.length})
           </button>
-          <button type="button" className="submit-btn excel-btn admin-excel-btn" onClick={exportCSV}>
-            📊 EXPORT CSV
+          <button type="button" className="submit-btn excel-btn admin-excel-btn" onClick={exportCSV} title="Export spreadsheet with all teams and all members details">
+            📊 MASTER CSV (ALL MEMBERS)
+          </button>
+          <button type="button" className="submit-btn" style={{ background: '#2121ff', border: '2px solid #2121ff', color: '#fff', padding: '10px 16px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', borderRadius: '8px', cursor: 'pointer' }} onClick={exportStudentsDirectoryCSV} title="Export individual participant directory">
+            👥 STUDENTS DIRECTORY CSV
           </button>
         </div>
 
@@ -436,13 +575,13 @@ export default function AdminDashboardPage() {
                     <table className="eval-table admin-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '12%', textAlign: 'center' }}>Team ID</th>
-                          <th style={{ width: '18%' }}>Team Name</th>
-                          <th style={{ width: '20%' }}>Team Leader</th>
-                          <th style={{ width: '20%' }}>Project Title</th>
-                          <th style={{ width: '12%' }}>Status</th>
-                          <th style={{ width: '20%' }}>Assign Judge Panel</th>
-                          <th style={{ width: '8%', textAlign: 'center' }}>Action</th>
+                          <th style={{ width: '10%', textAlign: 'center' }}>Team ID</th>
+                          <th style={{ width: '16%' }}>Team Name</th>
+                          <th style={{ width: '28%' }}>Team Leader & Members</th>
+                          <th style={{ width: '16%' }}>Project Title</th>
+                          <th style={{ width: '10%' }}>Status</th>
+                          <th style={{ width: '14%' }}>Assign Judge Panel</th>
+                          <th style={{ width: '6%', textAlign: 'center' }}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -472,11 +611,72 @@ export default function AdminDashboardPage() {
                                 }}>
                                   {t.teamIdNo && t.teamIdNo !== 'N/A' ? t.teamIdNo : 'N/A'}
                                 </span>
+                                <div style={{ fontSize: '0.62rem', color: '#888', marginTop: '6px' }}>
+                                  👥 {t.totalTeamSize || (1 + (t.members?.length || 0))} {t.totalTeamSize === 1 ? 'person' : 'members'}
+                                </div>
                               </td>
                               <td className="criterion-name">
-                                {t.teamName}
+                                <strong style={{ color: '#fff', fontSize: '0.95rem' }}>{t.teamName}</strong>
                               </td>
-                              <td>{t.leaderName} ({t.leaderId})<br /><small style={{ color: 'var(--text-muted)' }}>{t.leaderEmail}</small></td>
+                              <td>
+                                {/* Team Leader details */}
+                                <div style={{ background: 'rgba(253, 255, 0, 0.05)', border: '1px solid rgba(253, 255, 0, 0.3)', borderRadius: '6px', padding: '8px 10px', marginBottom: '8px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
+                                    <span style={{
+                                      background: '#fdff00',
+                                      color: '#000',
+                                      borderRadius: '3px',
+                                      padding: '2px 5px',
+                                      fontSize: '0.58rem',
+                                      fontWeight: 'bold',
+                                      fontFamily: 'Press Start 2P, monospace'
+                                    }}>👑 LEADER</span>
+                                    <strong style={{ color: '#fff', fontSize: '0.85rem' }}>{t.leaderName}</strong>
+                                    {t.leaderBranch && <span style={{ color: '#00ffcc', fontSize: '0.72rem' }}>({t.leaderBranch})</span>}
+                                  </div>
+                                  <div style={{ color: '#ccc', fontSize: '0.74rem' }}>
+                                    🆔 <strong>{t.leaderId}</strong> • 📞 <strong>{t.leaderPhone || 'N/A'}</strong>
+                                  </div>
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', wordBreak: 'break-all' }}>
+                                    ✉️ {t.leaderEmail}
+                                  </div>
+                                </div>
+
+                                {/* Additional Team Members */}
+                                {t.members && t.members.length > 0 ? (
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                    {t.members.map((m, mIdx) => (
+                                      <div key={m.id || mIdx} style={{ background: 'rgba(0, 255, 204, 0.04)', borderLeft: '3px solid #00ffcc', borderRadius: '4px', padding: '5px 8px' }}>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                          <span style={{
+                                            background: '#00ffcc',
+                                            color: '#000',
+                                            borderRadius: '3px',
+                                            padding: '1px 4px',
+                                            fontSize: '0.55rem',
+                                            fontWeight: 'bold',
+                                            fontFamily: 'Press Start 2P, monospace'
+                                          }}>👤 M{mIdx + 1}</span>
+                                          <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '0.82rem' }}>{m.name}</span>
+                                          {m.branch && <span style={{ color: '#888', fontSize: '0.7rem' }}>({m.branch})</span>}
+                                        </div>
+                                        <div style={{ color: '#bbb', fontSize: '0.72rem' }}>
+                                          🆔 <strong>{m.idNo || 'N/A'}</strong> • 📞 <strong>{m.phone || 'N/A'}</strong>
+                                        </div>
+                                        {m.email && (
+                                          <div style={{ color: '#888', fontSize: '0.7rem', wordBreak: 'break-all' }}>
+                                            ✉️ {m.email}
+                                          </div>
+                                        )}
+                                      </div>
+                                    ))}
+                                  </div>
+                                ) : (
+                                  <span style={{ color: '#777', fontSize: '0.72rem', fontStyle: 'italic' }}>
+                                    • Solo Team (No extra members added)
+                                  </span>
+                                )}
+                              </td>
                               <td>{t.projectTitle}<br /><small style={{ color: 'var(--text-muted)' }}>{t.techStack}</small></td>
                               <td>
                                 {isAssigned ? (

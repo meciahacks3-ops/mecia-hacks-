@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { findRegisteredTeam } from '@/lib/teamUtils';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -96,9 +97,18 @@ export default function LoginPage() {
           return;
         }
 
-        // Student Google OAuth login
+        // Check if user is associated with any registered team
+        const registeredTeam = await findRegisteredTeam(supabase, userEmail);
+        if (!registeredTeam) {
+          await supabase.auth.signOut();
+          sessionStorage.clear();
+          setAuthError(`🚫 REGISTRATION CLOSED: No registered team found for "${userEmail}". New team registrations are closed. Only registered participants can log in to view or edit team details.`);
+          return;
+        }
+
+        // Student Google OAuth login verified
         sessionStorage.setItem('studentId', userEmail);
-        await recordLoginToSupabase(userEmail, 'STUDENT (Google OAuth)');
+        await recordLoginToSupabase(userEmail, 'STUDENT (Google OAuth - Registered Team)');
         router.push('/project-submission');
       }
     };
@@ -117,9 +127,18 @@ export default function LoginPage() {
           return;
         }
 
-        // Student Google OAuth login
+        // Check if user is associated with any registered team
+        const registeredTeam = await findRegisteredTeam(supabase, userEmail);
+        if (!registeredTeam) {
+          await supabase.auth.signOut();
+          sessionStorage.clear();
+          setAuthError(`🚫 REGISTRATION CLOSED: No registered team found for "${userEmail}". New team registrations are closed. Only registered participants can log in to view or edit team details.`);
+          return;
+        }
+
+        // Student Google OAuth login verified
         sessionStorage.setItem('studentId', userEmail);
-        await recordLoginToSupabase(userEmail, 'STUDENT (Google OAuth)');
+        await recordLoginToSupabase(userEmail, 'STUDENT (Google OAuth - Registered Team)');
         router.push('/project-submission');
       }
     });
@@ -165,12 +184,24 @@ export default function LoginPage() {
   const handleStudentLogin = async (e) => {
     e.preventDefault();
     setIsLoggingIn(true);
-    sessionStorage.setItem('targetRole', 'student');
-    sessionStorage.setItem('projectType', projectType);
-    if (studentId) {
-      sessionStorage.setItem('studentId', studentId);
-      await recordLoginToSupabase(studentId, `STUDENT Direct`);
+    setAuthError('');
+    const cleanId = (studentId || '').trim();
+    if (!cleanId) {
+      setIsLoggingIn(false);
+      return;
     }
+
+    const registeredTeam = await findRegisteredTeam(supabase, cleanId);
+    if (!registeredTeam) {
+      setIsLoggingIn(false);
+      setAuthError(`🚫 REGISTRATION CLOSED: "${cleanId}" is not associated with any registered team. New registrations are closed.`);
+      return;
+    }
+
+    sessionStorage.setItem('targetRole', 'student');
+    sessionStorage.setItem('studentId', cleanId);
+    sessionStorage.setItem('projectType', projectType);
+    await recordLoginToSupabase(cleanId, `STUDENT Direct - Registered`);
     setTimeout(() => {
       setIsLoggingIn(false);
       router.push('/project-submission');
@@ -278,14 +309,14 @@ export default function LoginPage() {
         <div className="login-header">
           <div className="badge-wrapper">
             <span className="role-badge" id="role-badge">
-              {role === 'student' && 'STAGE 1: STUDENT'}
+              {role === 'student' && 'STAGE 1: STUDENT PORTAL (REGISTERED TEAMS)'}
               {role === 'judge' && 'STAGE 2: JUDGE'}
               {role === 'admin' && 'STAGE 3: ADMIN'}
             </span>
           </div>
           <h2>Mecia Hack 3.0</h2>
           <p>
-            {role === 'student' && 'Access your project dashboard and submit entries.'}
+            {role === 'student' && 'Registration is closed. Log in with your registered account to view or edit your team details.'}
             {role === 'judge' && 'Evaluate hackathon submissions and score projects.'}
             {role === 'admin' && 'Manage events, teams, and administrative settings.'}
           </p>
@@ -345,18 +376,22 @@ export default function LoginPage() {
         {role === 'student' && (
           <div className="login-form active">
             <div style={{
-              background: 'rgba(33, 33, 255, 0.12)',
-              border: '1px dashed rgba(33, 33, 255, 0.6)',
+              background: 'rgba(255, 0, 85, 0.12)',
+              border: '1.5px solid #ff0055',
               padding: '12px 14px',
               borderRadius: '8px',
-              color: '#a0a0dd',
-              fontSize: '0.68rem',
+              color: '#ff88aa',
+              fontSize: '0.65rem',
               fontFamily: 'Press Start 2P, monospace',
               lineHeight: '1.6',
               marginBottom: '20px',
-              textAlign: 'center'
+              textAlign: 'center',
+              boxShadow: '0 0 10px rgba(255, 0, 85, 0.25)'
             }}>
-              🔒 STUDENT ACCESS: STRICTLY GOOGLE ACCOUNT AUTHENTICATION ONLY
+              🚫 REGISTRATION CLOSED
+              <div style={{ color: '#00ffcc', fontSize: '0.58rem', marginTop: '6px', lineHeight: '1.5' }}>
+                Sign in with your registered Google account to view & edit your team submission.
+              </div>
             </div>
 
             <button
