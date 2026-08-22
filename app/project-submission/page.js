@@ -545,66 +545,44 @@ export default function ProjectSubmissionPage() {
 
               {assignedJudge && assignedJudge !== 'Unassigned' ? (
                 <div>
-                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '16px' }}>
-                    {/* Card 1: Assigned Judge Panel & Evaluators */}
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(260px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                    {/* Card 1: Assigned Judge Panel Number */}
                     <div style={{
                       background: 'rgba(0, 0, 0, 0.8)',
                       border: '1.5px solid rgba(0, 255, 204, 0.4)',
                       borderRadius: '10px',
-                      padding: '18px 16px',
-                      boxShadow: '0 0 12px rgba(0, 255, 204, 0.15)'
+                      padding: '20px 18px',
+                      boxShadow: '0 0 12px rgba(0, 255, 204, 0.15)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center'
                     }}>
                       <div style={{ fontSize: '0.62rem', color: '#8888aa', fontFamily: 'Press Start 2P, monospace', marginBottom: '10px' }}>
                         ALLOCATED JUDGE PANEL
                       </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
                         <span style={{
                           background: 'rgba(253, 255, 0, 0.15)',
                           color: '#fdff00',
                           border: '2px solid #fdff00',
                           borderRadius: '6px',
-                          padding: '6px 14px',
+                          padding: '8px 16px',
                           fontFamily: 'Press Start 2P, monospace',
-                          fontSize: '1.05rem',
+                          fontSize: '1.15rem',
                           fontWeight: 'bold',
-                          boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
+                          boxShadow: '0 0 12px rgba(253, 255, 0, 0.4)'
                         }}>
                           {assignedJudge.toUpperCase()}
                         </span>
                         {judgeProfile?.group && (
-                          <span style={{ color: '#00ffcc', fontSize: '0.88rem', fontWeight: 'bold' }}>
-                            • {judgeProfile.group}
+                          <span style={{ color: '#00ffcc', fontSize: '0.95rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                            {judgeProfile.group}
                           </span>
                         )}
                       </div>
-                      {judgeProfile ? (
-                        <div>
-                          <div style={{ fontSize: '0.68rem', color: '#aaa', marginBottom: '8px', fontWeight: '600' }}>
-                            👥 PANEL EVALUATORS / FACULTY JURY:
-                          </div>
-                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                            {judgeProfile.names.map((name, nIdx) => (
-                              <div key={nIdx} style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '8px',
-                                background: 'rgba(0, 255, 204, 0.05)',
-                                padding: '6px 10px',
-                                borderRadius: '4px',
-                                fontSize: '0.8rem',
-                                color: '#fff'
-                              }}>
-                                <span style={{ color: '#00ffcc', fontSize: '0.7rem' }}>▶</span>
-                                <strong>{name}</strong>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ) : (
-                        <div style={{ color: '#fff', fontSize: '0.88rem' }}>
-                          Evaluator: <strong>{assignedJudge}</strong>
-                        </div>
-                      )}
+                      <div style={{ color: '#aaa', fontSize: '0.74rem', marginTop: '10px' }}>
+                        Official evaluation jury assigned for Round 2.
+                      </div>
                     </div>
 
                     {/* Card 2: Lab Venue Location */}
@@ -612,51 +590,52 @@ export default function ProjectSubmissionPage() {
                       background: 'rgba(0, 0, 0, 0.8)',
                       border: '1.5px solid rgba(253, 255, 0, 0.4)',
                       borderRadius: '10px',
-                      padding: '18px 16px',
+                      padding: '20px 18px',
                       boxShadow: '0 0 12px rgba(253, 255, 0, 0.15)',
                       display: 'flex',
                       flexDirection: 'column',
-                      justifyContent: 'space-between'
+                      justifyContent: 'center'
                     }}>
-                      <div>
-                        <div style={{ fontSize: '0.62rem', color: '#8888aa', fontFamily: 'Press Start 2P, monospace', marginBottom: '10px' }}>
-                          📍 PRESENTATION & EVALUATION VENUE
-                        </div>
-                        <div style={{
-                          background: 'rgba(253, 255, 0, 0.12)',
-                          border: '2px solid #fdff00',
-                          borderRadius: '8px',
-                          padding: '14px 16px',
-                          marginBottom: '14px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '14px',
-                          boxShadow: '0 0 12px rgba(253, 255, 0, 0.2)'
-                        }}>
-                          <span style={{ fontSize: '2rem' }}>📍</span>
-                          <div>
-                            <div style={{ color: '#fdff00', fontFamily: 'Press Start 2P, monospace', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                              {judgeProfile?.location || 'Computer Engineering Dept.'}
-                            </div>
-                            <div style={{ color: '#bbb', fontSize: '0.78rem', marginTop: '4px' }}>
-                              Report directly to this lab room when your team is called for Round-2 evaluation.
-                            </div>
+                      <div style={{ fontSize: '0.62rem', color: '#8888aa', fontFamily: 'Press Start 2P, monospace', marginBottom: '10px' }}>
+                        📍 PRESENTATION & EVALUATION VENUE
+                      </div>
+                      <div style={{
+                        background: 'rgba(253, 255, 0, 0.12)',
+                        border: '2px solid #fdff00',
+                        borderRadius: '8px',
+                        padding: '12px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        boxShadow: '0 0 12px rgba(253, 255, 0, 0.2)'
+                      }}>
+                        <span style={{ fontSize: '1.8rem' }}>📍</span>
+                        <div>
+                          <div style={{ color: '#fdff00', fontFamily: 'Press Start 2P, monospace', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                            {judgeProfile?.location || 'Computer Engineering Dept.'}
                           </div>
                         </div>
                       </div>
-
-                      <div style={{
-                        background: 'rgba(33, 33, 255, 0.15)',
-                        border: '1px solid rgba(33, 33, 255, 0.4)',
-                        borderRadius: '6px',
-                        padding: '10px 12px',
-                        fontSize: '0.74rem',
-                        color: '#ccc',
-                        lineHeight: '1.4'
-                      }}>
-                        💡 <strong>Presentation Checklist:</strong> Ensure your hardware prototype / software repo, presentation slides, and College ID cards are ready.
+                      <div style={{ color: '#bbb', fontSize: '0.74rem', marginTop: '10px' }}>
+                        Report directly to this lab room with your team when called.
                       </div>
                     </div>
+                  </div>
+
+                  <div style={{
+                    background: 'rgba(33, 33, 255, 0.15)',
+                    border: '1px solid rgba(33, 33, 255, 0.4)',
+                    borderRadius: '6px',
+                    padding: '10px 14px',
+                    fontSize: '0.74rem',
+                    color: '#ccc',
+                    lineHeight: '1.5',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '10px'
+                  }}>
+                    <span>💡</span>
+                    <span><strong>Presentation Checklist:</strong> Please keep your working prototype, presentation slides, and College ID cards ready when reporting to the lab.</span>
                   </div>
                 </div>
               ) : (
