@@ -19,6 +19,22 @@ export default function AdminDashboardPage() {
   const [newGmail, setNewGmail] = useState('');
   const [editingUserId, setEditingUserId] = useState(null);
   const [editingEmail, setEditingEmail] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === '/' && !['INPUT', 'TEXTAREA', 'SELECT'].includes(document.activeElement?.tagName)) {
+        e.preventDefault();
+        const searchInput = document.getElementById('admin-search-input');
+        if (searchInput) searchInput.focus();
+      }
+      if (e.key === 'Escape' && searchQuery) {
+        setSearchQuery('');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [searchQuery]);
 
   useEffect(() => {
     const savedAdminUser = sessionStorage.getItem('adminUser');
@@ -430,19 +446,130 @@ export default function AdminDashboardPage() {
     router.push('/');
   };
 
+  const cleanQuery = searchQuery.trim().toLowerCase();
+
+  // Search filter across teams (Team ID, Name, Leader details, Member details, Project, Judge, Tech)
+  const searchMatchedTeams = teams.filter(t => {
+    if (!cleanQuery) return true;
+
+    if (t.teamIdNo && t.teamIdNo.toLowerCase().includes(cleanQuery)) return true;
+    if (t.teamName && t.teamName.toLowerCase().includes(cleanQuery)) return true;
+
+    if (t.leaderName && t.leaderName.toLowerCase().includes(cleanQuery)) return true;
+    if (t.leaderEmail && t.leaderEmail.toLowerCase().includes(cleanQuery)) return true;
+    if (t.leaderId && t.leaderId.toLowerCase().includes(cleanQuery)) return true;
+    if (t.leaderPhone && t.leaderPhone.toLowerCase().includes(cleanQuery)) return true;
+    if (t.leaderBranch && t.leaderBranch.toLowerCase().includes(cleanQuery)) return true;
+
+    if (t.projectTitle && t.projectTitle.toLowerCase().includes(cleanQuery)) return true;
+    if (t.techStack && t.techStack.toLowerCase().includes(cleanQuery)) return true;
+
+    if (t.assignedJudge && t.assignedJudge.toLowerCase().includes(cleanQuery)) return true;
+
+    if (t.members && t.members.some(m =>
+      (m.name && m.name.toLowerCase().includes(cleanQuery)) ||
+      (m.email && m.email.toLowerCase().includes(cleanQuery)) ||
+      (m.idNo && m.idNo.toLowerCase().includes(cleanQuery)) ||
+      (m.phone && m.phone.toLowerCase().includes(cleanQuery)) ||
+      (m.branch && m.branch.toLowerCase().includes(cleanQuery))
+    )) return true;
+
+    return false;
+  });
+
   return (
     <>
       <div className="scanlines"></div>
 
       <div className="admin-container">
-        {/* Navigation Header */}
-        <div className="nav-header" style={{ justifyContent: 'flex-end', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-          <div className="student-hud-badge">
-            <span className="ghost pink-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> ADMIN USER: <span>{adminUser}</span>
+        {/* Navigation Header: Top-Left Search Bar & Button + Top-Right User HUD */}
+        <div className="nav-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '28px' }}>
+          {/* Top Left: Retro Search Component */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 340px', maxWidth: '620px' }}>
+            <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
+              <span style={{ position: 'absolute', left: '12px', color: searchQuery ? 'var(--pacman-yellow, #fdff00)' : '#888', fontSize: '0.85rem', pointerEvents: 'none' }}>
+                🔍
+              </span>
+              <input
+                id="admin-search-input"
+                type="text"
+                placeholder="Search Team ID, Name, Leader, Member, Judge, Email..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '10px 36px 10px 36px',
+                  background: 'rgba(0, 0, 0, 0.88)',
+                  border: searchQuery ? '2px solid var(--pacman-yellow, #fdff00)' : '2px solid var(--maze-blue, #2121ff)',
+                  boxShadow: searchQuery ? '0 0 14px rgba(253, 255, 0, 0.4)' : '0 0 8px rgba(33, 33, 255, 0.25)',
+                  borderRadius: '8px',
+                  color: '#fff',
+                  fontSize: '0.82rem',
+                  fontFamily: 'Inter, sans-serif',
+                  outline: 'none',
+                  transition: 'all 0.2s ease'
+                }}
+              />
+              {searchQuery && (
+                <button
+                  type="button"
+                  onClick={() => setSearchQuery('')}
+                  style={{
+                    position: 'absolute',
+                    right: '10px',
+                    background: 'rgba(255, 0, 85, 0.25)',
+                    border: '1px solid #ff0055',
+                    color: '#ff6699',
+                    borderRadius: '50%',
+                    width: '20px',
+                    height: '20px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    fontSize: '0.7rem',
+                    cursor: 'pointer',
+                    padding: 0
+                  }}
+                  title="Clear search"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <button
+              type="button"
+              className="eval-btn"
+              onClick={() => {
+                const el = document.getElementById('admin-search-input');
+                if (el) el.focus();
+              }}
+              style={{
+                padding: '10px 14px',
+                fontSize: '0.62rem',
+                whiteSpace: 'nowrap',
+                borderRadius: '8px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px',
+                cursor: 'pointer',
+                background: searchQuery ? '#fdff00' : undefined,
+                color: searchQuery ? '#000' : undefined
+              }}
+              title="Search teams, participants, or judges (Shortcut: Press '/')"
+            >
+              🔍 SEARCH
+            </button>
           </div>
-          <button type="button" className="logout-btn" onClick={handleLogout}>
-            🚪 LOG OUT
-          </button>
+
+          {/* Top Right: User & Logout */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <div className="student-hud-badge">
+              <span className="ghost pink-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> ADMIN USER: <span>{adminUser}</span>
+            </div>
+            <button type="button" className="logout-btn" onClick={handleLogout}>
+              🚪 LOG OUT
+            </button>
+          </div>
         </div>
 
         {/* Dashboard Title Header */}
@@ -461,7 +588,7 @@ export default function AdminDashboardPage() {
             className={`judge-nav-btn ${activeTab === 'teams-tab' ? 'active' : ''}`}
             onClick={() => setActiveTab('teams-tab')}
           >
-            👥 TEAMS & JUDGES
+            👥 TEAMS & JUDGES {cleanQuery ? `(${searchMatchedTeams.length})` : ''}
           </button>
           <button
             type="button"
@@ -485,15 +612,61 @@ export default function AdminDashboardPage() {
           </button>
         </div>
 
+        {/* Active Search Notification Banner */}
+        {cleanQuery && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            background: 'rgba(253, 255, 0, 0.08)',
+            border: '1.5px solid rgba(253, 255, 0, 0.4)',
+            boxShadow: '0 0 12px rgba(253, 255, 0, 0.15)',
+            borderRadius: '8px',
+            padding: '10px 16px',
+            marginBottom: '20px',
+            fontSize: '0.68rem',
+            color: '#fdff00',
+            fontFamily: 'Press Start 2P, monospace',
+            flexWrap: 'wrap',
+            gap: '10px'
+          }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+              <span>🔍 SEARCH FILTER:</span>
+              <span style={{ color: '#fff', background: 'rgba(0,0,0,0.6)', padding: '3px 8px', borderRadius: '4px', border: '1px solid #fdff00' }}>
+                &ldquo;{searchQuery}&rdquo;
+              </span>
+              <span style={{ color: '#00ffcc', fontSize: '0.62rem' }}>
+                ({searchMatchedTeams.length} total team match{searchMatchedTeams.length === 1 ? '' : 'es'})
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setSearchQuery('')}
+              style={{
+                background: '#ff0055',
+                color: '#fff',
+                border: 'none',
+                borderRadius: '4px',
+                padding: '6px 12px',
+                fontSize: '0.58rem',
+                fontFamily: 'Press Start 2P, monospace',
+                cursor: 'pointer'
+              }}
+            >
+              ✕ CLEAR FILTER
+            </button>
+          </div>
+        )}
+
         {/* TAB 1: TEAMS & JUDGE ASSIGNMENTS */}
         {activeTab === 'teams-tab' && (() => {
-          const unassignedTeams = teams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned');
-          const assignedTeams = teams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned');
+          const unassignedTeams = searchMatchedTeams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned');
+          const assignedTeams = searchMatchedTeams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned');
           const displayedTeams = teamsFilter === 'unassigned' 
             ? unassignedTeams 
             : teamsFilter === 'assigned' 
             ? assignedTeams 
-            : teams;
+            : searchMatchedTeams;
 
           return (
             <div className="admin-tab-content active">
@@ -502,7 +675,7 @@ export default function AdminDashboardPage() {
                   <h3 className="section-title" style={{ margin: 0 }}><span className="pacman-bullet"></span> REGISTERED TEAMS & JUDGE ASSIGNMENTS</h3>
                   
                   {/* Sub-filter tabs */}
-                  <div style={{ display: 'flex', gap: '8px' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
                       onClick={() => setTeamsFilter('unassigned')}
@@ -549,27 +722,79 @@ export default function AdminDashboardPage() {
                         cursor: 'pointer'
                       }}
                     >
-                      📋 ALL TEAMS ({teams.length})
+                      📋 ALL TEAMS ({searchMatchedTeams.length})
                     </button>
                   </div>
                 </div>
 
-                {teamsFilter === 'unassigned' && unassignedTeams.length === 0 ? (
-                  <div style={{
-                    background: 'rgba(0, 255, 204, 0.1)',
-                    border: '2px solid #00ffcc',
-                    borderRadius: '10px',
-                    padding: '24px',
-                    textAlign: 'center',
-                    color: '#00ffcc',
-                    fontFamily: 'Press Start 2P, monospace',
-                    fontSize: '0.75rem',
-                    lineHeight: '1.8'
-                  }}>
-                    🎉 ALL TEAMS HAVE BEEN ASSIGNED TO JUDGES!
-                    <br />
-                    <span style={{ fontSize: '0.65rem', color: '#aaa' }}>Click "✅ ASSIGNED" above to view or modify judge assignments.</span>
-                  </div>
+                {displayedTeams.length === 0 ? (
+                  cleanQuery ? (
+                    <div style={{
+                      background: 'rgba(255, 0, 85, 0.08)',
+                      border: '2px dashed #ff0055',
+                      borderRadius: '10px',
+                      padding: '30px 20px',
+                      textAlign: 'center',
+                      color: '#ff6699',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.72rem',
+                      lineHeight: '2'
+                    }}>
+                      ⚠️ NO TEAMS FOUND MATCHING &ldquo;{searchQuery}&rdquo;
+                      <br />
+                      <span style={{ fontSize: '0.65rem', color: '#bbb', fontFamily: 'Inter, sans-serif', fontWeight: 'normal' }}>
+                        Try searching by Team ID, Student Name, Leader Email, Enrollment ID, or Assigned Judge.
+                      </span>
+                      <br />
+                      <button
+                        type="button"
+                        onClick={() => setSearchQuery('')}
+                        style={{
+                          marginTop: '16px',
+                          background: 'var(--pacman-yellow, #fdff00)',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '8px 18px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.62rem',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        ✕ CLEAR SEARCH
+                      </button>
+                    </div>
+                  ) : teamsFilter === 'unassigned' && unassignedTeams.length === 0 ? (
+                    <div style={{
+                      background: 'rgba(0, 255, 204, 0.1)',
+                      border: '2px solid #00ffcc',
+                      borderRadius: '10px',
+                      padding: '24px',
+                      textAlign: 'center',
+                      color: '#00ffcc',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.75rem',
+                      lineHeight: '1.8'
+                    }}>
+                      🎉 ALL TEAMS HAVE BEEN ASSIGNED TO JUDGES!
+                      <br />
+                      <span style={{ fontSize: '0.65rem', color: '#aaa' }}>Click "✅ ASSIGNED" above to view or modify judge assignments.</span>
+                    </div>
+                  ) : (
+                    <div style={{
+                      background: 'rgba(255, 255, 255, 0.05)',
+                      border: '1px solid #444',
+                      borderRadius: '10px',
+                      padding: '24px',
+                      textAlign: 'center',
+                      color: '#aaa',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.7rem'
+                    }}>
+                      NO TEAMS FOUND IN THIS CATEGORY
+                    </div>
+                  )
                 ) : (
                   <div className="table-responsive">
                     <table className="eval-table admin-table">
@@ -794,6 +1019,26 @@ export default function AdminDashboardPage() {
             return 0;
           });
 
+          const displayedLeaderboard = leaderboardData.filter(item => {
+            if (!cleanQuery) return true;
+            if (item.teamIdNo && item.teamIdNo.toLowerCase().includes(cleanQuery)) return true;
+            if (item.teamName && item.teamName.toLowerCase().includes(cleanQuery)) return true;
+            if (item.judge && item.judge.toLowerCase().includes(cleanQuery)) return true;
+            if (item.leaderName && item.leaderName.toLowerCase().includes(cleanQuery)) return true;
+            if (item.leaderId && item.leaderId.toLowerCase().includes(cleanQuery)) return true;
+            if (item.leaderBranch && item.leaderBranch.toLowerCase().includes(cleanQuery)) return true;
+            if (item.projectTitle && item.projectTitle.toLowerCase().includes(cleanQuery)) return true;
+            if (item.remarks && item.remarks.toLowerCase().includes(cleanQuery)) return true;
+            if (item.score !== undefined && String(item.score).includes(cleanQuery)) return true;
+            if (item.members && item.members.some(m =>
+              (m.name && m.name.toLowerCase().includes(cleanQuery)) ||
+              (m.email && m.email.toLowerCase().includes(cleanQuery)) ||
+              (m.idNo && m.idNo.toLowerCase().includes(cleanQuery)) ||
+              (m.branch && m.branch.toLowerCase().includes(cleanQuery))
+            )) return true;
+            return false;
+          });
+
           return (
             <div className="admin-tab-content active">
               <div className="form-section">
@@ -824,68 +1069,100 @@ export default function AdminDashboardPage() {
                       </tr>
                     </thead>
                     <tbody>
-                      {leaderboardData.map((item, index) => {
-                        let rankBadge = '-';
-                        let rowBg = undefined;
+                      {displayedLeaderboard.length === 0 ? (
+                        <tr>
+                          <td colSpan="11" style={{ textAlign: 'center', color: cleanQuery ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px', fontFamily: cleanQuery ? 'Press Start 2P, monospace' : 'inherit', fontSize: cleanQuery ? '0.72rem' : 'inherit', lineHeight: '2' }}>
+                            {cleanQuery ? (
+                              <>
+                                ⚠️ NO LEADERBOARD ENTRIES FOUND MATCHING &ldquo;{searchQuery}&rdquo;
+                                <br />
+                                <button
+                                  type="button"
+                                  onClick={() => setSearchQuery('')}
+                                  style={{
+                                    marginTop: '12px',
+                                    background: '#fdff00',
+                                    color: '#000',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '6px 14px',
+                                    fontFamily: 'Press Start 2P, monospace',
+                                    fontSize: '0.6rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ✕ CLEAR SEARCH
+                                </button>
+                              </>
+                            ) : (
+                              "No evaluations or teams registered yet."
+                            )}
+                          </td>
+                        </tr>
+                      ) : (
+                        displayedLeaderboard.map((item, index) => {
+                          let rankBadge = '-';
+                          let rowBg = undefined;
 
-                        if (item.isScored) {
-                          if (index === 0) {
-                            rankBadge = '🥇 1ST';
-                            rowBg = 'rgba(253, 255, 0, 0.08)';
-                          } else if (index === 1) {
-                            rankBadge = '🥈 2ND';
-                            rowBg = 'rgba(224, 224, 224, 0.06)';
-                          } else if (index === 2) {
-                            rankBadge = '🥉 3RD';
-                            rowBg = 'rgba(205, 127, 50, 0.06)';
-                          } else {
-                            rankBadge = `#${index + 1}`;
+                          if (item.isScored) {
+                            if (index === 0) {
+                              rankBadge = '🥇 1ST';
+                              rowBg = 'rgba(253, 255, 0, 0.08)';
+                            } else if (index === 1) {
+                              rankBadge = '🥈 2ND';
+                              rowBg = 'rgba(224, 224, 224, 0.06)';
+                            } else if (index === 2) {
+                              rankBadge = '🥉 3RD';
+                              rowBg = 'rgba(205, 127, 50, 0.06)';
+                            } else {
+                              rankBadge = `#${index + 1}`;
+                            }
                           }
-                        }
 
-                        return (
-                          <tr key={item.id || item.teamName} style={{ background: rowBg }}>
-                            <td style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem', color: index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff' }}>
-                              {rankBadge}
-                            </td>
-                            <td style={{ textAlign: 'center' }}>
-                              <span style={{
-                                display: 'inline-block',
-                                background: 'rgba(253, 255, 0, 0.15)',
-                                color: '#fdff00',
-                                border: '1.5px solid #fdff00',
-                                borderRadius: '6px',
-                                padding: '3px 6px',
-                                fontFamily: 'Press Start 2P, monospace',
-                                fontSize: '0.62rem',
-                                fontWeight: 'bold'
-                              }}>
-                                {item.teamIdNo && item.teamIdNo !== 'N/A' ? item.teamIdNo : 'N/A'}
-                              </span>
-                            </td>
-                            <td className="criterion-name">
-                              {item.teamName}
-                              {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
-                            </td>
-                            <td>{item.judge}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c2}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c3}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c4}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c5}</td>
-                            <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: item.isScored ? '#fdff00' : 'var(--text-muted)' }}>
-                              {item.isScored ? `${item.score} / 50` : '- / 50'}
-                            </td>
-                            <td>
-                              {item.isScored ? (
-                                <span className="status-pill status-completed">SCORED</span>
-                              ) : (
-                                <span className="status-pill status-pending">PENDING</span>
-                              )}
-                            </td>
-                          </tr>
-                        );
-                      })}
+                          return (
+                            <tr key={item.id || item.teamName} style={{ background: rowBg }}>
+                              <td style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem', color: index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff' }}>
+                                {rankBadge}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{
+                                  display: 'inline-block',
+                                  background: 'rgba(253, 255, 0, 0.15)',
+                                  color: '#fdff00',
+                                  border: '1.5px solid #fdff00',
+                                  borderRadius: '6px',
+                                  padding: '3px 6px',
+                                  fontFamily: 'Press Start 2P, monospace',
+                                  fontSize: '0.62rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  {item.teamIdNo && item.teamIdNo !== 'N/A' ? item.teamIdNo : 'N/A'}
+                                </span>
+                              </td>
+                              <td className="criterion-name">
+                                {item.teamName}
+                                {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
+                              </td>
+                              <td>{item.judge}</td>
+                              <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>
+                              <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c2}</td>
+                              <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c3}</td>
+                              <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c4}</td>
+                              <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c5}</td>
+                              <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: item.isScored ? '#fdff00' : 'var(--text-muted)' }}>
+                                {item.isScored ? `${item.score} / 50` : '- / 50'}
+                              </td>
+                              <td>
+                                {item.isScored ? (
+                                  <span className="status-pill status-completed">SCORED</span>
+                                ) : (
+                                  <span className="status-pill status-pending">PENDING</span>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })
+                      )}
                     </tbody>
                   </table>
                 </div>
@@ -895,127 +1172,160 @@ export default function AdminDashboardPage() {
         })()}
 
         {/* TAB 3: ALLOWED GMAILS WHITELIST */}
-        {activeTab === 'whitelist-tab' && (
-          <div className="admin-tab-content active">
-            <div className="form-section">
-              <h3 className="section-title"><span className="pacman-bullet"></span> GOOGLE OAUTH AUTHORIZED USERS WHITELIST</h3>
+        {activeTab === 'whitelist-tab' && (() => {
+          const displayedAllowedUsers = allowedUsers.filter(u => {
+            if (!cleanQuery) return true;
+            if (u.email && u.email.toLowerCase().includes(cleanQuery)) return true;
+            if (u.added_by && u.added_by.toLowerCase().includes(cleanQuery)) return true;
+            return false;
+          });
 
-              <form onSubmit={handleAddAllowedGmail} className="whitelist-add-form" style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
-                <input
-                  type="email"
-                  placeholder="Enter authorized Gmail address (e.g., student@gmail.com)"
-                  required
-                  value={newGmail}
-                  onChange={(e) => setNewGmail(e.target.value)}
-                  style={{
-                    flex: 1,
-                    padding: '12px 14px',
-                    background: '#000',
-                    border: '2px solid var(--inky-cyan)',
-                    borderRadius: '8px',
-                    color: '#fff',
-                    outline: 'none'
-                  }}
-                />
-                <button type="submit" className="submit-btn" style={{ marginTop: 0, padding: '12px 20px', whiteSpace: 'nowrap' }}>
-                  ➕ ADD AUTHORIZED GMAIL
-                </button>
-              </form>
+          return (
+            <div className="admin-tab-content active">
+              <div className="form-section">
+                <h3 className="section-title"><span className="pacman-bullet"></span> GOOGLE OAUTH AUTHORIZED USERS WHITELIST</h3>
 
-              <div className="table-responsive">
-                <table className="eval-table admin-table">
-                  <thead>
-                    <tr>
-                      <th>Authorized Gmail Address</th>
-                      <th>Added By</th>
-                      <th>Authorized On</th>
-                      <th style={{ textAlign: 'center' }}>Action</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {allowedUsers.length === 0 ? (
+                <form onSubmit={handleAddAllowedGmail} className="whitelist-add-form" style={{ display: 'flex', gap: '12px', marginBottom: '20px' }}>
+                  <input
+                    type="email"
+                    placeholder="Enter authorized Gmail address (e.g., student@gmail.com)"
+                    required
+                    value={newGmail}
+                    onChange={(e) => setNewGmail(e.target.value)}
+                    style={{
+                      flex: 1,
+                      padding: '12px 14px',
+                      background: '#000',
+                      border: '2px solid var(--inky-cyan)',
+                      borderRadius: '8px',
+                      color: '#fff',
+                      outline: 'none'
+                    }}
+                  />
+                  <button type="submit" className="submit-btn" style={{ marginTop: 0, padding: '12px 20px', whiteSpace: 'nowrap' }}>
+                    ➕ ADD AUTHORIZED GMAIL
+                  </button>
+                </form>
+
+                <div className="table-responsive">
+                  <table className="eval-table admin-table">
+                    <thead>
                       <tr>
-                        <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)', padding: '24px' }}>
-                          No email restriction entries found. (Google OAuth is open to all users by default until an email is added).
-                        </td>
+                        <th>Authorized Gmail Address</th>
+                        <th>Added By</th>
+                        <th>Authorized On</th>
+                        <th style={{ textAlign: 'center' }}>Action</th>
                       </tr>
-                    ) : (
-                      allowedUsers.map(u => (
-                        <tr key={u.id || u.email}>
-                          <td className="criterion-name">
-                            {editingUserId === u.id ? (
-                              <input
-                                type="email"
-                                value={editingEmail}
-                                onChange={(e) => setEditingEmail(e.target.value)}
-                                style={{
-                                  padding: '6px 10px',
-                                  background: '#000',
-                                  border: '2px solid var(--pacman-yellow)',
-                                  borderRadius: '6px',
-                                  color: '#fff',
-                                  fontFamily: 'Outfit, sans-serif',
-                                  fontSize: '0.9rem',
-                                  width: '100%',
-                                  maxWidth: '280px'
-                                }}
-                              />
+                    </thead>
+                    <tbody>
+                      {displayedAllowedUsers.length === 0 ? (
+                        <tr>
+                          <td colSpan="4" style={{ textAlign: 'center', color: cleanQuery ? '#ff6699' : 'var(--text-muted)', padding: '24px', fontFamily: cleanQuery ? 'Press Start 2P, monospace' : 'inherit', fontSize: cleanQuery ? '0.72rem' : 'inherit', lineHeight: '2' }}>
+                            {cleanQuery ? (
+                              <>
+                                ⚠️ NO AUTHORIZED GMAIL MATCHING &ldquo;{searchQuery}&rdquo;
+                                <br />
+                                <button
+                                  type="button"
+                                  onClick={() => setSearchQuery('')}
+                                  style={{
+                                    marginTop: '12px',
+                                    background: '#fdff00',
+                                    color: '#000',
+                                    border: 'none',
+                                    borderRadius: '6px',
+                                    padding: '6px 14px',
+                                    fontFamily: 'Press Start 2P, monospace',
+                                    fontSize: '0.6rem',
+                                    cursor: 'pointer'
+                                  }}
+                                >
+                                  ✕ CLEAR SEARCH
+                                </button>
+                              </>
                             ) : (
-                              u.email
-                            )}
-                          </td>
-                          <td>{u.added_by || 'Admin'}</td>
-                          <td><small style={{ color: 'var(--text-muted)' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Active'}</small></td>
-                          <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
-                            {editingUserId === u.id ? (
-                              <div style={{ display: 'inline-flex', gap: '6px' }}>
-                                <button
-                                  type="button"
-                                  className="eval-btn"
-                                  style={{ padding: '6px 10px', fontSize: '0.75rem' }}
-                                  onClick={() => handleUpdateAllowedGmail(u.id)}
-                                >
-                                  💾 SAVE
-                                </button>
-                                <button
-                                  type="button"
-                                  className="logout-btn"
-                                  style={{ padding: '6px 10px', fontSize: '0.75rem', borderColor: '#777', color: '#aaa', background: 'transparent' }}
-                                  onClick={() => setEditingUserId(null)}
-                                >
-                                  ❌ CANCEL
-                                </button>
-                              </div>
-                            ) : (
-                              <div style={{ display: 'inline-flex', gap: '6px' }}>
-                                <button
-                                  type="button"
-                                  className="eval-btn edit-btn"
-                                  style={{ padding: '6px 10px', fontSize: '0.75rem' }}
-                                  onClick={() => startEditGmail(u)}
-                                >
-                                  ✏️ EDIT
-                                </button>
-                                <button
-                                  type="button"
-                                  className="logout-btn"
-                                  style={{ padding: '6px 12px', fontSize: '0.75rem' }}
-                                  onClick={() => handleRemoveAllowedGmail(u.id, u.email)}
-                                >
-                                  🗑️ REMOVE
-                                </button>
-                              </div>
+                              "No email restriction entries found. (Google OAuth is open to all users by default until an email is added)."
                             )}
                           </td>
                         </tr>
-                      ))
-                    )}
-                  </tbody>
-                </table>
+                      ) : (
+                        displayedAllowedUsers.map(u => (
+                          <tr key={u.id || u.email}>
+                            <td className="criterion-name">
+                              {editingUserId === u.id ? (
+                                <input
+                                  type="email"
+                                  value={editingEmail}
+                                  onChange={(e) => setEditingEmail(e.target.value)}
+                                  style={{
+                                    padding: '6px 10px',
+                                    background: '#000',
+                                    border: '2px solid var(--pacman-yellow)',
+                                    borderRadius: '6px',
+                                    color: '#fff',
+                                    fontFamily: 'Outfit, sans-serif',
+                                    fontSize: '0.9rem',
+                                    width: '100%',
+                                    maxWidth: '280px'
+                                  }}
+                                />
+                              ) : (
+                                u.email
+                              )}
+                            </td>
+                            <td>{u.added_by || 'Admin'}</td>
+                            <td><small style={{ color: 'var(--text-muted)' }}>{u.created_at ? new Date(u.created_at).toLocaleDateString() : 'Active'}</small></td>
+                            <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                              {editingUserId === u.id ? (
+                                <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    className="eval-btn"
+                                    style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                                    onClick={() => handleUpdateAllowedGmail(u.id)}
+                                  >
+                                    💾 SAVE
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="logout-btn"
+                                    style={{ padding: '6px 10px', fontSize: '0.75rem', borderColor: '#777', color: '#aaa', background: 'transparent' }}
+                                    onClick={() => setEditingUserId(null)}
+                                  >
+                                    ❌ CANCEL
+                                  </button>
+                                </div>
+                              ) : (
+                                <div style={{ display: 'inline-flex', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    className="eval-btn edit-btn"
+                                    style={{ padding: '6px 10px', fontSize: '0.75rem' }}
+                                    onClick={() => startEditGmail(u)}
+                                  >
+                                    ✏️ EDIT
+                                  </button>
+                                  <button
+                                    type="button"
+                                    className="logout-btn"
+                                    style={{ padding: '6px 12px', fontSize: '0.75rem' }}
+                                    onClick={() => handleRemoveAllowedGmail(u.id, u.email)}
+                                  >
+                                    🗑️ REMOVE
+                                  </button>
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
 
         <div className="arcade-footer">
           <span>ADMIN CONTROL SYSTEM</span>
