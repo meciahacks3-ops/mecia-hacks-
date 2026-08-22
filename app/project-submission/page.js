@@ -4,12 +4,16 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { findRegisteredTeam } from '@/lib/teamUtils';
+import { getJudgeProfile } from '@/lib/judgeProfiles';
 
 export default function ProjectSubmissionPage() {
   const router = useRouter();
   const [studentId, setStudentId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   
+  // Judge assignment & venue state
+  const [assignedJudge, setAssignedJudge] = useState('');
+
   // Team leader state
   const [teamName, setTeamName] = useState('');
   const [teamIdNo, setTeamIdNo] = useState('');
@@ -65,6 +69,12 @@ export default function ProjectSubmissionPage() {
           setExistingTeamId(teamData.id);
           setIsExistingRecord(true);
           setIsEditing(false); // Default to locked view mode on load
+
+          if (teamData.assigned_judge) {
+            setAssignedJudge(teamData.assigned_judge);
+          } else {
+            setAssignedJudge('');
+          }
 
           if (teamData.team_name) setTeamName(teamData.team_name);
           if (teamData.leader_name) setLeaderName(teamData.leader_name);
@@ -145,6 +155,17 @@ export default function ProjectSubmissionPage() {
         setLeaderId(savedId);
       }
       fetchExistingRegistration(savedId);
+
+      // Auto-poll every 4s to sync newly assigned judge panel and lab locations live
+      const pollTimer = setInterval(() => {
+        findRegisteredTeam(supabase, savedId).then(tData => {
+          if (tData) {
+            setAssignedJudge(tData.assigned_judge || '');
+          }
+        }).catch(err => console.warn("Live allocation poll notice:", err));
+      }, 4000);
+
+      return () => clearInterval(pollTimer);
     } else {
       setIsLoading(false);
     }
@@ -277,14 +298,37 @@ export default function ProjectSubmissionPage() {
     router.push('/');
   };
 
+  const judgeProfile = getJudgeProfile(assignedJudge);
+
   return (
     <>
       <div className="scanlines"></div>
 
       <div className="submission-container">
-        <div className="nav-header" style={{ justifyContent: 'flex-end', display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '32px' }}>
-          <div className="student-hud-badge">
-            <span className="ghost blinky" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> LOGGED IN: <span id="logged-student-id">{studentId || 'STUDENT'}</span>
+        <div className="nav-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '28px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+            <div className="student-hud-badge">
+              <span className="ghost blinky" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> LOGGED IN: <span id="logged-student-id">{studentId || 'STUDENT'}</span>
+            </div>
+            {assignedJudge && assignedJudge !== 'Unassigned' && (
+              <div style={{
+                background: 'rgba(0, 255, 204, 0.15)',
+                border: '1.5px solid #00ffcc',
+                borderRadius: '6px',
+                padding: '6px 12px',
+                color: '#00ffcc',
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.62rem',
+                boxShadow: '0 0 10px rgba(0, 255, 204, 0.3)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span>🏛️ {assignedJudge.toUpperCase()}</span>
+                <span>•</span>
+                <span style={{ color: '#fdff00' }}>📍 {judgeProfile?.location || 'Assigned Lab'}</span>
+              </div>
+            )}
           </div>
           <button type="button" className="logout-btn" onClick={handleLogout}>
             🚪 LOG OUT
@@ -457,6 +501,179 @@ export default function ProjectSubmissionPage() {
               </div>
             </div>
 
+            {/* ROUND 2: ALLOCATED JUDGE PANEL & LAB VENUE LOCATION */}
+            <div style={{
+              background: assignedJudge && assignedJudge !== 'Unassigned'
+                ? 'linear-gradient(135deg, rgba(0, 255, 204, 0.1) 0%, rgba(33, 33, 255, 0.15) 100%)'
+                : 'rgba(255, 184, 82, 0.08)',
+              border: assignedJudge && assignedJudge !== 'Unassigned'
+                ? '2px solid var(--neon-cyan, #00ffcc)'
+                : '2px dashed var(--clyde-orange, #ffb852)',
+              boxShadow: assignedJudge && assignedJudge !== 'Unassigned'
+                ? '0 0 20px rgba(0, 255, 204, 0.25)'
+                : '0 0 12px rgba(255, 184, 82, 0.15)',
+              borderRadius: '14px',
+              padding: '24px 20px',
+              marginBottom: '28px',
+              position: 'relative'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '18px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span className="ghost cyan-ghost" style={{ width: '16px', height: '16px', display: 'inline-block' }}></span>
+                  <h3 style={{
+                    color: assignedJudge && assignedJudge !== 'Unassigned' ? '#00ffcc' : '#ffb852',
+                    fontSize: '0.88rem',
+                    fontFamily: 'Press Start 2P, monospace',
+                    margin: 0,
+                    letterSpacing: '0.5px'
+                  }}>
+                    🏛️ ROUND 2: EVALUATION PANEL & LAB ALLOCATION
+                  </h3>
+                </div>
+                <span style={{
+                  background: assignedJudge && assignedJudge !== 'Unassigned' ? '#00ffcc' : '#ffb852',
+                  color: '#000',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.62rem',
+                  fontWeight: 'bold',
+                  padding: '5px 10px',
+                  borderRadius: '4px'
+                }}>
+                  {assignedJudge && assignedJudge !== 'Unassigned' ? '✅ VENUE ALLOCATED' : '⏳ PENDING ALLOCATION'}
+                </span>
+              </div>
+
+              {assignedJudge && assignedJudge !== 'Unassigned' ? (
+                <div>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '16px', marginBottom: '16px' }}>
+                    {/* Card 1: Assigned Judge Panel & Evaluators */}
+                    <div style={{
+                      background: 'rgba(0, 0, 0, 0.8)',
+                      border: '1.5px solid rgba(0, 255, 204, 0.4)',
+                      borderRadius: '10px',
+                      padding: '18px 16px',
+                      boxShadow: '0 0 12px rgba(0, 255, 204, 0.15)'
+                    }}>
+                      <div style={{ fontSize: '0.62rem', color: '#8888aa', fontFamily: 'Press Start 2P, monospace', marginBottom: '10px' }}>
+                        ALLOCATED JUDGE PANEL
+                      </div>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '12px' }}>
+                        <span style={{
+                          background: 'rgba(253, 255, 0, 0.15)',
+                          color: '#fdff00',
+                          border: '2px solid #fdff00',
+                          borderRadius: '6px',
+                          padding: '6px 14px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '1.05rem',
+                          fontWeight: 'bold',
+                          boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
+                        }}>
+                          {assignedJudge.toUpperCase()}
+                        </span>
+                        {judgeProfile?.group && (
+                          <span style={{ color: '#00ffcc', fontSize: '0.88rem', fontWeight: 'bold' }}>
+                            • {judgeProfile.group}
+                          </span>
+                        )}
+                      </div>
+                      {judgeProfile ? (
+                        <div>
+                          <div style={{ fontSize: '0.68rem', color: '#aaa', marginBottom: '8px', fontWeight: '600' }}>
+                            👥 PANEL EVALUATORS / FACULTY JURY:
+                          </div>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                            {judgeProfile.names.map((name, nIdx) => (
+                              <div key={nIdx} style={{
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '8px',
+                                background: 'rgba(0, 255, 204, 0.05)',
+                                padding: '6px 10px',
+                                borderRadius: '4px',
+                                fontSize: '0.8rem',
+                                color: '#fff'
+                              }}>
+                                <span style={{ color: '#00ffcc', fontSize: '0.7rem' }}>▶</span>
+                                <strong>{name}</strong>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      ) : (
+                        <div style={{ color: '#fff', fontSize: '0.88rem' }}>
+                          Evaluator: <strong>{assignedJudge}</strong>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Card 2: Lab Venue Location */}
+                    <div style={{
+                      background: 'rgba(0, 0, 0, 0.8)',
+                      border: '1.5px solid rgba(253, 255, 0, 0.4)',
+                      borderRadius: '10px',
+                      padding: '18px 16px',
+                      boxShadow: '0 0 12px rgba(253, 255, 0, 0.15)',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'space-between'
+                    }}>
+                      <div>
+                        <div style={{ fontSize: '0.62rem', color: '#8888aa', fontFamily: 'Press Start 2P, monospace', marginBottom: '10px' }}>
+                          📍 PRESENTATION & EVALUATION VENUE
+                        </div>
+                        <div style={{
+                          background: 'rgba(253, 255, 0, 0.12)',
+                          border: '2px solid #fdff00',
+                          borderRadius: '8px',
+                          padding: '14px 16px',
+                          marginBottom: '14px',
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '14px',
+                          boxShadow: '0 0 12px rgba(253, 255, 0, 0.2)'
+                        }}>
+                          <span style={{ fontSize: '2rem' }}>📍</span>
+                          <div>
+                            <div style={{ color: '#fdff00', fontFamily: 'Press Start 2P, monospace', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                              {judgeProfile?.location || 'Computer Engineering Dept.'}
+                            </div>
+                            <div style={{ color: '#bbb', fontSize: '0.78rem', marginTop: '4px' }}>
+                              Report directly to this lab room when your team is called for Round-2 evaluation.
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        background: 'rgba(33, 33, 255, 0.15)',
+                        border: '1px solid rgba(33, 33, 255, 0.4)',
+                        borderRadius: '6px',
+                        padding: '10px 12px',
+                        fontSize: '0.74rem',
+                        color: '#ccc',
+                        lineHeight: '1.4'
+                      }}>
+                        💡 <strong>Presentation Checklist:</strong> Ensure your hardware prototype / software repo, presentation slides, and College ID cards are ready.
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div style={{
+                  background: 'rgba(0, 0, 0, 0.6)',
+                  border: '1px dashed rgba(255, 184, 82, 0.3)',
+                  borderRadius: '8px',
+                  padding: '16px',
+                  color: '#ffb852',
+                  fontSize: '0.78rem',
+                  lineHeight: '1.6'
+                }}>
+                  ⏳ <strong>Judge panel allocation is currently underway.</strong> Once the hackathon organizers finalize your panel and designated lab room, your allocated judge panel (e.g., JM001 - JM011) and exact lab location (e.g., CE Dept. First/Second Floor) will appear automatically on this page in real-time.
+                </div>
+              )}
+            </div>
+
             {/* Section 1: Team & Leader Details Summary */}
             <div style={{ marginBottom: '24px' }}>
               <h3 style={{ color: '#00ffcc', fontSize: '0.85rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '14px' }}>
@@ -563,6 +780,46 @@ export default function ProjectSubmissionPage() {
                 ← CANCEL / BACK TO SUMMARY
               </button>
             </div>
+
+            {/* Allocated Venue & Panel Quick Info inside Edit View */}
+            {assignedJudge && assignedJudge !== 'Unassigned' && (
+              <div style={{
+                background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.1) 0%, rgba(33, 33, 255, 0.15) 100%)',
+                border: '1.5px solid #00ffcc',
+                borderRadius: '10px',
+                padding: '14px 18px',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: '12px',
+                boxShadow: '0 0 12px rgba(0, 255, 204, 0.2)'
+              }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                  <span style={{ fontSize: '1.3rem' }}>🏛️</span>
+                  <div>
+                    <div style={{ color: '#00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.68rem', marginBottom: '4px' }}>
+                      ALLOCATED EVALUATION PANEL: <span style={{ color: '#fdff00' }}>{assignedJudge.toUpperCase()}</span> {judgeProfile?.group ? `(${judgeProfile.group})` : ''}
+                    </div>
+                    <div style={{ color: '#fff', fontSize: '0.78rem' }}>
+                      📍 <strong>Venue Location:</strong> <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{judgeProfile?.location || 'Computer Engineering Dept.'}</span>
+                    </div>
+                  </div>
+                </div>
+                <span style={{
+                  background: 'rgba(0, 255, 204, 0.2)',
+                  color: '#00ffcc',
+                  border: '1px solid #00ffcc',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.58rem',
+                  padding: '4px 8px',
+                  borderRadius: '4px'
+                }}>
+                  ROUND 2 READY
+                </span>
+              </div>
+            )}
 
             {/* SECTION 1: TEAM LEADER DETAILS */}
             <div className="form-section">
