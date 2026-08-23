@@ -4,7 +4,13 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { JUDGE_PROFILES } from '@/lib/judgeProfiles';
-import { exportJudgesPanelsAndTeamsExcel, exportSinglePanelExcel } from '@/lib/excelExport';
+import {
+  exportJudgesPanelsAndTeamsExcel,
+  exportSinglePanelExcel,
+  exportAllPanelsZip,
+  printPanelDossier,
+  printAllPanelsDossiers
+} from '@/lib/excelExport';
 
 const initialDemoTeams = [];
 
@@ -21,6 +27,7 @@ export default function AdminDashboardPage() {
   const [editingUserId, setEditingUserId] = useState(null);
   const [editingEmail, setEditingEmail] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
+  const [isExportingZip, setIsExportingZip] = useState(false);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -264,7 +271,7 @@ export default function AdminDashboardPage() {
         return;
       }
       const filename = exportJudgesPanelsAndTeamsExcel(teams, evaluations);
-      alert(`✅ Judges Panels & Teams Excel workbook successfully generated!\n\nFile: ${filename}\n\nSheets included:\n1. All Panels & Teams (Full Flat & Hierarchical View)\n2. Panels Summary (Overview & Metrics)\n3. Individual Sheets for each panel (JM001 to JM011, Custom Judges, Unassigned)`);
+      alert(`✅ Master Excel workbook successfully generated!\n\nFile: ${filename}\n\nSheets included:\n1. All Panels & Teams (Full Flat & Hierarchical View)\n2. Panels Summary (Overview & Metrics)\n3. Individual Sheets for each panel (JM001 to JM011, Custom Judges, Unassigned)`);
     } catch (err) {
       console.error("Excel export error:", err);
       alert("Error generating Excel sheet: " + err.message);
@@ -275,11 +282,39 @@ export default function AdminDashboardPage() {
   const handleExportSinglePanel = (panelId) => {
     try {
       const filename = exportSinglePanelExcel(panelId, teams, evaluations);
-      alert(`✅ Excel sheet for panel ${panelId} downloaded!\n\nFile: ${filename}`);
+      alert(`✅ Separate Excel sheet for Panel ${panelId} downloaded!\n\nFile: ${filename}\n\nReady for individual printing on A4.`);
     } catch (err) {
       console.error("Single panel export error:", err);
       alert("Error exporting panel Excel sheet: " + err.message);
     }
+  };
+
+  // Export all panels as a ZIP archive of separate individual .xlsx files
+  const handleExportAllPanelsZip = async () => {
+    try {
+      if (!teams || teams.length === 0) {
+        alert("No teams available to export yet!");
+        return;
+      }
+      setIsExportingZip(true);
+      const zipFileName = await exportAllPanelsZip(teams, evaluations);
+      alert(`✅ Separate sheets ZIP archive created and downloaded!\n\nFile: ${zipFileName}\n\nContains separate .xlsx files for every panel (JM001 - JM011, Custom, Unassigned) for individual printing!`);
+    } catch (err) {
+      console.error("ZIP export error:", err);
+      alert("Error creating ZIP archive: " + err.message);
+    } finally {
+      setIsExportingZip(false);
+    }
+  };
+
+  // Direct browser print for a single panel
+  const handlePrintPanel = (panelId) => {
+    printPanelDossier(panelId, teams, evaluations);
+  };
+
+  // Direct browser print for all panels with page breaks
+  const handlePrintAllPanels = () => {
+    printAllPanelsDossiers(teams, evaluations);
   };
 
   // 1. Export Teams Master CSV (with Leader + Member 1, 2, 3 in separate columns)
@@ -649,8 +684,8 @@ export default function AdminDashboardPage() {
               background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
               border: '2px solid #00ff66',
               color: '#fff',
-              padding: '10px 16px',
-              fontSize: '0.62rem',
+              padding: '10px 14px',
+              fontSize: '0.6rem',
               fontFamily: 'Press Start 2P, monospace',
               borderRadius: '8px',
               cursor: 'pointer',
@@ -659,10 +694,53 @@ export default function AdminDashboardPage() {
               alignItems: 'center',
               gap: '6px'
             }}
-            onClick={handleExportJudgesPanelsExcel}
-            title="Download full multi-sheet Excel (.xlsx) containing all Judges Panels and their assigned teams with full details"
+            onClick={handleExportAllPanelsZip}
+            disabled={isExportingZip}
+            title="Download a ZIP containing separate individual .xlsx files for every judge panel (ready for separate printouts)"
           >
-            📗 JUDGES & TEAMS EXCEL (.XLSX)
+            {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 ALL SEPARATE SHEETS (.ZIP)'}
+          </button>
+          <button
+            type="button"
+            className="submit-btn"
+            style={{
+              background: 'rgba(253, 255, 0, 0.15)',
+              border: '2px solid #fdff00',
+              color: '#fdff00',
+              padding: '10px 14px',
+              fontSize: '0.6rem',
+              fontFamily: 'Press Start 2P, monospace',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onClick={handlePrintAllPanels}
+            title="Open browser print view to print evaluation dossiers for all 11 panels on A4 landscape"
+          >
+            🖨️ PRINT ALL PANELS (A4)
+          </button>
+          <button
+            type="button"
+            className="submit-btn"
+            style={{
+              background: 'rgba(0, 255, 204, 0.15)',
+              border: '2px solid #00ffcc',
+              color: '#00ffcc',
+              padding: '10px 14px',
+              fontSize: '0.6rem',
+              fontFamily: 'Press Start 2P, monospace',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onClick={handleExportJudgesPanelsExcel}
+            title="Download master workbook (.xlsx) containing all panels in one file"
+          >
+            📗 MASTER WORKBOOK (.XLSX)
           </button>
           <button type="button" className="submit-btn excel-btn admin-excel-btn" onClick={exportCSV} title="Export spreadsheet with all teams and all members details">
             📊 MASTER CSV
@@ -1302,13 +1380,14 @@ export default function AdminDashboardPage() {
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
-                      onClick={handleExportJudgesPanelsExcel}
+                      onClick={handleExportAllPanelsZip}
+                      disabled={isExportingZip}
                       style={{
                         background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
                         border: '2px solid #00ff66',
                         color: '#fff',
-                        padding: '12px 20px',
-                        fontSize: '0.68rem',
+                        padding: '12px 18px',
+                        fontSize: '0.62rem',
                         fontFamily: 'Press Start 2P, monospace',
                         borderRadius: '8px',
                         cursor: 'pointer',
@@ -1318,9 +1397,50 @@ export default function AdminDashboardPage() {
                         boxShadow: '0 0 15px rgba(0, 255, 102, 0.4)',
                         fontWeight: 'bold'
                       }}
-                      title="Download full multi-sheet Excel file (.xlsx) containing all panels and teams"
+                      title="Download a ZIP containing separate individual .xlsx files for every judge panel ready for separate printing"
                     >
-                      📗 DOWNLOAD ALL-PANELS EXCEL (.XLSX)
+                      {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 DOWNLOAD ALL SEPARATE SHEETS (.ZIP)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePrintAllPanels}
+                      style={{
+                        background: 'rgba(253, 255, 0, 0.15)',
+                        border: '2px solid #fdff00',
+                        color: '#fdff00',
+                        padding: '12px 18px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontWeight: 'bold'
+                      }}
+                      title="Open print view to print all 11 panel sheets on A4 landscape"
+                    >
+                      🖨️ PRINT ALL 11 PANELS (A4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportJudgesPanelsExcel}
+                      style={{
+                        background: 'rgba(0, 255, 204, 0.15)',
+                        border: '2px solid #00ffcc',
+                        color: '#00ffcc',
+                        padding: '12px 18px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px'
+                      }}
+                      title="Download multi-sheet master workbook containing all panels"
+                    >
+                      📗 MASTER WORKBOOK (.XLSX)
                     </button>
                   </div>
                 </div>
@@ -1417,26 +1537,48 @@ export default function AdminDashboardPage() {
                             </span>
                           </div>
 
-                          <button
-                            type="button"
-                            onClick={() => handleExportSinglePanel(panel.id)}
-                            style={{
-                              background: 'rgba(0, 255, 102, 0.12)',
-                              border: '1.5px solid #00ff66',
-                              color: '#00ff66',
-                              borderRadius: '6px',
-                              padding: '6px 12px',
-                              fontFamily: 'Press Start 2P, monospace',
-                              fontSize: '0.58rem',
-                              cursor: 'pointer',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: '6px'
-                            }}
-                            title={`Download Excel sheet just for ${panel.id}`}
-                          >
-                            📥 EXPORT {panel.id} (.XLSX)
-                          </button>
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleExportSinglePanel(panel.id)}
+                              style={{
+                                background: 'rgba(0, 255, 102, 0.12)',
+                                border: '1.5px solid #00ff66',
+                                color: '#00ff66',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontFamily: 'Press Start 2P, monospace',
+                                fontSize: '0.58rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                              title={`Download separate Excel sheet for ${panel.id} ready for printing`}
+                            >
+                              📥 EXPORT {panel.id} (.XLSX)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePrintPanel(panel.id)}
+                              style={{
+                                background: 'rgba(253, 255, 0, 0.12)',
+                                border: '1.5px solid #fdff00',
+                                color: '#fdff00',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontFamily: 'Press Start 2P, monospace',
+                                fontSize: '0.58rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                              title={`Open direct print view for ${panel.id} on A4 landscape`}
+                            >
+                              🖨️ PRINT {panel.id}
+                            </button>
+                          </div>
                         </div>
 
                         {/* Faculty Judges List */}
@@ -1578,22 +1720,40 @@ export default function AdminDashboardPage() {
                                 ({cp.teams.length} teams)
                               </span>
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => handleExportSinglePanel(cp.profile.id)}
-                              style={{
-                                background: 'rgba(255, 184, 82, 0.15)',
-                                border: '1.5px solid #ffb852',
-                                color: '#ffb852',
-                                borderRadius: '6px',
-                                padding: '6px 12px',
-                                fontFamily: 'Press Start 2P, monospace',
-                                fontSize: '0.58rem',
-                                cursor: 'pointer'
-                              }}
-                            >
-                              📥 EXPORT (.XLSX)
-                            </button>
+                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                              <button
+                                type="button"
+                                onClick={() => handleExportSinglePanel(cp.profile.id)}
+                                style={{
+                                  background: 'rgba(255, 184, 82, 0.15)',
+                                  border: '1.5px solid #ffb852',
+                                  color: '#ffb852',
+                                  borderRadius: '6px',
+                                  padding: '6px 12px',
+                                  fontFamily: 'Press Start 2P, monospace',
+                                  fontSize: '0.58rem',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                📥 EXPORT (.XLSX)
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handlePrintPanel(cp.profile.id)}
+                                style={{
+                                  background: 'rgba(253, 255, 0, 0.12)',
+                                  border: '1.5px solid #fdff00',
+                                  color: '#fdff00',
+                                  borderRadius: '6px',
+                                  padding: '6px 12px',
+                                  fontFamily: 'Press Start 2P, monospace',
+                                  fontSize: '0.58rem',
+                                  cursor: 'pointer'
+                                }}
+                              >
+                                🖨️ PRINT
+                              </button>
+                            </div>
                           </div>
                           <div className="table-responsive">
                             <table className="eval-table admin-table">
