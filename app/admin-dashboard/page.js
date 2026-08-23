@@ -4,13 +4,14 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { JUDGE_PROFILES } from '@/lib/judgeProfiles';
+import { exportJudgesPanelsAndTeamsExcel, exportSinglePanelExcel } from '@/lib/excelExport';
 
 const initialDemoTeams = [];
 
 export default function AdminDashboardPage() {
   const router = useRouter();
   const [adminUser, setAdminUser] = useState('admin_user');
-  const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab', 'scores-tab', 'whitelist-tab'
+  const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab', 'scores-tab', 'panels-tab', 'whitelist-tab'
   const [teamsFilter, setTeamsFilter] = useState('unassigned'); // 'unassigned', 'assigned', 'all'
   const [teams, setTeams] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
@@ -252,6 +253,32 @@ export default function AdminDashboardPage() {
       alert(`Assigned ${finalJudge} to team "${teamName}"!`);
     } finally {
       setAssigningTeamId(null);
+    }
+  };
+
+  // Export Judges Panels and Assigned Teams multi-sheet Excel (.xlsx)
+  const handleExportJudgesPanelsExcel = () => {
+    try {
+      if (!teams || teams.length === 0) {
+        alert("No teams available to export yet!");
+        return;
+      }
+      const filename = exportJudgesPanelsAndTeamsExcel(teams, evaluations);
+      alert(`✅ Judges Panels & Teams Excel workbook successfully generated!\n\nFile: ${filename}\n\nSheets included:\n1. All Panels & Teams (Full Flat & Hierarchical View)\n2. Panels Summary (Overview & Metrics)\n3. Individual Sheets for each panel (JM001 to JM011, Custom Judges, Unassigned)`);
+    } catch (err) {
+      console.error("Excel export error:", err);
+      alert("Error generating Excel sheet: " + err.message);
+    }
+  };
+
+  // Export a single panel's dedicated Excel (.xlsx) file
+  const handleExportSinglePanel = (panelId) => {
+    try {
+      const filename = exportSinglePanelExcel(panelId, teams, evaluations);
+      alert(`✅ Excel sheet for panel ${panelId} downloaded!\n\nFile: ${filename}`);
+    } catch (err) {
+      console.error("Single panel export error:", err);
+      alert("Error exporting panel Excel sheet: " + err.message);
     }
   };
 
@@ -599,13 +626,46 @@ export default function AdminDashboardPage() {
           </button>
           <button
             type="button"
+            className={`judge-nav-btn ${activeTab === 'panels-tab' ? 'active' : ''}`}
+            onClick={() => setActiveTab('panels-tab')}
+            style={{
+              borderColor: activeTab === 'panels-tab' ? '#00ff66' : undefined,
+              color: activeTab === 'panels-tab' ? '#00ff66' : undefined
+            }}
+          >
+            🏛️ JUDGES PANELS
+          </button>
+          <button
+            type="button"
             className={`judge-nav-btn ${activeTab === 'whitelist-tab' ? 'active' : ''}`}
             onClick={() => setActiveTab('whitelist-tab')}
           >
             🔐 OAUTH WHITELIST ({allowedUsers.length})
           </button>
+          <button
+            type="button"
+            className="submit-btn"
+            style={{
+              background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
+              border: '2px solid #00ff66',
+              color: '#fff',
+              padding: '10px 16px',
+              fontSize: '0.62rem',
+              fontFamily: 'Press Start 2P, monospace',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 0 12px rgba(0, 255, 102, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onClick={handleExportJudgesPanelsExcel}
+            title="Download full multi-sheet Excel (.xlsx) containing all Judges Panels and their assigned teams with full details"
+          >
+            📗 JUDGES & TEAMS EXCEL (.XLSX)
+          </button>
           <button type="button" className="submit-btn excel-btn admin-excel-btn" onClick={exportCSV} title="Export spreadsheet with all teams and all members details">
-            📊 MASTER CSV (ALL MEMBERS)
+            📊 MASTER CSV
           </button>
           <button type="button" className="submit-btn" style={{ background: '#2121ff', border: '2px solid #2121ff', color: '#fff', padding: '10px 16px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', borderRadius: '8px', cursor: 'pointer' }} onClick={exportStudentsDirectoryCSV} title="Export individual participant directory">
             👥 STUDENTS DIRECTORY CSV
@@ -1171,7 +1231,465 @@ export default function AdminDashboardPage() {
           );
         })()}
 
-        {/* TAB 3: ALLOWED GMAILS WHITELIST */}
+        {/* TAB 3: JUDGES PANELS & ASSIGNED TEAMS */}
+        {activeTab === 'panels-tab' && (() => {
+          const knownPanels = Object.values(JUDGE_PROFILES);
+          
+          // Build mapping of panels to teams
+          const panelMap = {};
+          knownPanels.forEach(p => {
+            panelMap[p.id.toUpperCase()] = {
+              profile: p,
+              teams: []
+            };
+          });
+
+          const customPanelsMap = {};
+          const unassignedTeams = [];
+
+          teams.forEach(t => {
+            const rawJudge = (t.assignedJudge || '').trim();
+            const upperJudge = rawJudge.toUpperCase();
+
+            if (!rawJudge || rawJudge.toLowerCase() === 'unassigned') {
+              unassignedTeams.push(t);
+            } else if (panelMap[upperJudge]) {
+              panelMap[upperJudge].teams.push(t);
+            } else {
+              if (!customPanelsMap[rawJudge]) {
+                customPanelsMap[rawJudge] = {
+                  profile: {
+                    id: rawJudge,
+                    group: 'Custom Judge',
+                    names: [rawJudge],
+                    namesText: rawJudge,
+                    location: 'Assigned by Admin'
+                  },
+                  teams: []
+                };
+              }
+              customPanelsMap[rawJudge].teams.push(t);
+            }
+          });
+
+          const totalAssignedCount = teams.length - unassignedTeams.length;
+
+          return (
+            <div className="admin-tab-content active">
+              <div className="form-section">
+                {/* Header Banner */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                  marginBottom: '24px',
+                  background: 'rgba(0, 255, 102, 0.06)',
+                  border: '2px solid rgba(0, 255, 102, 0.3)',
+                  borderRadius: '10px',
+                  padding: '18px 20px',
+                  boxShadow: '0 0 15px rgba(0, 255, 102, 0.1)'
+                }}>
+                  <div>
+                    <h3 className="section-title" style={{ margin: 0, color: '#00ff66', fontSize: '0.9rem' }}>
+                      <span className="pacman-bullet" style={{ background: '#00ff66' }}></span> 🏛️ JUDGES PANELS & ASSIGNED TEAMS DOSSIER
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '6px', margin: 0 }}>
+                      View all judging panels (JM001 - JM011), faculty evaluators, room venues, and allocated teams.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleExportJudgesPanelsExcel}
+                      style={{
+                        background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
+                        border: '2px solid #00ff66',
+                        color: '#fff',
+                        padding: '12px 20px',
+                        fontSize: '0.68rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 0 15px rgba(0, 255, 102, 0.4)',
+                        fontWeight: 'bold'
+                      }}
+                      title="Download full multi-sheet Excel file (.xlsx) containing all panels and teams"
+                    >
+                      📗 DOWNLOAD ALL-PANELS EXCEL (.XLSX)
+                    </button>
+                  </div>
+                </div>
+
+                {/* Metrics Summary Strip */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '24px'
+                }}>
+                  <div style={{ background: 'rgba(0, 0, 0, 0.7)', border: '1px solid var(--maze-blue)', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>TOTAL PANELS</div>
+                    <div style={{ fontSize: '1.4rem', color: '#00ffff', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{knownPanels.length} Panels</div>
+                  </div>
+                  <div style={{ background: 'rgba(0, 0, 0, 0.7)', border: '1px solid #00ffcc', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>TEAMS ASSIGNED</div>
+                    <div style={{ fontSize: '1.4rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{totalAssignedCount} Teams</div>
+                  </div>
+                  <div style={{ background: 'rgba(0, 0, 0, 0.7)', border: '1px solid #ff0055', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>UNASSIGNED TEAMS</div>
+                    <div style={{ fontSize: '1.4rem', color: '#ff0055', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{unassignedTeams.length} Teams</div>
+                  </div>
+                  <div style={{ background: 'rgba(0, 0, 0, 0.7)', border: '1px solid #fdff00', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
+                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>EVALUATIONS DONE</div>
+                    <div style={{ fontSize: '1.4rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{evaluations.length} Scored</div>
+                  </div>
+                </div>
+
+                {/* List of Judges Panels */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                  {knownPanels.map(panel => {
+                    const assignedList = panelMap[panel.id.toUpperCase()].teams;
+                    const matchesSearch = !cleanQuery || 
+                      panel.id.toLowerCase().includes(cleanQuery) ||
+                      panel.group.toLowerCase().includes(cleanQuery) ||
+                      panel.location.toLowerCase().includes(cleanQuery) ||
+                      panel.namesText.toLowerCase().includes(cleanQuery) ||
+                      assignedList.some(t => 
+                        (t.teamName && t.teamName.toLowerCase().includes(cleanQuery)) ||
+                        (t.teamIdNo && t.teamIdNo.toLowerCase().includes(cleanQuery)) ||
+                        (t.leaderName && t.leaderName.toLowerCase().includes(cleanQuery)) ||
+                        (t.projectTitle && t.projectTitle.toLowerCase().includes(cleanQuery))
+                      );
+
+                    if (!matchesSearch) return null;
+
+                    return (
+                      <div key={panel.id} style={{
+                        background: 'rgba(10, 10, 20, 0.95)',
+                        border: '2px solid ' + (assignedList.length > 0 ? 'var(--maze-blue)' : '#333'),
+                        borderRadius: '10px',
+                        padding: '18px 20px',
+                        boxShadow: assignedList.length > 0 ? '0 0 12px rgba(33, 33, 255, 0.2)' : 'none',
+                        transition: 'all 0.2s ease'
+                      }}>
+                        {/* Panel Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '12px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <span style={{
+                              background: '#fdff00',
+                              color: '#000',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.72rem',
+                              fontWeight: 'bold'
+                            }}>
+                              {panel.id}
+                            </span>
+                            <span style={{ color: '#fff', fontSize: '1rem', fontWeight: 'bold' }}>
+                              {panel.group}
+                            </span>
+                            <span style={{
+                              background: 'rgba(0, 255, 204, 0.12)',
+                              color: '#00ffcc',
+                              border: '1px solid #00ffcc',
+                              borderRadius: '6px',
+                              padding: '3px 8px',
+                              fontSize: '0.75rem'
+                            }}>
+                              📍 {panel.location}
+                            </span>
+                            <span style={{
+                              background: assignedList.length > 0 ? 'rgba(33, 33, 255, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                              color: assignedList.length > 0 ? '#99bbff' : '#888',
+                              border: '1px solid ' + (assignedList.length > 0 ? '#2121ff' : '#444'),
+                              borderRadius: '6px',
+                              padding: '3px 8px',
+                              fontSize: '0.72rem',
+                              fontFamily: 'Press Start 2P, monospace'
+                            }}>
+                              👥 {assignedList.length} {assignedList.length === 1 ? 'TEAM' : 'TEAMS'}
+                            </span>
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={() => handleExportSinglePanel(panel.id)}
+                            style={{
+                              background: 'rgba(0, 255, 102, 0.12)',
+                              border: '1.5px solid #00ff66',
+                              color: '#00ff66',
+                              borderRadius: '6px',
+                              padding: '6px 12px',
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.58rem',
+                              cursor: 'pointer',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}
+                            title={`Download Excel sheet just for ${panel.id}`}
+                          >
+                            📥 EXPORT {panel.id} (.XLSX)
+                          </button>
+                        </div>
+
+                        {/* Faculty Judges List */}
+                        <div style={{ marginBottom: '14px', background: 'rgba(0, 0, 0, 0.5)', padding: '10px 14px', borderRadius: '6px', border: '1px solid #222' }}>
+                          <div style={{ fontSize: '0.62rem', color: 'var(--inky-cyan)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>
+                            ⚖️ FACULTY EVALUATORS / JUDGES:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+                            {panel.names.map((jName, jIdx) => (
+                              <span key={jIdx} style={{
+                                background: 'rgba(255, 255, 255, 0.06)',
+                                border: '1px solid #444',
+                                borderRadius: '4px',
+                                padding: '3px 8px',
+                                fontSize: '0.78rem',
+                                color: '#e0e0e0'
+                              }}>
+                                👨‍🏫 {jName}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Assigned Teams Table/List */}
+                        {assignedList.length === 0 ? (
+                          <div style={{
+                            padding: '16px',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            borderRadius: '6px',
+                            border: '1px dashed #444',
+                            color: '#777',
+                            fontSize: '0.75rem',
+                            textAlign: 'center',
+                            fontFamily: 'Press Start 2P, monospace'
+                          }}>
+                            ⚠️ NO TEAMS ASSIGNED TO THIS PANEL YET
+                            <div style={{ marginTop: '6px', fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', color: '#999' }}>
+                              Go to "TEAMS & JUDGES" tab to assign teams to {panel.id}.
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="table-responsive" style={{ margin: 0 }}>
+                            <table className="eval-table admin-table" style={{ margin: 0 }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '10%', textAlign: 'center' }}>Team ID</th>
+                                  <th style={{ width: '18%' }}>Team Name</th>
+                                  <th style={{ width: '28%' }}>Leader & Members</th>
+                                  <th style={{ width: '22%' }}>Project & Tech</th>
+                                  <th style={{ width: '12%', textAlign: 'center' }}>Score (50)</th>
+                                  <th style={{ width: '10%', textAlign: 'center' }}>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {assignedList.map((t, idx) => {
+                                  const evalEntry = evaluations.find(e => (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase());
+                                  const isScored = !!evalEntry;
+                                  const score = evalEntry?.totalScore ?? '-';
+
+                                  return (
+                                    <tr key={t.id || idx}>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <span style={{
+                                          display: 'inline-block',
+                                          background: 'rgba(253, 255, 0, 0.15)',
+                                          color: '#fdff00',
+                                          border: '1px solid #fdff00',
+                                          borderRadius: '4px',
+                                          padding: '2px 6px',
+                                          fontFamily: 'Press Start 2P, monospace',
+                                          fontSize: '0.62rem',
+                                          fontWeight: 'bold'
+                                        }}>
+                                          {t.teamIdNo && t.teamIdNo !== 'N/A' ? t.teamIdNo : 'N/A'}
+                                        </span>
+                                      </td>
+                                      <td className="criterion-name">
+                                        <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{t.teamName}</strong>
+                                      </td>
+                                      <td>
+                                        <div style={{ fontSize: '0.8rem', color: '#fdff00' }}>
+                                          👑 <strong>{t.leaderName}</strong> <span style={{ color: '#aaa', fontSize: '0.72rem' }}>({t.leaderId}){t.leaderBranch ? ` [${t.leaderBranch}]` : ''}</span>
+                                        </div>
+                                        <div style={{ fontSize: '0.72rem', color: '#888' }}>
+                                          📞 {t.leaderPhone || 'N/A'} • ✉️ {t.leaderEmail}
+                                        </div>
+                                        {t.members && t.members.length > 0 && (
+                                          <div style={{ marginTop: '4px', fontSize: '0.72rem', color: '#00ffcc' }}>
+                                            👥 {t.members.map(m => m.name).join(', ')}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td>
+                                        <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: '500' }}>{t.projectTitle || 'Untitled Project'}</div>
+                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{t.techStack || '-'}</div>
+                                      </td>
+                                      <td style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '0.95rem', color: isScored ? '#fdff00' : 'var(--text-muted)' }}>
+                                        {isScored ? `${score} / 50` : '-'}
+                                      </td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        {isScored ? (
+                                          <span className="status-pill status-completed" style={{ fontSize: '0.6rem', padding: '3px 6px' }}>SCORED</span>
+                                        ) : (
+                                          <span className="status-pill status-pending" style={{ fontSize: '0.6rem', padding: '3px 6px' }}>PENDING</span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Custom Judges Section if any */}
+                  {Object.keys(customPanelsMap).length > 0 && (
+                    <div style={{ marginTop: '10px' }}>
+                      <h4 style={{ color: '#ffb852', fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', marginBottom: '14px' }}>
+                        ✍️ CUSTOM JUDGES & TEAMS ({Object.keys(customPanelsMap).length})
+                      </h4>
+                      {Object.values(customPanelsMap).map((cp, cpIdx) => (
+                        <div key={cpIdx} style={{
+                          background: 'rgba(10, 10, 20, 0.95)',
+                          border: '2px solid #ffb852',
+                          borderRadius: '10px',
+                          padding: '18px 20px',
+                          marginBottom: '16px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                              <span style={{ background: '#ffb852', color: '#000', padding: '4px 8px', borderRadius: '4px', fontFamily: 'Press Start 2P, monospace', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                                CUSTOM
+                              </span>
+                              <strong style={{ color: '#fff', fontSize: '0.95rem' }}>{cp.profile.id}</strong>
+                              <span style={{ color: '#00ffcc', fontSize: '0.72rem', fontFamily: 'Press Start 2P, monospace' }}>
+                                ({cp.teams.length} teams)
+                              </span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => handleExportSinglePanel(cp.profile.id)}
+                              style={{
+                                background: 'rgba(255, 184, 82, 0.15)',
+                                border: '1.5px solid #ffb852',
+                                color: '#ffb852',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontFamily: 'Press Start 2P, monospace',
+                                fontSize: '0.58rem',
+                                cursor: 'pointer'
+                              }}
+                            >
+                              📥 EXPORT (.XLSX)
+                            </button>
+                          </div>
+                          <div className="table-responsive">
+                            <table className="eval-table admin-table">
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '12%', textAlign: 'center' }}>Team ID</th>
+                                  <th style={{ width: '22%' }}>Team Name</th>
+                                  <th style={{ width: '32%' }}>Leader & Members</th>
+                                  <th style={{ width: '22%' }}>Project</th>
+                                  <th style={{ width: '12%', textAlign: 'center' }}>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {cp.teams.map((t, idx) => (
+                                  <tr key={t.id || idx}>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{t.teamIdNo || 'N/A'}</span>
+                                    </td>
+                                    <td><strong>{t.teamName}</strong></td>
+                                    <td>
+                                      <div>👑 {t.leaderName} ({t.leaderId})</div>
+                                      <div style={{ fontSize: '0.72rem', color: '#888' }}>{t.leaderEmail} • {t.leaderPhone}</div>
+                                    </td>
+                                    <td>{t.projectTitle}</td>
+                                    <td style={{ textAlign: 'center' }}>
+                                      <span className="status-pill status-completed" style={{ fontSize: '0.6rem' }}>ASSIGNED</span>
+                                    </td>
+                                  </tr>
+                                ))}
+                              </tbody>
+                            </table>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {/* Unassigned Teams Section if any */}
+                  {unassignedTeams.length > 0 && (
+                    <div style={{
+                      background: 'rgba(255, 0, 85, 0.06)',
+                      border: '2px dashed #ff0055',
+                      borderRadius: '10px',
+                      padding: '18px 20px',
+                      marginTop: '10px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
+                        <div style={{ color: '#ff0055', fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem' }}>
+                          ⚠️ UNASSIGNED TEAMS ({unassignedTeams.length})
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('teams-tab');
+                            setTeamsFilter('unassigned');
+                          }}
+                          style={{
+                            background: '#ff0055',
+                            color: '#fff',
+                            border: 'none',
+                            borderRadius: '6px',
+                            padding: '6px 12px',
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.58rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          👉 GO ASSIGN JUDGES
+                        </button>
+                      </div>
+                      <div style={{ color: '#ccc', fontSize: '0.8rem' }}>
+                        The following teams need to be assigned to a judge panel:
+                      </div>
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
+                        {unassignedTeams.map((t, idx) => (
+                          <span key={t.id || idx} style={{
+                            background: 'rgba(0, 0, 0, 0.6)',
+                            border: '1px solid #ff0055',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '0.75rem',
+                            color: '#ff6699'
+                          }}>
+                            <strong>{t.teamIdNo !== 'N/A' ? t.teamIdNo : `#${idx+1}`}</strong>: {t.teamName}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* TAB 4: ALLOWED GMAILS WHITELIST */}
         {activeTab === 'whitelist-tab' && (() => {
           const displayedAllowedUsers = allowedUsers.filter(u => {
             if (!cleanQuery) return true;
