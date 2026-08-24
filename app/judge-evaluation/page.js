@@ -13,7 +13,9 @@ function JudgeEvaluationContent() {
 
   const [judgeEmail, setJudgeEmail] = useState('judge@eval.org');
   const [teamName, setTeamName] = useState(teamParam || 'Select Team');
-  const [teamSub, setTeamSub] = useState(teamParam ? `Evaluating team: ${teamParam}` : 'Please select a team from the dashboard');
+  const [teamIdNo, setTeamIdNo] = useState('');
+  const [projectTitle, setProjectTitle] = useState('');
+  const [projectDesc, setProjectDesc] = useState('');
 
   // Rubric scores (Round 2 Evaluation Sheet - Max 10 marks per section)
   const [c1, setC1] = useState(0); // System Architecture & Technical Readiness (Max 10)
@@ -45,17 +47,16 @@ function JudgeEvaluationContent() {
 
     if (teamParam) {
       setTeamName(teamParam);
-      setTeamSub(`Evaluating team: ${teamParam}`);
       loadExistingMarks(teamParam);
     }
   }, [teamParam]);
 
   const loadExistingMarks = async (name) => {
     try {
-      // 1. Fetch team metadata along with team members
+      // 1. Fetch team metadata (only team ID, title, description - personal details hidden)
       const { data: teamData } = await supabase
         .from('teams')
-        .select('*, team_members(*)')
+        .select('id, team_name, team_id_no, project_title, main_idea')
         .ilike('team_name', name)
         .maybeSingle();
 
@@ -66,13 +67,14 @@ function JudgeEvaluationContent() {
           if (match && match[1]) parsedTeamId = match[1].trim();
         }
 
-        const memberSummary = (teamData.team_members || []).map(m => {
-          let mName = m.member_name || '';
-          return `${mName} (${m.member_id || 'No ID'})`;
-        }).join(', ');
+        let cleanDesc = (teamData.main_idea || '').trim();
+        if (cleanDesc.includes('[Type:') || cleanDesc.includes('[type:')) {
+          cleanDesc = cleanDesc.replace(/\[Type:[^\]]+\]\s*/i, '').trim();
+        }
 
-        const membersInfo = memberSummary ? ` | 👥 Members: ${memberSummary}` : '';
-        setTeamSub(`👑 Leader: ${teamData.leader_name} (${teamData.leader_id})${membersInfo} | 💡 Project: ${teamData.project_title}${parsedTeamId ? ` | 🆔 Team ID: ${parsedTeamId}` : ''}`);
+        setTeamIdNo(parsedTeamId || 'N/A');
+        setProjectTitle(teamData.project_title || 'N/A');
+        setProjectDesc(cleanDesc || teamData.main_idea || 'No description provided.');
       }
 
       // 2. Fetch marks
@@ -243,7 +245,36 @@ function JudgeEvaluationContent() {
             <span className="role-badge eval-badge">STAGE 2: RUBRIC EVALUATION</span>
           </div>
           <h2>EVALUATING: <span className="highlight-title">{teamName}</span></h2>
-          <p>{teamSub}</p>
+
+          <div style={{
+            marginTop: '14px',
+            background: 'rgba(0, 0, 0, 0.75)',
+            border: '1.5px solid rgba(0, 255, 204, 0.35)',
+            borderRadius: '8px',
+            padding: '14px 18px',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '10px'
+          }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '20px', alignItems: 'center' }}>
+              <div>
+                <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>🆔 TEAM ID: </span>
+                <span style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.92rem' }}>{teamIdNo || 'N/A'}</span>
+              </div>
+              <div>
+                <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>💡 PROJECT TITLE: </span>
+                <span style={{ color: '#ffffff', fontWeight: 'bold', fontSize: '0.92rem' }}>{projectTitle || 'N/A'}</span>
+              </div>
+            </div>
+            {projectDesc && (
+              <div style={{ borderTop: '1px dashed rgba(255, 255, 255, 0.15)', paddingTop: '8px' }}>
+                <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>🎯 PROJECT DESCRIPTION: </span>
+                <p style={{ color: '#e0e0e0', fontSize: '0.88rem', marginTop: '4px', whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>
+                  {projectDesc}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Evaluation Marksheet Form */}

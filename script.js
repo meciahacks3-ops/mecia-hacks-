@@ -828,6 +828,26 @@ async function loadExistingEvaluation(teamName) {
   // 1. Fetch from Supabase first
   if (supabaseClient) {
     try {
+      // Fetch team non-personal metadata
+      const { data: teamData } = await supabaseClient
+        .from('teams')
+        .select('team_name, team_id_no, project_title, main_idea')
+        .ilike('team_name', teamName)
+        .maybeSingle();
+
+      if (teamData) {
+        let parsedTeamId = teamData.team_id_no && teamData.team_id_no.trim() !== 'N/A' ? teamData.team_id_no.trim() : '';
+        if (!parsedTeamId && teamData.main_idea && teamData.main_idea.includes('Team ID:')) {
+          const match = teamData.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
+          if (match && match[1]) parsedTeamId = match[1].trim();
+        }
+
+        const teamSubEl = document.getElementById('evaluating-team-sub');
+        if (teamSubEl) {
+          teamSubEl.textContent = `🆔 Team ID: ${parsedTeamId || 'N/A'} | 💡 Project: ${teamData.project_title || 'N/A'}`;
+        }
+      }
+
       const { data, error } = await supabaseClient
         .from('evaluations')
         .select('*')
