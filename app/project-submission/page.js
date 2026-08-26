@@ -56,6 +56,8 @@ export default function ProjectSubmissionPage() {
   );
 
   useEffect(() => {
+    let pollTimer;
+
     const fetchExistingRegistration = async (idToSearch) => {
       if (!idToSearch) {
         setIsLoading(false);
@@ -68,7 +70,7 @@ export default function ProjectSubmissionPage() {
         if (teamData) {
           setExistingTeamId(teamData.id);
           setIsExistingRecord(true);
-          setIsEditing(false); // Default to locked view mode on load
+          setIsEditing(false); // Default to locked view mode on load for existing registered teams
 
           if (teamData.assigned_judge) {
             setAssignedJudge(teamData.assigned_judge);
@@ -135,45 +137,70 @@ export default function ProjectSubmissionPage() {
             setMembers(parsedMembers.slice(0, 3));
           }
         } else {
+          // New student registration mode
+          setExistingTeamId(null);
           setIsExistingRecord(false);
-          setIsEditing(false);
+          setIsEditing(true);
         }
       } catch (e) {
         console.warn("Fetch existing registration error:", e);
+        setExistingTeamId(null);
         setIsExistingRecord(false);
+        setIsEditing(true);
       } finally {
         setIsLoading(false);
       }
     };
 
-    const savedId = sessionStorage.getItem('studentId');
-    if (savedId) {
-      setStudentId(savedId);
-      if (savedId.includes('@')) {
-        setLeaderEmail(savedId);
-      } else {
-        setLeaderId(savedId);
-      }
-      fetchExistingRegistration(savedId);
-
-      // Auto-poll every 4s to sync newly assigned judge panel and lab locations live
-      const pollTimer = setInterval(() => {
-        findRegisteredTeam(supabase, savedId).then(tData => {
-          if (tData) {
-            setAssignedJudge(tData.assigned_judge || '');
+    const initUser = async () => {
+      let savedId = sessionStorage.getItem('studentId');
+      if (!savedId) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          if (session?.user?.email) {
+            savedId = session.user.email;
+            sessionStorage.setItem('studentId', savedId);
+            sessionStorage.setItem('targetRole', 'student');
           }
-        }).catch(err => console.warn("Live allocation poll notice:", err));
-      }, 4000);
+        } catch (e) {
+          console.warn("Session check error:", e);
+        }
+      }
 
-      return () => clearInterval(pollTimer);
-    } else {
-      setIsLoading(false);
-    }
+      if (savedId) {
+        setStudentId(savedId);
+        if (savedId.includes('@')) {
+          setLeaderEmail(savedId);
+        } else {
+          setLeaderId(savedId);
+        }
+        await fetchExistingRegistration(savedId);
+
+        // Auto-poll every 4s to sync newly assigned judge panel and lab locations live
+        pollTimer = setInterval(() => {
+          findRegisteredTeam(supabase, savedId).then(tData => {
+            if (tData) {
+              setAssignedJudge(tData.assigned_judge || '');
+            }
+          }).catch(err => console.warn("Live allocation poll notice:", err));
+        }, 4000);
+      } else {
+        setIsLoading(false);
+        router.push('/');
+      }
+    };
+
+    initUser();
+
     const savedType = sessionStorage.getItem('projectType');
     if (savedType) {
       setProjectType(savedType);
     }
-  }, []);
+
+    return () => {
+      if (pollTimer) clearInterval(pollTimer);
+    };
+  }, [router]);
 
   const addMember = () => {
     if (members.length >= 3) {
@@ -250,42 +277,73 @@ export default function ProjectSubmissionPage() {
       tech_stack: techStack.trim() || 'HTML, CSS, JS'
     };
 
-    if (!existingTeamId) {
-      alert("⚠️ Registration Closed: New team registrations are closed. Only updates to existing registered teams are permitted.");
-      return;
-    }
-
     try {
-      // Update existing registration only
-      const { error: updateErr } = await supabase
-        .from('teams')
-        .update(insertPayload)
-        .eq('id', existingTeamId);
+      if (existingTeamId) {
+        // Update existing registration
+        const { error: updateErr } = await supabase
+          .from('teams')
+          .update(insertPayload)
+          .eq('id', existingTeamId);
 
-      if (!updateErr) {
-        await supabase.from('team_members').delete().eq('team_id', existingTeamId);
-        const membersToInsert = validMembers.slice(0, 3);
-        if (membersToInsert.length > 0) {
-          const memberRecords = membersToInsert.map(m => ({
-            team_id: existingTeamId,
-            member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
-            member_email: m.email,
-            member_id: m.idNo,
-            member_phone: m.phone
-          }));
-          await supabase.from('team_members').insert(memberRecords);
+        if (!updateErr) {
+          await supabase.from('team_members').delete().eq('team_id', existingTeamId);
+          const membersToInsert = validMembers.slice(0, 3);
+          if (membersToInsert.length > 0) {
+            const memberRecords = membersToInsert.map(m => ({
+              team_id: existingTeamId,
+              member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
+              member_email: m.email,
+              member_id: m.idNo,
+              member_phone: m.phone
+            }));
+            await supabase.from('team_members').insert(memberRecords);
+          }
+          setIsExistingRecord(true);
+          setIsEditing(false);
+          setModalAction('updated');
+          setShowModal(true);
+        } else {
+          console.error("Supabase update error:", updateErr);
+          alert("Database Update Notice: " + updateErr.message);
         }
-        setIsExistingRecord(true);
-        setIsEditing(false);
-        setModalAction('updated');
       } else {
-        console.error("Supabase update error:", updateErr);
-        alert("Database Update Notice: " + updateErr.message);
+        // Insert new registration
+        const { data: teamRes, error: teamErr } = await supabase
+          .from('teams')
+          .insert([insertPayload])
+          .select()
+          .single();
+
+        if (teamErr) {
+          console.error("Supabase insert error:", teamErr);
+          alert("Registration Error: " + teamErr.message);
+          return;
+        }
+
+        if (teamRes) {
+          setExistingTeamId(teamRes.id);
+          setIsExistingRecord(true);
+          setIsEditing(false);
+          setModalAction('created');
+
+          const membersToInsert = validMembers.slice(0, 3);
+          if (membersToInsert.length > 0) {
+            const memberRecords = membersToInsert.map(m => ({
+              team_id: teamRes.id,
+              member_name: m.branch ? `${m.name} (${m.branch})` : m.name,
+              member_email: m.email,
+              member_id: m.idNo,
+              member_phone: m.phone
+            }));
+            await supabase.from('team_members').insert(memberRecords);
+          }
+          setShowModal(true);
+        }
       }
     } catch (err) {
       console.warn("Supabase save exception:", err);
+      alert("Error saving registration. Please try again.");
     }
-    setShowModal(true);
   };
 
   const handleLogout = async () => {
@@ -337,13 +395,27 @@ export default function ProjectSubmissionPage() {
 
         <div className="login-header text-left">
           <div className="badge-wrapper">
-            <span className="role-badge">STAGE 1: REGISTERED TEAM PORTAL</span>
-            <span className="lock-badge" style={{ borderColor: isExistingRecord ? '#00ffcc' : '#ff0055', color: isExistingRecord ? '#00ffcc' : '#ff0055' }}>
-              {isExistingRecord ? '🔒 REGISTRATION CLOSED • VIEW & EDIT' : '🚫 REGISTRATION CLOSED'}
+            <span className="role-badge">
+              {isExistingRecord ? 'STAGE 1: REGISTERED TEAM PORTAL' : 'STAGE 1: STUDENT REGISTRATION'}
+            </span>
+            <span
+              className={`lock-badge ${isExistingRecord ? 'confirmed' : (isLeaderComplete ? 'unlocked' : 'locked')}`}
+              style={{
+                borderColor: isExistingRecord ? '#00ffcc' : (isLeaderComplete ? '#00ffcc' : '#ff0055'),
+                color: isExistingRecord ? '#00ffcc' : (isLeaderComplete ? '#00ffcc' : '#ff0055')
+              }}
+            >
+              {isExistingRecord
+                ? '✅ REGISTRATION CONFIRMED • VIEW & EDIT'
+                : (isLeaderComplete ? '🔓 READY TO SUBMIT' : '🔒 FILL LEADER DETAILS FIRST')}
             </span>
           </div>
-          <h2>HACKATHON TEAM DETAILS</h2>
-          <p>Review your confirmed team details and make any required updates to your project entry or members.</p>
+          <h2>{isExistingRecord ? 'HACKATHON TEAM DETAILS' : 'HACKATHON REGISTRATION FORM'}</h2>
+          <p>
+            {isExistingRecord
+              ? 'Review your confirmed team details and make any required updates to your project entry or members.'
+              : 'Complete your team details, add team members, and outline your project to register for Mecia Hack 3.0.'}
+          </p>
         </div>
 
         {/* 1. Loading State */}
@@ -363,44 +435,11 @@ export default function ProjectSubmissionPage() {
             margin: '32px auto'
           }}>
             <div className="ghost blinky" style={{ width: '28px', height: '28px', margin: '0 auto 20px' }}></div>
-            🕹️ LOADING REGISTERED TEAM DETAILS...
+            🕹️ LOADING TEAM DETAILS...
           </div>
         )}
 
-        {/* 2. Unregistered Account / Registration Closed State */}
-        {!isLoading && !isExistingRecord && (
-          <div style={{
-            background: 'rgba(13, 14, 27, 0.95)',
-            border: '2px solid #ff0055',
-            borderRadius: '16px',
-            padding: '40px 24px',
-            textAlign: 'center',
-            boxShadow: '0 0 25px rgba(255, 0, 85, 0.3)',
-            maxWidth: '650px',
-            margin: '32px auto'
-          }}>
-            <div style={{ fontSize: '2.5rem', marginBottom: '16px' }}>🚫</div>
-            <h2 style={{ color: '#ff0055', fontFamily: 'Press Start 2P, monospace', fontSize: '0.95rem', marginBottom: '16px', lineHeight: '1.6' }}>
-              REGISTRATION IS CLOSED
-            </h2>
-            <p style={{ color: '#ccc', fontSize: '0.82rem', lineHeight: '1.6', marginBottom: '20px' }}>
-              New team registrations are officially closed. No registered team was found associated with <strong>{studentId || 'your account'}</strong>.
-            </p>
-            <p style={{ color: '#888', fontSize: '0.75rem', marginBottom: '28px', lineHeight: '1.5' }}>
-              If you are already part of a registered team, please log out and sign in using the exact registered Google account or Enrollment ID.
-            </p>
-            <button
-              type="button"
-              className="submit-btn"
-              onClick={handleLogout}
-              style={{ maxWidth: '280px', margin: '0 auto', display: 'block' }}
-            >
-              🚪 RETURN TO LOGIN
-            </button>
-          </div>
-        )}
-
-        {/* 3. Existing Registration Banner & Edit Control */}
+        {/* 2. Existing Registration Banner & Edit Control */}
         {!isLoading && isExistingRecord && (
           <div style={{
             background: !isTeamIdValid ? 'rgba(255, 0, 85, 0.15)' : 'rgba(0, 255, 204, 0.1)',
@@ -738,27 +777,52 @@ export default function ProjectSubmissionPage() {
           </div>
         )}
 
-        {/* 5. Registered Team Editing Form View */}
-        {!isLoading && isExistingRecord && isEditing && (
+        {/* 5. Team Registration & Editing Form View */}
+        {!isLoading && (!isExistingRecord || isEditing) && (
           <form onSubmit={handleSubmit}>
-            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-start' }}>
-              <button
-                type="button"
-                onClick={() => setIsEditing(false)}
-                style={{
-                  background: 'rgba(33, 33, 255, 0.2)',
-                  color: '#00ffcc',
-                  border: '1px solid #00ffcc',
-                  borderRadius: '8px',
-                  padding: '10px 16px',
-                  fontFamily: 'Press Start 2P, monospace',
-                  fontSize: '0.6rem',
-                  cursor: 'pointer'
-                }}
-              >
-                ← CANCEL / BACK TO SUMMARY
-              </button>
-            </div>
+            {isExistingRecord && (
+              <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-start' }}>
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  style={{
+                    background: 'rgba(33, 33, 255, 0.2)',
+                    color: '#00ffcc',
+                    border: '1px solid #00ffcc',
+                    borderRadius: '8px',
+                    padding: '10px 16px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.6rem',
+                    cursor: 'pointer'
+                  }}
+                >
+                  ← CANCEL / BACK TO SUMMARY
+                </button>
+              </div>
+            )}
+
+            {!isExistingRecord && (
+              <div style={{
+                background: 'rgba(0, 255, 204, 0.08)',
+                border: '1.5px dashed #00ffcc',
+                borderRadius: '10px',
+                padding: '14px 18px',
+                marginBottom: '22px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '12px'
+              }}>
+                <span style={{ fontSize: '1.5rem' }}>🕹️</span>
+                <div>
+                  <div style={{ color: '#00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.68rem', marginBottom: '4px' }}>
+                    NEW REGISTRATION STAGE
+                  </div>
+                  <div style={{ color: '#ccc', fontSize: '0.78rem', lineHeight: '1.4' }}>
+                    Welcome <strong style={{ color: '#fdff00' }}>{studentId}</strong>! Fill in your compulsory team leader details, add your teammates, and outline your project below.
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Allocated Venue & Panel Quick Info inside Edit View */}
             {assignedJudge && assignedJudge !== 'Unassigned' && (
@@ -1134,20 +1198,28 @@ export default function ProjectSubmissionPage() {
               </div>
             </div>
 
-            <div style={{ display: 'flex', gap: '10px', marginTop: '16px' }}>
+            <div style={{ display: 'flex', gap: '10px', marginTop: '16px', flexWrap: 'wrap' }}>
               <button
                 type="button"
                 className="submit-btn"
                 onClick={() => window.print()}
-                style={{ flex: 1, background: '#2121ff', color: '#fff', fontSize: '0.58rem', padding: '12px 8px' }}
+                style={{ flex: 1, minWidth: '130px', background: '#2121ff', color: '#fff', fontSize: '0.58rem', padding: '12px 8px' }}
               >
                 🖨️ PRINT CONFIRMATION
               </button>
               <button
                 type="button"
                 className="submit-btn"
+                onClick={() => setShowModal(false)}
+                style={{ flex: 1, minWidth: '130px', background: '#00ffcc', color: '#000', fontSize: '0.58rem', padding: '12px 8px' }}
+              >
+                👁️ VIEW SUMMARY
+              </button>
+              <button
+                type="button"
+                className="submit-btn"
                 onClick={handleLogout}
-                style={{ flex: 1, background: '#ff0055', color: '#fff', fontSize: '0.58rem', padding: '12px 8px' }}
+                style={{ flex: 1, minWidth: '130px', background: '#ff0055', color: '#fff', fontSize: '0.58rem', padding: '12px 8px' }}
               >
                 🏠 RETURN TO HOME
               </button>
