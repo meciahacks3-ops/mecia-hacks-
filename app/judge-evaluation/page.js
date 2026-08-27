@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
+import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 
 function JudgeEvaluationContent() {
   const router = useRouter();
@@ -16,6 +17,7 @@ function JudgeEvaluationContent() {
   const [teamIdNo, setTeamIdNo] = useState('');
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
+  const [timeSlot, setTimeSlot] = useState('TBA');
 
   // Rubric scores (Round 2 Evaluation Sheet - Max 10 marks per section)
   const [c1, setC1] = useState(0); // System Architecture & Technical Readiness (Max 10)
@@ -68,10 +70,12 @@ function JudgeEvaluationContent() {
         }
 
         let cleanDesc = (teamData.main_idea || '').trim();
-        if (cleanDesc.includes('[Type:') || cleanDesc.includes('[type:')) {
-          cleanDesc = cleanDesc.replace(/\[Type:[^\]]+\]\s*/i, '').trim();
+        if (cleanDesc.includes('[Type:') || cleanDesc.includes('[type:') || cleanDesc.includes('[Slot:')) {
+          cleanDesc = cleanDesc.replace(/\[[^\]]+\]\s*/g, '').trim();
         }
 
+        const parsedSlot = parseTimeSlotFromTeam(teamData);
+        setTimeSlot(parsedSlot);
         setTeamIdNo(parsedTeamId || 'N/A');
         setProjectTitle(teamData.project_title || 'N/A');
         setProjectDesc(cleanDesc || teamData.main_idea || 'No description provided.');
@@ -260,6 +264,21 @@ function JudgeEvaluationContent() {
               <div>
                 <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>🆔 TEAM ID: </span>
                 <span style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.92rem' }}>{teamIdNo || 'N/A'}</span>
+              </div>
+              <div>
+                <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>⏰ TIME SLOT: </span>
+                <span style={{
+                  color: getTimeSlotInfo(timeSlot).badgeColor,
+                  fontWeight: 'bold',
+                  fontSize: '0.82rem',
+                  fontFamily: 'Press Start 2P, monospace',
+                  background: getTimeSlotInfo(timeSlot).badgeBg,
+                  padding: '3px 8px',
+                  borderRadius: '4px',
+                  border: `1px solid ${getTimeSlotInfo(timeSlot).badgeBorder}`
+                }}>
+                  {timeSlot === 'TBA' ? '⏳ TBA (UNALLOCATED)' : timeSlot}
+                </span>
               </div>
               <div>
                 <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>💡 PROJECT TITLE: </span>

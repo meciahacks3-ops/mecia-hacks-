@@ -5,14 +5,16 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { findRegisteredTeam } from '@/lib/teamUtils';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
+import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 
 export default function ProjectSubmissionPage() {
   const router = useRouter();
   const [studentId, setStudentId] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   
-  // Judge assignment & venue state
+  // Judge assignment, time slot & venue state
   const [assignedJudge, setAssignedJudge] = useState('');
+  const [timeSlot, setTimeSlot] = useState('TBA');
 
   // Team leader state
   const [teamName, setTeamName] = useState('');
@@ -72,6 +74,9 @@ export default function ProjectSubmissionPage() {
           setIsExistingRecord(true);
           setIsEditing(false); // Default to locked view mode on load for existing registered teams
 
+          const parsedSlot = parseTimeSlotFromTeam(teamData);
+          setTimeSlot(parsedSlot);
+
           if (teamData.assigned_judge) {
             setAssignedJudge(teamData.assigned_judge);
           } else {
@@ -93,7 +98,7 @@ export default function ProjectSubmissionPage() {
           }
 
           const mainIdeaStr = teamData.main_idea || '';
-          const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^|\]]+)(?:\|\s*Team ID:\s*([^\]]+))?\]/i);
+          const match = mainIdeaStr.match(/\[Type:\s*([^|]+)\|\s*Branch:\s*([^|\]]+)(?:\|\s*Team ID:\s*([^\]]+))?/i);
           if (match) {
             setProjectType(match[1].trim().toLowerCase());
             setLeaderBranch(match[2].trim());
@@ -101,9 +106,9 @@ export default function ProjectSubmissionPage() {
               foundTeamId = match[3].trim();
               setTeamIdNo(foundTeamId);
             }
-            setProjectIdea(mainIdeaStr.replace(/\[Type:[^\]]+\]\s*/i, '').trim());
+            setProjectIdea(mainIdeaStr.replace(/\[[^\]]+\]\s*/g, '').trim());
           } else {
-            setProjectIdea(mainIdeaStr);
+            setProjectIdea(mainIdeaStr.replace(/\[[^\]]+\]\s*/g, '').trim());
           }
 
           // Fallback regex to parse Team ID if formatted differently
@@ -265,6 +270,7 @@ export default function ProjectSubmissionPage() {
       return;
     }
 
+    const slotTag = timeSlot && timeSlot !== 'TBA' ? ` | Slot: ${timeSlot}` : '';
     const insertPayload = {
       team_name: teamName.trim(),
       team_id_no: teamIdNo.trim(),
@@ -273,7 +279,7 @@ export default function ProjectSubmissionPage() {
       leader_id: leaderId.trim(),
       leader_phone: leaderPhone.trim(),
       project_title: projectTitle.trim() || 'New Project Entry',
-      main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch} | Team ID: ${teamIdNo.trim()}]\n\n${projectIdea.trim() || 'Project Idea Details'}`,
+      main_idea: `[Type: ${projectType.toUpperCase()} | Branch: ${leaderBranch} | Team ID: ${teamIdNo.trim()}${slotTag}]\n\n${projectIdea.trim() || 'Project Idea Details'}`,
       tech_stack: techStack.trim() || 'HTML, CSS, JS'
     };
 
@@ -657,6 +663,44 @@ export default function ProjectSubmissionPage() {
                       </div>
                       <div style={{ color: '#bbb', fontSize: '0.74rem', marginTop: '10px' }}>
                         Report directly to this lab room with your team when called.
+                      </div>
+                    </div>
+
+                    {/* Card 3: Presentation Time Slot */}
+                    <div style={{
+                      background: 'rgba(0, 0, 0, 0.8)',
+                      border: `1.5px solid ${getTimeSlotInfo(timeSlot).badgeBorder}`,
+                      borderRadius: '10px',
+                      padding: '20px 18px',
+                      boxShadow: `0 0 12px ${getTimeSlotInfo(timeSlot).badgeBg}`,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      justifyContent: 'center'
+                    }}>
+                      <div style={{ fontSize: '0.62rem', color: '#8888aa', fontFamily: 'Press Start 2P, monospace', marginBottom: '10px' }}>
+                        ⏰ PRESENTATION TIME SLOT
+                      </div>
+                      <div style={{
+                        background: getTimeSlotInfo(timeSlot).badgeBg,
+                        border: `2px solid ${getTimeSlotInfo(timeSlot).badgeBorder}`,
+                        borderRadius: '8px',
+                        padding: '12px 16px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '12px',
+                        boxShadow: `0 0 12px ${getTimeSlotInfo(timeSlot).badgeBg}`
+                      }}>
+                        <span style={{ fontSize: '1.8rem' }}>{timeSlot === 'TBA' ? '⏳' : '⏰'}</span>
+                        <div>
+                          <div style={{ color: getTimeSlotInfo(timeSlot).badgeColor, fontFamily: 'Press Start 2P, monospace', fontSize: '0.95rem', lineHeight: '1.5' }}>
+                            {timeSlot === 'TBA' ? 'TBA (TO BE ANNOUNCED)' : timeSlot}
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{ color: '#bbb', fontSize: '0.74rem', marginTop: '10px' }}>
+                        {timeSlot === 'TBA'
+                          ? 'Your presentation time slot will be allocated by the admin soon.'
+                          : 'Be present in your allocated lab before this scheduled presentation window.'}
                       </div>
                     </div>
                   </div>

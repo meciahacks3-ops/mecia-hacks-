@@ -5,29 +5,178 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { JUDGE_PROFILES } from '@/lib/judgeProfiles';
 import {
+  TIME_SLOT_OPTIONS,
+  normalizeTimeSlot,
+  parseTimeSlotFromTeam,
+  getTimeSlotInfo,
+  saveTeamAssignment
+} from '@/lib/timeSlotUtils';
+import {
   exportJudgesPanelsAndTeamsExcel,
   exportSinglePanelExcel,
   exportAllPanelsZip,
+  exportTimeSlotScheduleExcel,
   printPanelDossier,
-  printAllPanelsDossiers
+  printAllPanelsDossiers,
+  printTimeSlotSchedule
 } from '@/lib/excelExport';
-
-const initialDemoTeams = [];
 
 export default function AdminDashboardPage() {
   const router = useRouter();
-  const [adminUser, setAdminUser] = useState('admin_user');
-  const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab', 'scores-tab', 'panels-tab', 'whitelist-tab'
-  const [teamsFilter, setTeamsFilter] = useState('unassigned'); // 'unassigned', 'assigned', 'all'
+  const [adminUser, setAdminUser] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return sessionStorage.getItem('adminUser') || 'admin_user';
+    }
+    return 'admin_user';
+  });
+  const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab', 'schedule-tab', 'scores-tab', 'panels-tab', 'whitelist-tab'
+  
+  // Filters for Tab 1 (Teams & Judges)
+  const [teamsFilter, setTeamsFilter] = useState('all'); // 'unassigned', 'assigned', 'all'
+  const [timeSlotFilter, setTimeSlotFilter] = useState('all'); // 'all', 'TBA', '09:30 AM - 11:30 AM', '12:15 PM - 02:15 PM', '02:30 PM - 04:15 PM'
+  
+  // Filter for Schedule Tab
+  const [scheduleViewSlot, setScheduleViewSlot] = useState('all'); // 'all', 'TBA', '09:30 AM - 11:30 AM', '12:15 PM - 02:15 PM', '02:30 PM - 04:15 PM'
+
   const [teams, setTeams] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
   const [judgeSelections, setJudgeSelections] = useState({});
+  const [timeSlotSelections, setTimeSlotSelections] = useState({});
+  const [customJudgeInputs, setCustomJudgeInputs] = useState({});
+
+  // Bulk Selection & Assignment State
+  const [selectedTeamIds, setSelectedTeamIds] = useState([]);
+  const [bulkSlotChoice, setBulkSlotChoice] = useState('09:30 AM - 11:30 AM');
+  const [bulkJudgeChoice, setBulkJudgeChoice] = useState('JM001');
+  const [isSavingBulk, setIsSavingBulk] = useState(false);
+
+  // Per-team saving tracking
+  const [assigningTeamId, setAssigningTeamId] = useState(null);
+  const [savingSlotTeamId, setSavingSlotTeamId] = useState(null);
+
+  // Whitelist State
   const [allowedUsers, setAllowedUsers] = useState([]);
   const [newGmail, setNewGmail] = useState('');
   const [editingUserId, setEditingUserId] = useState(null);
   const [editingEmail, setEditingEmail] = useState('');
+
   const [searchQuery, setSearchQuery] = useState('');
   const [isExportingZip, setIsExportingZip] = useState(false);
+
+  const fetchAllowedUsers = async () => {
+    try {
+      const { data } = await supabase.from('allowed_users').select('*').order('created_at', { ascending: false });
+      if (data) setAllowedUsers(data);
+    } catch (e) {
+      console.warn("Allowed users fetch warning:", e);
+    }
+  };
+
+  const fetchData = async () => {
+    try {
+      // 1. Fetch Teams along with all team members
+      const { data: supaTeams } = await supabase.from('teams').select('*, team_members(*)');
+      if (supaTeams && supaTeams.length > 0) {
+        const formattedTeams = supaTeams.map(st => {
+          let parsedTeamId = st.team_id_no && st.team_id_no.trim() !== 'N/A' ? st.team_id_no.trim() : 'N/A';
+          if (parsedTeamId === 'N/A' && st.main_idea && st.main_idea.includes('Team ID:')) {
+            const match = st.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
+            if (match && match[1]) parsedTeamId = match[1].trim();
+          }
+
+          let leaderBranch = '';
+          if (st.main_idea && st.main_idea.includes('Branch:')) {
+            const bMatch = st.main_idea.match(/Branch:\s*([^|\]]+)/i);
+            if (bMatch && bMatch[1]) leaderBranch = bMatch[1].trim();
+          }
+
+          const parsedSlot = parseTimeSlotFromTeam(st);
+
+          const parsedMembers = (st.team_members || []).map(m => {
+            let mName = m.member_name || '';
+            let mBranch = '';
+            const mMatch = mName.match(/^(.*?)\s*\((.*?)\)$/);
+            if (mMatch) {
+              mName = mMatch[1].trim();
+              mBranch = mMatch[2].trim();
+            }
+            return {
+              id: m.id,
+              name: mName,
+              email: m.member_email || '',
+              idNo: m.member_id || '',
+              phone: m.member_phone || '',
+              branch: mBranch
+            };
+          });
+
+          return {
+            id: st.id,
+            teamName: st.team_name,
+            teamIdNo: parsedTeamId,
+            leaderName: st.leader_name,
+            leaderEmail: st.leader_email,
+            leaderId: st.leader_id,
+            leaderPhone: st.leader_phone,
+            leaderBranch: leaderBranch,
+            projectTitle: st.project_title,
+            techStack: st.tech_stack,
+            assignedJudge: st.assigned_judge || 'Unassigned',
+            timeSlot: parsedSlot,
+            rawMainIdea: st.main_idea || '',
+            members: parsedMembers,
+            totalTeamSize: 1 + parsedMembers.length
+          };
+        });
+        setTeams(formattedTeams);
+
+        setJudgeSelections(prev => {
+          const next = { ...prev };
+          formattedTeams.forEach(t => {
+            if (next[t.id] === undefined) {
+              next[t.id] = t.assignedJudge;
+            }
+          });
+          return next;
+        });
+
+        setTimeSlotSelections(prev => {
+          const next = { ...prev };
+          formattedTeams.forEach(t => {
+            if (next[t.id] === undefined) {
+              next[t.id] = t.timeSlot;
+            }
+          });
+          return next;
+        });
+      } else {
+        setTeams([]);
+        setJudgeSelections({});
+        setTimeSlotSelections({});
+      }
+
+      // 2. Fetch Evaluations
+      const { data: supaEvals } = await supabase.from('evaluations').select('*');
+      if (supaEvals && supaEvals.length > 0) {
+        const formattedEvals = supaEvals.map(se => ({
+          teamName: se.team_name,
+          judgeEmail: se.judge_email,
+          c1: se.c1_innovation ?? 0,
+          c2: se.c2_execution ?? 0,
+          c3: se.c3_feasibility ?? 0,
+          c4: se.c4_presentation ?? 0,
+          c5: se.c5_details ?? 0,
+          totalScore: se.total_score,
+          remarks: se.remarks
+        }));
+        setEvaluations(formattedEvals);
+      } else {
+        setEvaluations([]);
+      }
+    } catch (e) {
+      console.warn("Supabase admin fetch error:", e);
+    }
+  };
 
   useEffect(() => {
     const handleKeyDown = (e) => {
@@ -45,8 +194,6 @@ export default function AdminDashboardPage() {
   }, [searchQuery]);
 
   useEffect(() => {
-    const savedAdminUser = sessionStorage.getItem('adminUser');
-    if (savedAdminUser) setAdminUser(savedAdminUser);
     fetchData();
     fetchAllowedUsers();
 
@@ -56,15 +203,6 @@ export default function AdminDashboardPage() {
 
     return () => clearInterval(pollInterval);
   }, []);
-
-  const fetchAllowedUsers = async () => {
-    try {
-      const { data } = await supabase.from('allowed_users').select('*').order('created_at', { ascending: false });
-      if (data) setAllowedUsers(data);
-    } catch (e) {
-      console.warn("Allowed users fetch warning:", e);
-    }
-  };
 
   const handleAddAllowedGmail = async (e) => {
     e.preventDefault();
@@ -127,106 +265,13 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const fetchData = async () => {
-    try {
-      // 1. Fetch Teams along with all team members
-      const { data: supaTeams } = await supabase.from('teams').select('*, team_members(*)');
-      if (supaTeams && supaTeams.length > 0) {
-        const formattedTeams = supaTeams.map(st => {
-          let parsedTeamId = st.team_id_no && st.team_id_no.trim() !== 'N/A' ? st.team_id_no.trim() : 'N/A';
-          if (parsedTeamId === 'N/A' && st.main_idea && st.main_idea.includes('Team ID:')) {
-            const match = st.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
-            if (match && match[1]) parsedTeamId = match[1].trim();
-          }
-
-          let leaderBranch = '';
-          if (st.main_idea && st.main_idea.includes('Branch:')) {
-            const bMatch = st.main_idea.match(/Branch:\s*([^|\]]+)/i);
-            if (bMatch && bMatch[1]) leaderBranch = bMatch[1].trim();
-          }
-
-          const parsedMembers = (st.team_members || []).map(m => {
-            let mName = m.member_name || '';
-            let mBranch = '';
-            const mMatch = mName.match(/^(.*?)\s*\((.*?)\)$/);
-            if (mMatch) {
-              mName = mMatch[1].trim();
-              mBranch = mMatch[2].trim();
-            }
-            return {
-              id: m.id,
-              name: mName,
-              email: m.member_email || '',
-              idNo: m.member_id || '',
-              phone: m.member_phone || '',
-              branch: mBranch
-            };
-          });
-
-          return {
-            id: st.id,
-            teamName: st.team_name,
-            teamIdNo: parsedTeamId,
-            leaderName: st.leader_name,
-            leaderEmail: st.leader_email,
-            leaderId: st.leader_id,
-            leaderPhone: st.leader_phone,
-            leaderBranch: leaderBranch,
-            projectTitle: st.project_title,
-            techStack: st.tech_stack,
-            assignedJudge: st.assigned_judge || 'Unassigned',
-            members: parsedMembers,
-            totalTeamSize: 1 + parsedMembers.length
-          };
-        });
-        setTeams(formattedTeams);
-
-        setJudgeSelections(prev => {
-          const next = { ...prev };
-          formattedTeams.forEach(t => {
-            if (next[t.id] === undefined) {
-              next[t.id] = t.assignedJudge;
-            }
-          });
-          return next;
-        });
-      } else {
-        setTeams([]);
-        setJudgeSelections({});
-      }
-
-      // 2. Fetch Evaluations
-      const { data: supaEvals } = await supabase.from('evaluations').select('*');
-      if (supaEvals && supaEvals.length > 0) {
-        const formattedEvals = supaEvals.map(se => ({
-          teamName: se.team_name,
-          judgeEmail: se.judge_email,
-          c1: se.c1_innovation ?? 0,
-          c2: se.c2_execution ?? 0,
-          c3: se.c3_feasibility ?? 0,
-          c4: se.c4_presentation ?? 0,
-          c5: se.c5_details ?? 0,
-          totalScore: se.total_score,
-          remarks: se.remarks
-        }));
-        setEvaluations(formattedEvals);
-      } else {
-        setEvaluations([]);
-      }
-    } catch (e) {
-      console.warn("Supabase admin fetch error:", e);
-    }
-  };
-
-  const [customJudgeInputs, setCustomJudgeInputs] = useState({});
-  const [assigningTeamId, setAssigningTeamId] = useState(null);
-
-  const handleAssignJudge = async (teamId, teamName) => {
+  // Save both Judge Panel & Time Slot for a single team
+  const handleSaveTeam = async (teamId, teamName) => {
     const currentTeam = teams.find(t => t.id === teamId);
-    const selectedVal = judgeSelections[teamId] !== undefined ? judgeSelections[teamId] : (currentTeam?.assignedJudge || 'Unassigned');
-    let finalJudge = selectedVal;
+    const selectedJudgeVal = judgeSelections[teamId] !== undefined ? judgeSelections[teamId] : (currentTeam?.assignedJudge || 'Unassigned');
+    let finalJudge = selectedJudgeVal;
 
-    if (selectedVal === 'CUSTOM') {
+    if (selectedJudgeVal === 'CUSTOM') {
       finalJudge = (customJudgeInputs[teamId] || '').trim();
       if (!finalJudge) {
         alert("Please enter a valid Judge Email or Panel ID!");
@@ -234,36 +279,194 @@ export default function AdminDashboardPage() {
       }
     }
 
+    const selectedSlotVal = timeSlotSelections[teamId] !== undefined ? timeSlotSelections[teamId] : (currentTeam?.timeSlot || 'TBA');
+    const finalSlot = normalizeTimeSlot(selectedSlotVal);
+
     setAssigningTeamId(teamId);
 
     try {
-      let updateQuery = supabase.from('teams').update({ assigned_judge: finalJudge });
-      if (teamId && teamId.length > 20) {
-        updateQuery = updateQuery.eq('id', teamId);
-      } else {
-        updateQuery = updateQuery.ilike('team_name', teamName.trim());
-      }
+      const { error, updatedMainIdea } = await saveTeamAssignment(
+        supabase,
+        teamId,
+        teamName,
+        {
+          assignedJudge: finalJudge,
+          timeSlot: finalSlot,
+          rawMainIdea: currentTeam?.rawMainIdea || ''
+        }
+      );
 
-      const { error } = await updateQuery;
       if (error) {
-        console.error("Judge assignment error:", error);
-        alert("Error saving assignment to Supabase: " + error.message);
+        console.error("Assignment error:", error);
+        alert("Error saving assignment: " + error.message);
         setAssigningTeamId(null);
         return;
       }
 
-      setTeams(prev => prev.map(t => t.id === teamId ? { ...t, assignedJudge: finalJudge } : t));
+      setTeams(prev => prev.map(t => t.id === teamId ? {
+        ...t,
+        assignedJudge: finalJudge,
+        timeSlot: finalSlot,
+        rawMainIdea: updatedMainIdea
+      } : t));
+
       setJudgeSelections(prev => ({ ...prev, [teamId]: finalJudge }));
-      alert(`✅ Successfully assigned ${finalJudge} to team "${teamName}"!`);
+      setTimeSlotSelections(prev => ({ ...prev, [teamId]: finalSlot }));
+      alert(`✅ Updated "${teamName}":\n• Judge: ${finalJudge}\n• Time Slot: ${finalSlot}`);
     } catch (err) {
-      console.error("Judge assignment error:", err);
-      alert(`Assigned ${finalJudge} to team "${teamName}"!`);
+      console.error("Save team error:", err);
+      alert(`Updated "${teamName}"!`);
     } finally {
       setAssigningTeamId(null);
     }
   };
 
-  // Export Judges Panels and Assigned Teams multi-sheet Excel (.xlsx)
+  // Quick single-click time slot update (used on schedule view)
+  const handleQuickSlotChange = async (teamId, teamName, targetSlot) => {
+    const finalSlot = normalizeTimeSlot(targetSlot);
+    const currentTeam = teams.find(t => t.id === teamId);
+    setSavingSlotTeamId(teamId);
+
+    try {
+      const { error, updatedMainIdea } = await saveTeamAssignment(
+        supabase,
+        teamId,
+        teamName,
+        {
+          assignedJudge: currentTeam?.assignedJudge || 'Unassigned',
+          timeSlot: finalSlot,
+          rawMainIdea: currentTeam?.rawMainIdea || ''
+        }
+      );
+
+      if (error) {
+        alert("Error updating slot: " + error.message);
+        return;
+      }
+
+      setTeams(prev => prev.map(t => t.id === teamId ? {
+        ...t,
+        timeSlot: finalSlot,
+        rawMainIdea: updatedMainIdea
+      } : t));
+
+      setTimeSlotSelections(prev => ({ ...prev, [teamId]: finalSlot }));
+    } catch (err) {
+      console.error("Quick slot change error:", err);
+    } finally {
+      setSavingSlotTeamId(null);
+    }
+  };
+
+  // Bulk Apply Time Slot to Selected Teams
+  const handleBulkApplySlot = async () => {
+    if (selectedTeamIds.length === 0) {
+      alert("Please select at least one team using the checkboxes.");
+      return;
+    }
+
+    const normSlot = normalizeTimeSlot(bulkSlotChoice);
+    if (!confirm(`Are you sure you want to allocate Time Slot "${normSlot}" to the ${selectedTeamIds.length} selected team(s)?`)) {
+      return;
+    }
+
+    setIsSavingBulk(true);
+    try {
+      let successCount = 0;
+      for (const teamId of selectedTeamIds) {
+        const currentTeam = teams.find(t => t.id === teamId);
+        if (currentTeam) {
+          const { error, updatedMainIdea } = await saveTeamAssignment(
+            supabase,
+            teamId,
+            currentTeam.teamName,
+            {
+              assignedJudge: currentTeam.assignedJudge,
+              timeSlot: normSlot,
+              rawMainIdea: currentTeam.rawMainIdea || ''
+            }
+          );
+          if (!error) {
+            successCount++;
+            setTeams(prev => prev.map(t => t.id === teamId ? { ...t, timeSlot: normSlot, rawMainIdea: updatedMainIdea } : t));
+            setTimeSlotSelections(prev => ({ ...prev, [teamId]: normSlot }));
+          }
+        }
+      }
+      alert(`✅ Successfully allocated Time Slot "${normSlot}" to ${successCount} team(s)!`);
+      setSelectedTeamIds([]);
+    } catch (e) {
+      console.error("Bulk slot assignment error:", e);
+      alert("Bulk assignment notice: " + e.message);
+    } finally {
+      setIsSavingBulk(false);
+    }
+  };
+
+  // Bulk Apply Judge Panel to Selected Teams
+  const handleBulkApplyJudge = async () => {
+    if (selectedTeamIds.length === 0) {
+      alert("Please select at least one team using the checkboxes.");
+      return;
+    }
+
+    const targetJudge = bulkJudgeChoice;
+    if (!confirm(`Are you sure you want to assign Judge Panel "${targetJudge}" to the ${selectedTeamIds.length} selected team(s)?`)) {
+      return;
+    }
+
+    setIsSavingBulk(true);
+    try {
+      let successCount = 0;
+      for (const teamId of selectedTeamIds) {
+        const currentTeam = teams.find(t => t.id === teamId);
+        if (currentTeam) {
+          const { error, updatedMainIdea } = await saveTeamAssignment(
+            supabase,
+            teamId,
+            currentTeam.teamName,
+            {
+              assignedJudge: targetJudge,
+              timeSlot: currentTeam.timeSlot || 'TBA',
+              rawMainIdea: currentTeam.rawMainIdea || ''
+            }
+          );
+          if (!error) {
+            successCount++;
+            setTeams(prev => prev.map(t => t.id === teamId ? { ...t, assignedJudge: targetJudge, rawMainIdea: updatedMainIdea } : t));
+            setJudgeSelections(prev => ({ ...prev, [teamId]: targetJudge }));
+          }
+        }
+      }
+      alert(`✅ Successfully assigned Judge "${targetJudge}" to ${successCount} team(s)!`);
+      setSelectedTeamIds([]);
+    } catch (e) {
+      console.error("Bulk judge assignment error:", e);
+      alert("Bulk assignment notice: " + e.message);
+    } finally {
+      setIsSavingBulk(false);
+    }
+  };
+
+  // Toggle selection for single team
+  const toggleSelectTeam = (teamId) => {
+    setSelectedTeamIds(prev =>
+      prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId]
+    );
+  };
+
+  // Toggle select all currently displayed teams
+  const toggleSelectAllDisplayed = (displayedList) => {
+    const displayedIds = displayedList.map(t => t.id);
+    const allSelected = displayedIds.every(id => selectedTeamIds.includes(id));
+    if (allSelected) {
+      setSelectedTeamIds(prev => prev.filter(id => !displayedIds.includes(id)));
+    } else {
+      setSelectedTeamIds(prev => Array.from(new Set([...prev, ...displayedIds])));
+    }
+  };
+
+  // Export Judges Panels & Teams Master Excel (.xlsx)
   const handleExportJudgesPanelsExcel = () => {
     try {
       if (!teams || teams.length === 0) {
@@ -271,18 +474,38 @@ export default function AdminDashboardPage() {
         return;
       }
       const filename = exportJudgesPanelsAndTeamsExcel(teams, evaluations);
-      alert(`✅ Master Excel workbook successfully generated!\n\nFile: ${filename}\n\nSheets included:\n1. All Panels & Teams (Full Flat & Hierarchical View)\n2. Panels Summary (Overview & Metrics)\n3. Individual Sheets for each panel (JM001 to JM011, Custom Judges, Unassigned)`);
+      alert(`✅ Master Excel workbook generated!\n\nFile: ${filename}\n\nIncludes allocated time slots for all panels & teams.`);
     } catch (err) {
       console.error("Excel export error:", err);
       alert("Error generating Excel sheet: " + err.message);
     }
   };
 
+  // Export Time Slots Master Schedule Excel (.xlsx)
+  const handleExportScheduleExcel = () => {
+    try {
+      if (!teams || teams.length === 0) {
+        alert("No teams available to export yet!");
+        return;
+      }
+      const filename = exportTimeSlotScheduleExcel(teams, evaluations);
+      alert(`✅ Master Time Slot Schedule workbook generated!\n\nFile: ${filename}\n\nIncludes sheets for 9:30-11:30, 12:15-2:15, 2:30-4:15, and TBA.`);
+    } catch (err) {
+      console.error("Schedule export error:", err);
+      alert("Error exporting schedule: " + err.message);
+    }
+  };
+
+  // Print Master Time Slot Schedule (A4)
+  const handlePrintSchedule = () => {
+    printTimeSlotSchedule(teams, evaluations);
+  };
+
   // Export a single panel's dedicated Excel (.xlsx) file
   const handleExportSinglePanel = (panelId) => {
     try {
       const filename = exportSinglePanelExcel(panelId, teams, evaluations);
-      alert(`✅ Separate Excel sheet for Panel ${panelId} downloaded!\n\nFile: ${filename}\n\nReady for individual printing on A4.`);
+      alert(`✅ Separate Excel sheet for Panel ${panelId} downloaded!\n\nFile: ${filename}`);
     } catch (err) {
       console.error("Single panel export error:", err);
       alert("Error exporting panel Excel sheet: " + err.message);
@@ -298,7 +521,7 @@ export default function AdminDashboardPage() {
       }
       setIsExportingZip(true);
       const zipFileName = await exportAllPanelsZip(teams, evaluations);
-      alert(`✅ Separate sheets ZIP archive created and downloaded!\n\nFile: ${zipFileName}\n\nContains separate .xlsx files for every panel (JM001 - JM011, Custom, Unassigned) for individual printing!`);
+      alert(`✅ Separate sheets ZIP archive created and downloaded!\n\nFile: ${zipFileName}`);
     } catch (err) {
       console.error("ZIP export error:", err);
       alert("Error creating ZIP archive: " + err.message);
@@ -317,7 +540,7 @@ export default function AdminDashboardPage() {
     printAllPanelsDossiers(teams, evaluations);
   };
 
-  // 1. Export Teams Master CSV (with Leader + Member 1, 2, 3 in separate columns)
+  // Export Teams Master CSV
   const exportCSV = () => {
     let csvRows = [];
     csvRows.push(["Mecia Hack 3.0 - Complete Admin Master Report & Evaluation Sheet (Round 2)"]);
@@ -327,6 +550,8 @@ export default function AdminDashboardPage() {
       "Team ID",
       "Team Name",
       "Total Team Size",
+      "Allocated Time Slot",
+      "Assigned Judge",
       "Leader Name",
       "Leader Email",
       "Leader Enrollment ID",
@@ -350,7 +575,6 @@ export default function AdminDashboardPage() {
       "All Members Roster Summary",
       "Project Title",
       "Tech Stack",
-      "Assigned Judge",
       "Evaluation Status",
       "System Architecture (10)",
       "Prototype Scope (10)",
@@ -390,6 +614,8 @@ export default function AdminDashboardPage() {
         `"${t.teamIdNo || 'N/A'}"`,
         `"${t.teamName || ''}"`,
         t.totalTeamSize || (1 + (t.members?.length || 0)),
+        `"${t.timeSlot || 'TBA'}"`,
+        `"${t.assignedJudge || 'Unassigned'}"`,
         `"${t.leaderName || ''}"`,
         `"${t.leaderEmail || ''}"`,
         `"${t.leaderId || ''}"`,
@@ -413,7 +639,6 @@ export default function AdminDashboardPage() {
         `"${allMembersSummary.replace(/"/g, '""')}"`,
         `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
         `"${(t.techStack || '').replace(/"/g, '""')}"`,
-        `"${t.assignedJudge || 'Unassigned'}"`,
         `"${status}"`,
         c1,
         c2,
@@ -430,13 +655,13 @@ export default function AdminDashboardPage() {
     const url = URL.createObjectURL(blob);
     const downloadAnchor = document.createElement('a');
     downloadAnchor.href = url;
-    downloadAnchor.setAttribute('download', `Mecia_Hack_3.0_Teams_All_Members_Master_Report_${Date.now()}.csv`);
+    downloadAnchor.setAttribute('download', `Mecia_Hack_3.0_Teams_Master_Report_${Date.now()}.csv`);
     document.body.appendChild(downloadAnchor);
     downloadAnchor.click();
     document.body.removeChild(downloadAnchor);
   };
 
-  // 2. Export All Students Directory CSV (1 row per participant: Leader or Member)
+  // Export All Students Directory CSV
   const exportStudentsDirectoryCSV = () => {
     let csvRows = [];
     csvRows.push(["Mecia Hack 3.0 - Complete All Students & Participants Directory"]);
@@ -445,14 +670,15 @@ export default function AdminDashboardPage() {
     csvRows.push([
       "Team ID",
       "Team Name",
+      "Allocated Time Slot",
+      "Assigned Judge",
       "Participant Role",
       "Student Name",
       "Enrollment No / ID",
       "Email Address",
       "Mobile Phone",
       "Branch / Dept",
-      "Project Title",
-      "Assigned Judge"
+      "Project Title"
     ]);
 
     teams.forEach(t => {
@@ -460,14 +686,15 @@ export default function AdminDashboardPage() {
       csvRows.push([
         `"${t.teamIdNo || 'N/A'}"`,
         `"${t.teamName || ''}"`,
+        `"${t.timeSlot || 'TBA'}"`,
+        `"${t.assignedJudge || 'Unassigned'}"`,
         `"👑 Team Leader"`,
         `"${t.leaderName || ''}"`,
         `"${t.leaderId || ''}"`,
         `"${t.leaderEmail || ''}"`,
         `"${t.leaderPhone || ''}"`,
         `"${t.leaderBranch || ''}"`,
-        `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
-        `"${t.assignedJudge || 'Unassigned'}"`
+        `"${(t.projectTitle || '').replace(/"/g, '""')}"`
       ]);
 
       // Members rows
@@ -475,14 +702,15 @@ export default function AdminDashboardPage() {
         csvRows.push([
           `"${t.teamIdNo || 'N/A'}"`,
           `"${t.teamName || ''}"`,
+          `"${t.timeSlot || 'TBA'}"`,
+          `"${t.assignedJudge || 'Unassigned'}"`,
           `"👤 Member #${idx + 1}"`,
           `"${m.name || ''}"`,
           `"${m.idNo || ''}"`,
           `"${m.email || ''}"`,
           `"${m.phone || ''}"`,
           `"${m.branch || ''}"`,
-          `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
-          `"${t.assignedJudge || 'Unassigned'}"`
+          `"${(t.projectTitle || '').replace(/"/g, '""')}"`
         ]);
       });
     });
@@ -510,12 +738,14 @@ export default function AdminDashboardPage() {
 
   const cleanQuery = searchQuery.trim().toLowerCase();
 
-  // Search filter across teams (Team ID, Name, Leader details, Member details, Project, Judge, Tech)
+  // Global search filter
   const searchMatchedTeams = teams.filter(t => {
     if (!cleanQuery) return true;
 
     if (t.teamIdNo && t.teamIdNo.toLowerCase().includes(cleanQuery)) return true;
     if (t.teamName && t.teamName.toLowerCase().includes(cleanQuery)) return true;
+    if (t.timeSlot && t.timeSlot.toLowerCase().includes(cleanQuery)) return true;
+    if (t.assignedJudge && t.assignedJudge.toLowerCase().includes(cleanQuery)) return true;
 
     if (t.leaderName && t.leaderName.toLowerCase().includes(cleanQuery)) return true;
     if (t.leaderEmail && t.leaderEmail.toLowerCase().includes(cleanQuery)) return true;
@@ -525,8 +755,6 @@ export default function AdminDashboardPage() {
 
     if (t.projectTitle && t.projectTitle.toLowerCase().includes(cleanQuery)) return true;
     if (t.techStack && t.techStack.toLowerCase().includes(cleanQuery)) return true;
-
-    if (t.assignedJudge && t.assignedJudge.toLowerCase().includes(cleanQuery)) return true;
 
     if (t.members && t.members.some(m =>
       (m.name && m.name.toLowerCase().includes(cleanQuery)) ||
@@ -539,14 +767,24 @@ export default function AdminDashboardPage() {
     return false;
   });
 
+  // Calculate statistics
+  const unassignedJudgeCount = searchMatchedTeams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned').length;
+  const assignedJudgeCount = searchMatchedTeams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned').length;
+
+  const tbaSlotCount = searchMatchedTeams.filter(t => t.timeSlot === 'TBA').length;
+  const slot1Count = searchMatchedTeams.filter(t => t.timeSlot === '09:30 AM - 11:30 AM').length;
+  const slot2Count = searchMatchedTeams.filter(t => t.timeSlot === '12:15 PM - 02:15 PM').length;
+  const slot3Count = searchMatchedTeams.filter(t => t.timeSlot === '02:30 PM - 04:15 PM').length;
+  const allocatedSlotCount = searchMatchedTeams.length - tbaSlotCount;
+
   return (
     <>
       <div className="scanlines"></div>
 
       <div className="admin-container">
-        {/* Navigation Header: Top-Left Search Bar & Button + Top-Right User HUD */}
+        {/* Navigation Header */}
         <div className="nav-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', marginBottom: '28px' }}>
-          {/* Top Left: Retro Search Component */}
+          {/* Top Left: Search Bar */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 340px', maxWidth: '620px' }}>
             <div style={{ position: 'relative', width: '100%', display: 'flex', alignItems: 'center' }}>
               <span style={{ position: 'absolute', left: '12px', color: searchQuery ? 'var(--pacman-yellow, #fdff00)' : '#888', fontSize: '0.85rem', pointerEvents: 'none' }}>
@@ -555,7 +793,7 @@ export default function AdminDashboardPage() {
               <input
                 id="admin-search-input"
                 type="text"
-                placeholder="Search Team ID, Name, Leader, Member, Judge, Email..."
+                placeholder="Search Team ID, Name, Leader, Judge, Slot (9:30, 12:15, 2:30, TBA)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -617,7 +855,7 @@ export default function AdminDashboardPage() {
                 background: searchQuery ? '#fdff00' : undefined,
                 color: searchQuery ? '#000' : undefined
               }}
-              title="Search teams, participants, or judges (Shortcut: Press '/')"
+              title="Search teams, participants, time slots, or judges (Shortcut: Press '/')"
             >
               🔍 SEARCH
             </button>
@@ -640,7 +878,7 @@ export default function AdminDashboardPage() {
             <span className="role-badge admin-badge">STAGE 3: ADMIN CONTROL PANEL</span>
           </div>
           <h2>HACKATHON MASTER CONTROL</h2>
-          <p>Assign teams to judges, view live evaluation scores, and export full reports.</p>
+          <p>Allocate presentation time slots (9:30-11:30, 12:15-2:15, 2:30-4:15, TBA), assign judge panels, and monitor live evaluations.</p>
         </div>
 
         {/* Admin Top Controls Bar */}
@@ -650,7 +888,18 @@ export default function AdminDashboardPage() {
             className={`judge-nav-btn ${activeTab === 'teams-tab' ? 'active' : ''}`}
             onClick={() => setActiveTab('teams-tab')}
           >
-            👥 TEAMS & JUDGES {cleanQuery ? `(${searchMatchedTeams.length})` : ''}
+            👥 TEAMS & ALLOCATIONS {cleanQuery ? `(${searchMatchedTeams.length})` : ''}
+          </button>
+          <button
+            type="button"
+            className={`judge-nav-btn ${activeTab === 'schedule-tab' ? 'active' : ''}`}
+            onClick={() => setActiveTab('schedule-tab')}
+            style={{
+              borderColor: activeTab === 'schedule-tab' ? '#fdff00' : undefined,
+              color: activeTab === 'schedule-tab' ? '#fdff00' : undefined
+            }}
+          >
+            📅 TIME SLOTS & TIMETABLE ({allocatedSlotCount}/{teams.length})
           </button>
           <button
             type="button"
@@ -681,24 +930,24 @@ export default function AdminDashboardPage() {
             type="button"
             className="submit-btn"
             style={{
-              background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
-              border: '2px solid #00ff66',
-              color: '#fff',
+              background: 'linear-gradient(135deg, #b8860b, #e6b800)',
+              border: '2px solid #fdff00',
+              color: '#000',
+              fontWeight: 'bold',
               padding: '10px 14px',
               fontSize: '0.6rem',
               fontFamily: 'Press Start 2P, monospace',
               borderRadius: '8px',
               cursor: 'pointer',
-              boxShadow: '0 0 12px rgba(0, 255, 102, 0.3)',
+              boxShadow: '0 0 12px rgba(253, 255, 0, 0.4)',
               display: 'flex',
               alignItems: 'center',
               gap: '6px'
             }}
-            onClick={handleExportAllPanelsZip}
-            disabled={isExportingZip}
-            title="Download a ZIP containing separate individual .xlsx files for every judge panel (ready for separate printouts)"
+            onClick={handleExportScheduleExcel}
+            title="Download dedicated Excel schedule workbook with sheets for each time slot"
           >
-            {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 ALL SEPARATE SHEETS (.ZIP)'}
+            📅 TIMETABLE (.XLSX)
           </button>
           <button
             type="button"
@@ -716,10 +965,33 @@ export default function AdminDashboardPage() {
               alignItems: 'center',
               gap: '6px'
             }}
-            onClick={handlePrintAllPanels}
-            title="Open browser print view to print evaluation dossiers for all 11 panels on A4 landscape"
+            onClick={handlePrintSchedule}
+            title="Open printable master timetable arranged by time slots on A4 landscape"
           >
-            🖨️ PRINT ALL PANELS (A4)
+            🖨️ PRINT TIMETABLE (A4)
+          </button>
+          <button
+            type="button"
+            className="submit-btn"
+            style={{
+              background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
+              border: '2px solid #00ff66',
+              color: '#fff',
+              padding: '10px 14px',
+              fontSize: '0.6rem',
+              fontFamily: 'Press Start 2P, monospace',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              boxShadow: '0 0 12px rgba(0, 255, 102, 0.3)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            onClick={handleExportAllPanelsZip}
+            disabled={isExportingZip}
+            title="Download ZIP containing separate individual .xlsx files for each judge panel"
+          >
+            {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 ALL PANELS ZIP'}
           </button>
           <button
             type="button"
@@ -738,15 +1010,15 @@ export default function AdminDashboardPage() {
               gap: '6px'
             }}
             onClick={handleExportJudgesPanelsExcel}
-            title="Download master workbook (.xlsx) containing all panels in one file"
+            title="Download master multi-sheet workbook containing all panels"
           >
             📗 MASTER WORKBOOK (.XLSX)
           </button>
-          <button type="button" className="submit-btn excel-btn admin-excel-btn" onClick={exportCSV} title="Export spreadsheet with all teams and all members details">
+          <button type="button" className="submit-btn excel-btn admin-excel-btn" onClick={exportCSV} title="Export spreadsheet with all teams, members, judge assignments, and time slots">
             📊 MASTER CSV
           </button>
-          <button type="button" className="submit-btn" style={{ background: '#2121ff', border: '2px solid #2121ff', color: '#fff', padding: '10px 16px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', borderRadius: '8px', cursor: 'pointer' }} onClick={exportStudentsDirectoryCSV} title="Export individual participant directory">
-            👥 STUDENTS DIRECTORY CSV
+          <button type="button" className="submit-btn" style={{ background: '#2121ff', border: '2px solid #2121ff', color: '#fff', padding: '10px 16px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', borderRadius: '8px', cursor: 'pointer' }} onClick={exportStudentsDirectoryCSV} title="Export individual participant directory with time slots">
+            👥 PARTICIPANTS CSV
           </button>
         </div>
 
@@ -796,155 +1068,357 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* TAB 1: TEAMS & JUDGE ASSIGNMENTS */}
+        {/* TAB 1: TEAMS, JUDGES & TIME SLOTS ALLOCATION */}
         {activeTab === 'teams-tab' && (() => {
-          const unassignedTeams = searchMatchedTeams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned');
-          const assignedTeams = searchMatchedTeams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned');
-          const displayedTeams = teamsFilter === 'unassigned' 
-            ? unassignedTeams 
-            : teamsFilter === 'assigned' 
-            ? assignedTeams 
+          const filteredByJudge = teamsFilter === 'unassigned'
+            ? searchMatchedTeams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned')
+            : teamsFilter === 'assigned'
+            ? searchMatchedTeams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned')
             : searchMatchedTeams;
+
+          const displayedTeams = timeSlotFilter === 'all'
+            ? filteredByJudge
+            : filteredByJudge.filter(t => t.timeSlot === timeSlotFilter);
+
+          const isAllDisplayedSelected = displayedTeams.length > 0 && displayedTeams.every(t => selectedTeamIds.includes(t.id));
 
           return (
             <div className="admin-tab-content active">
               <div className="form-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
-                  <h3 className="section-title" style={{ margin: 0 }}><span className="pacman-bullet"></span> REGISTERED TEAMS & JUDGE ASSIGNMENTS</h3>
-                  
-                  {/* Sub-filter tabs */}
+                {/* Header & Dual Filter Controls */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '16px', marginBottom: '20px' }}>
+                  <div>
+                    <h3 className="section-title" style={{ margin: 0 }}>
+                      <span className="pacman-bullet"></span> REGISTERED TEAMS & ALLOCATIONS
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '6px', margin: 0 }}>
+                      Assign Judge Panels and Presentation Time Slots (9:30-11:30, 12:15-2:15, 2:30-4:15, or TBA) manually for each team.
+                    </p>
+                  </div>
+
+                  {/* Summary Metric Counters Bar */}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={() => setTeamsFilter('unassigned')}
-                      style={{
-                        background: teamsFilter === 'unassigned' ? '#ff0055' : 'rgba(0,0,0,0.6)',
-                        color: '#fff',
-                        border: '1px solid ' + (teamsFilter === 'unassigned' ? '#ff0055' : '#444'),
-                        borderRadius: '6px',
-                        padding: '8px 14px',
-                        fontFamily: 'Press Start 2P, monospace',
-                        fontSize: '0.6rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ⚠️ UNASSIGNED ({unassignedTeams.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTeamsFilter('assigned')}
-                      style={{
-                        background: teamsFilter === 'assigned' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
-                        color: teamsFilter === 'assigned' ? '#000' : '#fff',
-                        border: '1px solid ' + (teamsFilter === 'assigned' ? '#00ffcc' : '#444'),
-                        borderRadius: '6px',
-                        padding: '8px 14px',
-                        fontFamily: 'Press Start 2P, monospace',
-                        fontSize: '0.6rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      ✅ ASSIGNED ({assignedTeams.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setTeamsFilter('all')}
-                      style={{
-                        background: teamsFilter === 'all' ? '#fdff00' : 'rgba(0,0,0,0.6)',
-                        color: teamsFilter === 'all' ? '#000' : '#fff',
-                        border: '1px solid ' + (teamsFilter === 'all' ? '#fdff00' : '#444'),
-                        borderRadius: '6px',
-                        padding: '8px 14px',
-                        fontFamily: 'Press Start 2P, monospace',
-                        fontSize: '0.6rem',
-                        cursor: 'pointer'
-                      }}
-                    >
-                      📋 ALL TEAMS ({searchMatchedTeams.length})
-                    </button>
+                    <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid #444', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#fff' }}>
+                      TOTAL: <span style={{ color: '#00ffcc' }}>{teams.length}</span>
+                    </div>
+                    <div style={{ background: 'rgba(255, 184, 82, 0.12)', border: '1px solid #ffb852', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#ffb852' }}>
+                      ⏳ TBA SLOTS: <span style={{ fontWeight: 'bold' }}>{tbaSlotCount}</span>
+                    </div>
+                    <div style={{ background: 'rgba(0, 255, 204, 0.12)', border: '1px solid #00ffcc', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#00ffcc' }}>
+                      ⏰ SLOT 1 (9:30): <span>{slot1Count}</span>
+                    </div>
+                    <div style={{ background: 'rgba(253, 255, 0, 0.12)', border: '1px solid #fdff00', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00' }}>
+                      ⏰ SLOT 2 (12:15): <span>{slot2Count}</span>
+                    </div>
+                    <div style={{ background: 'rgba(255, 102, 204, 0.12)', border: '1px solid #ff66cc', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#ff66cc' }}>
+                      ⏰ SLOT 3 (2:30): <span>{slot3Count}</span>
+                    </div>
                   </div>
                 </div>
 
-                {displayedTeams.length === 0 ? (
-                  cleanQuery ? (
-                    <div style={{
-                      background: 'rgba(255, 0, 85, 0.08)',
-                      border: '2px dashed #ff0055',
-                      borderRadius: '10px',
-                      padding: '30px 20px',
-                      textAlign: 'center',
-                      color: '#ff6699',
-                      fontFamily: 'Press Start 2P, monospace',
-                      fontSize: '0.72rem',
-                      lineHeight: '2'
-                    }}>
-                      ⚠️ NO TEAMS FOUND MATCHING &ldquo;{searchQuery}&rdquo;
-                      <br />
-                      <span style={{ fontSize: '0.65rem', color: '#bbb', fontFamily: 'Inter, sans-serif', fontWeight: 'normal' }}>
-                        Try searching by Team ID, Student Name, Leader Email, Enrollment ID, or Assigned Judge.
-                      </span>
-                      <br />
+                {/* Filter Control Strips */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px', background: 'rgba(0, 0, 0, 0.5)', padding: '14px', borderRadius: '8px', border: '1px solid #222' }}>
+                  {/* Row 1: Judge Assignment Filter */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#888', minWidth: '120px' }}>
+                      ⚖️ JUDGE FILTER:
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button
                         type="button"
-                        onClick={() => setSearchQuery('')}
+                        onClick={() => setTeamsFilter('all')}
                         style={{
-                          marginTop: '16px',
-                          background: 'var(--pacman-yellow, #fdff00)',
-                          color: '#000',
-                          border: 'none',
+                          background: teamsFilter === 'all' ? '#fdff00' : 'rgba(0,0,0,0.6)',
+                          color: teamsFilter === 'all' ? '#000' : '#fff',
+                          border: '1px solid ' + (teamsFilter === 'all' ? '#fdff00' : '#444'),
                           borderRadius: '6px',
-                          padding: '8px 18px',
+                          padding: '6px 12px',
                           fontFamily: 'Press Start 2P, monospace',
-                          fontSize: '0.62rem',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        📋 ALL JUDGE STATES ({searchMatchedTeams.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTeamsFilter('unassigned')}
+                        style={{
+                          background: teamsFilter === 'unassigned' ? '#ff0055' : 'rgba(0,0,0,0.6)',
+                          color: '#fff',
+                          border: '1px solid ' + (teamsFilter === 'unassigned' ? '#ff0055' : '#444'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ⚠️ UNASSIGNED JUDGE ({unassignedJudgeCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTeamsFilter('assigned')}
+                        style={{
+                          background: teamsFilter === 'assigned' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                          color: teamsFilter === 'assigned' ? '#000' : '#fff',
+                          border: '1px solid ' + (teamsFilter === 'assigned' ? '#00ffcc' : '#444'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✅ ASSIGNED JUDGE ({assignedJudgeCount})
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Row 2: Time Slot Filter */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <span style={{ fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#888', minWidth: '120px' }}>
+                      ⏰ TIME SLOT:
+                    </span>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={() => setTimeSlotFilter('all')}
+                        style={{
+                          background: timeSlotFilter === 'all' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                          color: timeSlotFilter === 'all' ? '#000' : '#fff',
+                          border: '1px solid ' + (timeSlotFilter === 'all' ? '#00ffcc' : '#444'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ALL SLOTS ({searchMatchedTeams.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimeSlotFilter('TBA')}
+                        style={{
+                          background: timeSlotFilter === 'TBA' ? '#ffb852' : 'rgba(0,0,0,0.6)',
+                          color: timeSlotFilter === 'TBA' ? '#000' : '#ffb852',
+                          border: '1.5px solid ' + (timeSlotFilter === 'TBA' ? '#ffb852' : '#555'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
                           cursor: 'pointer',
                           fontWeight: 'bold'
                         }}
                       >
-                        ✕ CLEAR SEARCH
+                        ⏳ TBA / UNALLOCATED ({tbaSlotCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimeSlotFilter('09:30 AM - 11:30 AM')}
+                        style={{
+                          background: timeSlotFilter === '09:30 AM - 11:30 AM' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                          color: timeSlotFilter === '09:30 AM - 11:30 AM' ? '#000' : '#00ffcc',
+                          border: '1px solid ' + (timeSlotFilter === '09:30 AM - 11:30 AM' ? '#00ffcc' : '#444'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ⏰ 09:30 - 11:30 ({slot1Count})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimeSlotFilter('12:15 PM - 02:15 PM')}
+                        style={{
+                          background: timeSlotFilter === '12:15 PM - 02:15 PM' ? '#fdff00' : 'rgba(0,0,0,0.6)',
+                          color: timeSlotFilter === '12:15 PM - 02:15 PM' ? '#000' : '#fdff00',
+                          border: '1px solid ' + (timeSlotFilter === '12:15 PM - 02:15 PM' ? '#fdff00' : '#444'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ⏰ 12:15 - 02:15 ({slot2Count})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTimeSlotFilter('02:30 PM - 04:15 PM')}
+                        style={{
+                          background: timeSlotFilter === '02:30 PM - 04:15 PM' ? '#ff66cc' : 'rgba(0,0,0,0.6)',
+                          color: timeSlotFilter === '02:30 PM - 04:15 PM' ? '#000' : '#ff66cc',
+                          border: '1px solid ' + (timeSlotFilter === '02:30 PM - 04:15 PM' ? '#ff66cc' : '#444'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ⏰ 02:30 - 04:15 ({slot3Count})
                       </button>
                     </div>
-                  ) : teamsFilter === 'unassigned' && unassignedTeams.length === 0 ? (
-                    <div style={{
-                      background: 'rgba(0, 255, 204, 0.1)',
-                      border: '2px solid #00ffcc',
-                      borderRadius: '10px',
-                      padding: '24px',
-                      textAlign: 'center',
-                      color: '#00ffcc',
-                      fontFamily: 'Press Start 2P, monospace',
-                      fontSize: '0.75rem',
-                      lineHeight: '1.8'
-                    }}>
-                      🎉 ALL TEAMS HAVE BEEN ASSIGNED TO JUDGES!
-                      <br />
-                      <span style={{ fontSize: '0.65rem', color: '#aaa' }}>Click "✅ ASSIGNED" above to view or modify judge assignments.</span>
+                  </div>
+                </div>
+
+                {/* Bulk Action Toolbar (When teams are selected) */}
+                {selectedTeamIds.length > 0 && (
+                  <div style={{
+                    background: 'rgba(33, 33, 255, 0.25)',
+                    border: '2px solid var(--maze-blue, #2121ff)',
+                    borderRadius: '8px',
+                    padding: '12px 18px',
+                    marginBottom: '18px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '14px',
+                    boxShadow: '0 0 15px rgba(33, 33, 255, 0.4)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ color: '#fdff00', fontFamily: 'Press Start 2P, monospace', fontSize: '0.68rem', fontWeight: 'bold' }}>
+                        ☑️ {selectedTeamIds.length} TEAMS SELECTED
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTeamIds([])}
+                        style={{ background: 'transparent', border: '1px solid #777', color: '#bbb', borderRadius: '4px', padding: '4px 8px', fontSize: '0.58rem', fontFamily: 'Press Start 2P, monospace', cursor: 'pointer' }}
+                      >
+                        ✕ DESELECT
+                      </button>
                     </div>
-                  ) : (
-                    <div style={{
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid #444',
-                      borderRadius: '10px',
-                      padding: '24px',
-                      textAlign: 'center',
-                      color: '#aaa',
-                      fontFamily: 'Press Start 2P, monospace',
-                      fontSize: '0.7rem'
-                    }}>
-                      NO TEAMS FOUND IN THIS CATEGORY
+
+                    {/* Bulk Slot Controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <select
+                        className="retro-select"
+                        value={bulkSlotChoice}
+                        onChange={(e) => setBulkSlotChoice(e.target.value)}
+                        style={{ padding: '6px 10px', fontSize: '0.75rem', width: 'auto' }}
+                      >
+                        {TIME_SLOT_OPTIONS.map(opt => (
+                          <option key={opt.id} value={opt.value}>{opt.label}</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={handleBulkApplySlot}
+                        disabled={isSavingBulk}
+                        style={{
+                          background: '#00ffcc',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '8px 14px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.6rem',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        {isSavingBulk ? 'SAVING...' : '⚡ ALLOCATE SLOT'}
+                      </button>
                     </div>
-                  )
+
+                    {/* Bulk Judge Controls */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <select
+                        className="retro-select"
+                        value={bulkJudgeChoice}
+                        onChange={(e) => setBulkJudgeChoice(e.target.value)}
+                        style={{ padding: '6px 10px', fontSize: '0.75rem', width: 'auto' }}
+                      >
+                        <option value="Unassigned">⚠️ Unassigned</option>
+                        {Object.values(JUDGE_PROFILES).map(p => (
+                          <option key={p.id} value={p.id}>{p.id} ({p.group})</option>
+                        ))}
+                      </select>
+                      <button
+                        type="button"
+                        onClick={handleBulkApplyJudge}
+                        disabled={isSavingBulk}
+                        style={{
+                          background: '#fdff00',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '8px 14px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.6rem',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        {isSavingBulk ? 'SAVING...' : '⚡ ASSIGN JUDGE'}
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Main Teams Table */}
+                {displayedTeams.length === 0 ? (
+                  <div style={{
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px dashed #444',
+                    borderRadius: '10px',
+                    padding: '30px',
+                    textAlign: 'center',
+                    color: '#aaa',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.7rem',
+                    lineHeight: '1.8'
+                  }}>
+                    NO TEAMS FOUND MATCHING THE CURRENT FILTERS
+                    <br />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTeamsFilter('all');
+                        setTimeSlotFilter('all');
+                        setSearchQuery('');
+                      }}
+                      style={{
+                        marginTop: '12px',
+                        background: '#fdff00',
+                        color: '#000',
+                        border: 'none',
+                        borderRadius: '6px',
+                        padding: '8px 16px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.6rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      RESET ALL FILTERS
+                    </button>
+                  </div>
                 ) : (
                   <div className="table-responsive">
                     <table className="eval-table admin-table">
                       <thead>
                         <tr>
-                          <th style={{ width: '10%', textAlign: 'center' }}>Team ID</th>
-                          <th style={{ width: '16%' }}>Team Name</th>
-                          <th style={{ width: '28%' }}>Team Leader & Members</th>
-                          <th style={{ width: '16%' }}>Project Title</th>
-                          <th style={{ width: '10%' }}>Status</th>
-                          <th style={{ width: '14%' }}>Assign Judge Panel</th>
-                          <th style={{ width: '6%', textAlign: 'center' }}>Action</th>
+                          <th style={{ width: '4%', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={isAllDisplayedSelected}
+                              onChange={() => toggleSelectAllDisplayed(displayedTeams)}
+                              title="Select/Deselect all displayed teams"
+                              style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
+                            />
+                          </th>
+                          <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
+                          <th style={{ width: '15%' }}>Team Name</th>
+                          <th style={{ width: '22%' }}>Leader & Members</th>
+                          <th style={{ width: '14%' }}>Project Title</th>
+                          <th style={{ width: '15%' }}>Assign Judge Panel</th>
+                          <th style={{ width: '13%' }}>Allocate Time Slot</th>
+                          <th style={{ width: '8%', textAlign: 'center' }}>Action</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -952,13 +1426,28 @@ export default function AdminDashboardPage() {
                           const judgeProfilesList = Object.values(JUDGE_PROFILES);
                           const validJudgeIds = judgeProfilesList.map(p => p.id);
 
-                          const selectedVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
-                          const isCustom = selectedVal === 'CUSTOM' || (!validJudgeIds.includes(selectedVal) && selectedVal !== 'Unassigned');
-                          const isAssigned = t.assignedJudge && t.assignedJudge !== 'Unassigned';
-                          const isSavingThisTeam = assigningTeamId === t.id;
+                          const selectedJudgeVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
+                          const isCustomJudge = selectedJudgeVal === 'CUSTOM' || (!validJudgeIds.includes(selectedJudgeVal) && selectedJudgeVal !== 'Unassigned');
+                          const isAssignedJudge = t.assignedJudge && t.assignedJudge !== 'Unassigned';
+
+                          const selectedSlotVal = timeSlotSelections[t.id] !== undefined ? timeSlotSelections[t.id] : t.timeSlot;
+                          const slotInfo = getTimeSlotInfo(t.timeSlot);
+                          const isSaving = assigningTeamId === t.id;
+                          const isSelected = selectedTeamIds.includes(t.id);
 
                           return (
-                            <tr key={t.id || t.teamName}>
+                            <tr key={t.id || t.teamName} style={{ background: isSelected ? 'rgba(33, 33, 255, 0.15)' : undefined }}>
+                              {/* Checkbox */}
+                              <td style={{ textAlign: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isSelected}
+                                  onChange={() => toggleSelectTeam(t.id)}
+                                  style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
+                                />
+                              </td>
+
+                              {/* Team ID */}
                               <td style={{ textAlign: 'center' }}>
                                 <span style={{
                                   display: 'inline-block',
@@ -978,87 +1467,77 @@ export default function AdminDashboardPage() {
                                   👥 {t.totalTeamSize || (1 + (t.members?.length || 0))} {t.totalTeamSize === 1 ? 'person' : 'members'}
                                 </div>
                               </td>
+
+                              {/* Team Name */}
                               <td className="criterion-name">
                                 <strong style={{ color: '#fff', fontSize: '0.95rem' }}>{t.teamName}</strong>
+                                <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  {/* Judge status badge */}
+                                  {isAssignedJudge ? (
+                                    <span style={{ fontSize: '0.55rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>
+                                      🏛️ {t.assignedJudge}
+                                    </span>
+                                  ) : (
+                                    <span style={{ fontSize: '0.55rem', color: '#ff0055', fontFamily: 'Press Start 2P, monospace' }}>
+                                      ⚠️ UNASSIGNED JUDGE
+                                    </span>
+                                  )}
+                                  {/* Slot status badge */}
+                                  <span style={{
+                                    fontSize: '0.55rem',
+                                    fontFamily: 'Press Start 2P, monospace',
+                                    color: slotInfo.badgeColor,
+                                    background: slotInfo.badgeBg,
+                                    border: `1px solid ${slotInfo.badgeBorder}`,
+                                    padding: '2px 6px',
+                                    borderRadius: '4px',
+                                    display: 'inline-block',
+                                    width: 'fit-content'
+                                  }}>
+                                    {t.timeSlot === 'TBA' ? '⏳ SLOT: TBA' : `⏰ ${t.timeSlot}`}
+                                  </span>
+                                </div>
                               </td>
+
+                              {/* Leader & Members */}
                               <td>
-                                {/* Team Leader details */}
-                                <div style={{ background: 'rgba(253, 255, 0, 0.05)', border: '1px solid rgba(253, 255, 0, 0.3)', borderRadius: '6px', padding: '8px 10px', marginBottom: '8px' }}>
-                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '3px' }}>
-                                    <span style={{
-                                      background: '#fdff00',
-                                      color: '#000',
-                                      borderRadius: '3px',
-                                      padding: '2px 5px',
-                                      fontSize: '0.58rem',
-                                      fontWeight: 'bold',
-                                      fontFamily: 'Press Start 2P, monospace'
-                                    }}>👑 LEADER</span>
-                                    <strong style={{ color: '#fff', fontSize: '0.85rem' }}>{t.leaderName}</strong>
-                                    {t.leaderBranch && <span style={{ color: '#00ffcc', fontSize: '0.72rem' }}>({t.leaderBranch})</span>}
+                                {/* Leader */}
+                                <div style={{ background: 'rgba(253, 255, 0, 0.05)', border: '1px solid rgba(253, 255, 0, 0.3)', borderRadius: '6px', padding: '6px 8px', marginBottom: '6px' }}>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
+                                    <span style={{ background: '#fdff00', color: '#000', borderRadius: '3px', padding: '1px 4px', fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>👑 LEADER</span>
+                                    <strong style={{ color: '#fff', fontSize: '0.82rem' }}>{t.leaderName}</strong>
+                                    {t.leaderBranch && <span style={{ color: '#00ffcc', fontSize: '0.7rem' }}>({t.leaderBranch})</span>}
                                   </div>
-                                  <div style={{ color: '#ccc', fontSize: '0.74rem' }}>
-                                    🆔 <strong>{t.leaderId}</strong> • 📞 <strong>{t.leaderPhone || 'N/A'}</strong>
-                                  </div>
-                                  <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem', wordBreak: 'break-all' }}>
-                                    ✉️ {t.leaderEmail}
+                                  <div style={{ color: '#ccc', fontSize: '0.72rem' }}>
+                                    🆔 {t.leaderId} • 📞 <strong>{t.leaderPhone || 'N/A'}</strong>
                                   </div>
                                 </div>
 
-                                {/* Additional Team Members */}
+                                {/* Members */}
                                 {t.members && t.members.length > 0 ? (
-                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                     {t.members.map((m, mIdx) => (
-                                      <div key={m.id || mIdx} style={{ background: 'rgba(0, 255, 204, 0.04)', borderLeft: '3px solid #00ffcc', borderRadius: '4px', padding: '5px 8px' }}>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                                          <span style={{
-                                            background: '#00ffcc',
-                                            color: '#000',
-                                            borderRadius: '3px',
-                                            padding: '1px 4px',
-                                            fontSize: '0.55rem',
-                                            fontWeight: 'bold',
-                                            fontFamily: 'Press Start 2P, monospace'
-                                          }}>👤 M{mIdx + 1}</span>
-                                          <span style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '0.82rem' }}>{m.name}</span>
-                                          {m.branch && <span style={{ color: '#888', fontSize: '0.7rem' }}>({m.branch})</span>}
-                                        </div>
-                                        <div style={{ color: '#bbb', fontSize: '0.72rem' }}>
-                                          🆔 <strong>{m.idNo || 'N/A'}</strong> • 📞 <strong>{m.phone || 'N/A'}</strong>
-                                        </div>
-                                        {m.email && (
-                                          <div style={{ color: '#888', fontSize: '0.7rem', wordBreak: 'break-all' }}>
-                                            ✉️ {m.email}
-                                          </div>
-                                        )}
+                                      <div key={m.id || mIdx} style={{ background: 'rgba(0, 255, 204, 0.04)', borderLeft: '2px solid #00ffcc', borderRadius: '3px', padding: '3px 6px', fontSize: '0.7rem', color: '#bbb' }}>
+                                        <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>M{mIdx+1}:</span> {m.name} ({m.idNo || 'N/A'}) - 📞 {m.phone || 'N/A'}
                                       </div>
                                     ))}
                                   </div>
                                 ) : (
-                                  <span style={{ color: '#777', fontSize: '0.72rem', fontStyle: 'italic' }}>
-                                    • Solo Team (No extra members added)
-                                  </span>
+                                  <span style={{ color: '#777', fontSize: '0.68rem', fontStyle: 'italic' }}>• Solo Team</span>
                                 )}
                               </td>
-                              <td>{t.projectTitle}<br /><small style={{ color: 'var(--text-muted)' }}>{t.techStack}</small></td>
+
+                              {/* Project Title */}
                               <td>
-                                {isAssigned ? (
-                                  <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc' }}>
-                                    ✅ ASSIGNED TO {t.assignedJudge}
-                                  </span>
-                                ) : (
-                                  <span className="status-pill status-pending" style={{ background: 'rgba(255, 0, 85, 0.15)', color: '#ff0055', border: '1px solid #ff0055' }}>
-                                    ⚠️ UNASSIGNED
-                                  </span>
-                                )}
+                                <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 'bold' }}>{t.projectTitle || 'Untitled'}</div>
+                                <small style={{ color: 'var(--text-muted)' }}>{t.techStack || '-'}</small>
                               </td>
+
+                              {/* Assign Judge Panel Dropdown */}
                               <td>
-                                <div style={{ fontSize: '0.6rem', color: '#00ffcc', marginBottom: '4px', fontFamily: 'Press Start 2P, monospace' }}>
-                                  🆔 ASSIGN FOR: {t.teamIdNo || t.teamName}
-                                </div>
                                 <select
                                   className="retro-select admin-judge-select"
-                                  value={isCustom ? 'CUSTOM' : selectedVal}
+                                  value={isCustomJudge ? 'CUSTOM' : selectedJudgeVal}
                                   onChange={(e) => {
                                     const val = e.target.value;
                                     setJudgeSelections(prev => ({ ...prev, [t.id]: val }));
@@ -1066,46 +1545,74 @@ export default function AdminDashboardPage() {
                                       setCustomJudgeInputs(prev => ({ ...prev, [t.id]: t.assignedJudge !== 'Unassigned' ? t.assignedJudge : '' }));
                                     }
                                   }}
+                                  style={{ padding: '6px 8px', fontSize: '0.75rem' }}
                                 >
                                   <option value="Unassigned">⚠️ Unassigned</option>
                                   <optgroup label="── Round-2 Judge IDs (JM001 - JM011) ──">
                                     {judgeProfilesList.map(p => (
                                       <option key={p.id} value={p.id}>
-                                        {p.id} • {p.group} ({p.names.slice(0, 2).join(', ')}...)
+                                        {p.id} • {p.group}
                                       </option>
                                     ))}
                                   </optgroup>
-                                  <option value="CUSTOM">✍️ Enter Custom Judge Email / ID...</option>
+                                  <option value="CUSTOM">✍️ Enter Custom Judge ID...</option>
                                 </select>
 
-                                {isCustom && (
+                                {isCustomJudge && (
                                   <input
                                     type="text"
-                                    placeholder="Type Judge Email or ID..."
+                                    placeholder="Judge ID / Email..."
                                     value={customJudgeInputs[t.id] !== undefined ? customJudgeInputs[t.id] : (validJudgeIds.includes(t.assignedJudge) ? '' : t.assignedJudge)}
                                     onChange={(e) => setCustomJudgeInputs(prev => ({ ...prev, [t.id]: e.target.value }))}
                                     style={{
-                                      marginTop: '6px',
+                                      marginTop: '4px',
                                       width: '100%',
-                                      padding: '6px 10px',
+                                      padding: '4px 8px',
                                       background: '#000',
                                       border: '1.5px solid var(--pacman-yellow)',
-                                      borderRadius: '6px',
+                                      borderRadius: '4px',
                                       color: '#fff',
-                                      fontSize: '0.8rem'
+                                      fontSize: '0.75rem'
                                     }}
                                   />
                                 )}
                               </td>
+
+                              {/* Allocate Time Slot Dropdown */}
+                              <td>
+                                <select
+                                  className="retro-select"
+                                  value={selectedSlotVal}
+                                  onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTimeSlotSelections(prev => ({ ...prev, [t.id]: val }));
+                                  }}
+                                  style={{
+                                    padding: '6px 8px',
+                                    fontSize: '0.75rem',
+                                    borderColor: selectedSlotVal === 'TBA' ? '#ffb852' : '#00ffcc',
+                                    color: selectedSlotVal === 'TBA' ? '#ffb852' : '#00ffcc'
+                                  }}
+                                >
+                                  {TIME_SLOT_OPTIONS.map(opt => (
+                                    <option key={opt.id} value={opt.value}>
+                                      {opt.label}
+                                    </option>
+                                  ))}
+                                </select>
+                              </td>
+
+                              {/* Action Save Button */}
                               <td style={{ textAlign: 'center' }}>
                                 <button
                                   type="button"
                                   className="eval-btn edit-btn"
-                                  style={{ padding: '6px 12px', fontSize: '0.75rem', opacity: isSavingThisTeam ? 0.6 : 1 }}
-                                  disabled={isSavingThisTeam}
-                                  onClick={() => handleAssignJudge(t.id, t.teamName)}
+                                  style={{ padding: '8px 12px', fontSize: '0.68rem', opacity: isSaving ? 0.6 : 1 }}
+                                  disabled={isSaving}
+                                  onClick={() => handleSaveTeam(t.id, t.teamName)}
+                                  title="Save Judge Panel and Time Slot for this team"
                                 >
-                                  {isSavingThisTeam ? 'SAVING...' : 'ASSIGN'}
+                                  {isSaving ? 'SAVING...' : '💾 SAVE'}
                                 </button>
                               </td>
                             </tr>
@@ -1120,9 +1627,443 @@ export default function AdminDashboardPage() {
           );
         })()}
 
-        {/* TAB 2: MARKSHEET & LIVE SCORES OVERVIEW */}
+        {/* TAB 2: TIME SLOTS & MASTER PRESENTATION TIMETABLE */}
+        {activeTab === 'schedule-tab' && (() => {
+          const tbaTeams = searchMatchedTeams.filter(t => t.timeSlot === 'TBA');
+          const slot1Teams = searchMatchedTeams.filter(t => t.timeSlot === '09:30 AM - 11:30 AM');
+          const slot2Teams = searchMatchedTeams.filter(t => t.timeSlot === '12:15 PM - 02:15 PM');
+          const slot3Teams = searchMatchedTeams.filter(t => t.timeSlot === '02:30 PM - 04:15 PM');
+
+          const slotSections = [
+            {
+              id: 'SLOT_1',
+              title: 'SLOT 1: 09:30 AM — 11:30 AM (MORNING SESSION)',
+              slotVal: '09:30 AM - 11:30 AM',
+              color: '#00ffcc',
+              bg: 'rgba(0, 255, 204, 0.08)',
+              border: '2px solid #00ffcc',
+              teams: slot1Teams
+            },
+            {
+              id: 'SLOT_2',
+              title: 'SLOT 2: 12:15 PM — 02:15 PM (AFTERNOON SESSION)',
+              slotVal: '12:15 PM - 02:15 PM',
+              color: '#fdff00',
+              bg: 'rgba(253, 255, 0, 0.08)',
+              border: '2px solid #fdff00',
+              teams: slot2Teams
+            },
+            {
+              id: 'SLOT_3',
+              title: 'SLOT 3: 02:30 PM — 04:15 PM (LATE AFTERNOON SESSION)',
+              slotVal: '02:30 PM - 04:15 PM',
+              color: '#ff66cc',
+              bg: 'rgba(255, 102, 204, 0.08)',
+              border: '2px solid #ff66cc',
+              teams: slot3Teams
+            },
+            {
+              id: 'TBA',
+              title: '⏳ TBA: PENDING TIME SLOT ALLOCATION',
+              slotVal: 'TBA',
+              color: '#ffb852',
+              bg: 'rgba(255, 184, 82, 0.08)',
+              border: '2px dashed #ffb852',
+              teams: tbaTeams
+            }
+          ];
+
+          const displayedSections = scheduleViewSlot === 'all'
+            ? slotSections
+            : slotSections.filter(s => s.slotVal === scheduleViewSlot);
+
+          return (
+            <div className="admin-tab-content active">
+              <div className="form-section">
+                {/* Header Banner */}
+                <div style={{
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '16px',
+                  marginBottom: '24px',
+                  background: 'rgba(253, 255, 0, 0.06)',
+                  border: '2px solid rgba(253, 255, 0, 0.3)',
+                  borderRadius: '10px',
+                  padding: '18px 20px',
+                  boxShadow: '0 0 15px rgba(253, 255, 0, 0.1)'
+                }}>
+                  <div>
+                    <h3 className="section-title" style={{ margin: 0, color: '#fdff00', fontSize: '0.9rem' }}>
+                      <span className="pacman-bullet" style={{ background: '#fdff00' }}></span> 📅 PRESENTATION TIME SLOTS & TIMETABLE
+                    </h3>
+                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '6px', margin: 0 }}>
+                      Manage scheduled presentations across the 3 official hackathon slots (9:30-11:30, 12:15-2:15, 2:30-4:15) and allocate pending TBA teams.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleExportScheduleExcel}
+                      style={{
+                        background: 'linear-gradient(135deg, #b8860b, #e6b800)',
+                        border: '2px solid #fdff00',
+                        color: '#000',
+                        padding: '10px 16px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontWeight: 'bold'
+                      }}
+                      title="Download dedicated Excel workbook organized by time slots"
+                    >
+                      📥 EXPORT SCHEDULE (.XLSX)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePrintSchedule}
+                      style={{
+                        background: 'rgba(253, 255, 0, 0.15)',
+                        border: '2px solid #fdff00',
+                        color: '#fdff00',
+                        padding: '10px 16px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Open printable master timetable on A4 landscape"
+                    >
+                      🖨️ PRINT TIMETABLE (A4)
+                    </button>
+                  </div>
+                </div>
+
+                {/* 4 Stat Metric Cards */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+                  gap: '12px',
+                  marginBottom: '24px'
+                }}>
+                  <div
+                    onClick={() => setScheduleViewSlot(scheduleViewSlot === 'TBA' ? 'all' : 'TBA')}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      border: `2px solid ${scheduleViewSlot === 'TBA' ? '#ffb852' : 'rgba(255, 184, 82, 0.4)'}`,
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      boxShadow: scheduleViewSlot === 'TBA' ? '0 0 12px rgba(255, 184, 82, 0.4)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.58rem', color: '#ffb852', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>⏳ TBA / UNALLOCATED</div>
+                    <div style={{ fontSize: '1.6rem', color: '#ffb852', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{tbaTeams.length} Teams</div>
+                    <div style={{ fontSize: '0.68rem', color: '#aaa', marginTop: '4px' }}>Click to filter</div>
+                  </div>
+
+                  <div
+                    onClick={() => setScheduleViewSlot(scheduleViewSlot === '09:30 AM - 11:30 AM' ? 'all' : '09:30 AM - 11:30 AM')}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      border: `2px solid ${scheduleViewSlot === '09:30 AM - 11:30 AM' ? '#00ffcc' : 'rgba(0, 255, 204, 0.4)'}`,
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      boxShadow: scheduleViewSlot === '09:30 AM - 11:30 AM' ? '0 0 12px rgba(0, 255, 204, 0.4)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.58rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>⏰ SLOT 1 (9:30 - 11:30)</div>
+                    <div style={{ fontSize: '1.6rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{slot1Teams.length} Teams</div>
+                    <div style={{ fontSize: '0.68rem', color: '#aaa', marginTop: '4px' }}>Click to filter</div>
+                  </div>
+
+                  <div
+                    onClick={() => setScheduleViewSlot(scheduleViewSlot === '12:15 PM - 02:15 PM' ? 'all' : '12:15 PM - 02:15 PM')}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      border: `2px solid ${scheduleViewSlot === '12:15 PM - 02:15 PM' ? '#fdff00' : 'rgba(253, 255, 0, 0.4)'}`,
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      boxShadow: scheduleViewSlot === '12:15 PM - 02:15 PM' ? '0 0 12px rgba(253, 255, 0, 0.4)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.58rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>⏰ SLOT 2 (12:15 - 2:15)</div>
+                    <div style={{ fontSize: '1.6rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{slot2Teams.length} Teams</div>
+                    <div style={{ fontSize: '0.68rem', color: '#aaa', marginTop: '4px' }}>Click to filter</div>
+                  </div>
+
+                  <div
+                    onClick={() => setScheduleViewSlot(scheduleViewSlot === '02:30 PM - 04:15 PM' ? 'all' : '02:30 PM - 04:15 PM')}
+                    style={{
+                      background: 'rgba(0, 0, 0, 0.7)',
+                      border: `2px solid ${scheduleViewSlot === '02:30 PM - 04:15 PM' ? '#ff66cc' : 'rgba(255, 102, 204, 0.4)'}`,
+                      borderRadius: '8px',
+                      padding: '14px 16px',
+                      textAlign: 'center',
+                      cursor: 'pointer',
+                      boxShadow: scheduleViewSlot === '02:30 PM - 04:15 PM' ? '0 0 12px rgba(255, 102, 204, 0.4)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    <div style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>⏰ SLOT 3 (2:30 - 4:15)</div>
+                    <div style={{ fontSize: '1.6rem', color: '#ff66cc', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{slot3Teams.length} Teams</div>
+                    <div style={{ fontSize: '0.68rem', color: '#aaa', marginTop: '4px' }}>Click to filter</div>
+                  </div>
+                </div>
+
+                {/* Slot Filter Indicator */}
+                {scheduleViewSlot !== 'all' && (
+                  <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.06)', padding: '8px 14px', borderRadius: '6px' }}>
+                    <span style={{ fontSize: '0.65rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00' }}>
+                      🔎 VIEWING ONLY: {scheduleViewSlot}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setScheduleViewSlot('all')}
+                      style={{ background: '#ff0055', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', cursor: 'pointer' }}
+                    >
+                      ✕ SHOW ALL SLOTS
+                    </button>
+                  </div>
+                )}
+
+                {/* Four Slot Sections */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
+                  {displayedSections.map(section => {
+                    const isTba = section.slotVal === 'TBA';
+
+                    return (
+                      <div
+                        key={section.id}
+                        style={{
+                          background: 'rgba(10, 10, 20, 0.95)',
+                          border: section.border,
+                          borderRadius: '10px',
+                          padding: '18px 20px',
+                          boxShadow: `0 0 15px ${section.bg}`
+                        }}
+                      >
+                        {/* Section Header */}
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '10px' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                            <span style={{
+                              background: section.color,
+                              color: '#000',
+                              padding: '4px 10px',
+                              borderRadius: '4px',
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.68rem',
+                              fontWeight: 'bold'
+                            }}>
+                              {section.id}
+                            </span>
+                            <span style={{ color: '#fff', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                              {section.title}
+                            </span>
+                          </div>
+                          <span style={{
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            color: section.color,
+                            border: `1px solid ${section.color}`,
+                            padding: '4px 10px',
+                            borderRadius: '4px',
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.62rem'
+                          }}>
+                            👥 {section.teams.length} {section.teams.length === 1 ? 'TEAM' : 'TEAMS'}
+                          </span>
+                        </div>
+
+                        {/* Section Body */}
+                        {section.teams.length === 0 ? (
+                          <div style={{
+                            padding: '20px',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            borderRadius: '6px',
+                            border: '1px dashed #444',
+                            color: '#777',
+                            fontSize: '0.72rem',
+                            textAlign: 'center',
+                            fontFamily: 'Press Start 2P, monospace'
+                          }}>
+                            {isTba ? '🎉 ALL TEAMS HAVE BEEN ALLOCATED A PRESENTATION TIME SLOT!' : `NO TEAMS ALLOCATED TO THIS TIME SLOT YET`}
+                          </div>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="eval-table admin-table" style={{ margin: 0 }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '4%', textAlign: 'center' }}>#</th>
+                                  <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
+                                  <th style={{ width: '18%' }}>Team Name</th>
+                                  <th style={{ width: '18%' }}>Judge Panel & Room</th>
+                                  <th style={{ width: '20%' }}>Leader Contact</th>
+                                  <th style={{ width: '15%' }}>Project Title</th>
+                                  <th style={{ width: '16%', textAlign: 'center' }}>
+                                    {isTba ? '⚡ One-Click Allocate Slot' : 'Reassign Slot'}
+                                  </th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {section.teams.map((t, idx) => {
+                                  const panelProfile = JUDGE_PROFILES[(t.assignedJudge || '').toUpperCase()];
+                                  const isAssignedJudge = t.assignedJudge && t.assignedJudge !== 'Unassigned';
+                                  const isSlotSaving = savingSlotTeamId === t.id;
+
+                                  return (
+                                    <tr key={t.id || idx}>
+                                      <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{idx + 1}</td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <span style={{
+                                          display: 'inline-block',
+                                          background: 'rgba(253, 255, 0, 0.15)',
+                                          color: '#fdff00',
+                                          border: '1px solid #fdff00',
+                                          borderRadius: '4px',
+                                          padding: '3px 6px',
+                                          fontFamily: 'Press Start 2P, monospace',
+                                          fontSize: '0.62rem',
+                                          fontWeight: 'bold'
+                                        }}>
+                                          {t.teamIdNo && t.teamIdNo !== 'N/A' ? t.teamIdNo : 'N/A'}
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{t.teamName}</strong>
+                                      </td>
+                                      <td>
+                                        {isAssignedJudge ? (
+                                          <div>
+                                            <div style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '0.82rem' }}>
+                                              🏛️ {panelProfile ? `${panelProfile.id} (${panelProfile.group})` : t.assignedJudge}
+                                            </div>
+                                            <div style={{ color: '#fdff00', fontSize: '0.72rem' }}>
+                                              📍 {panelProfile?.location || 'Assigned Room'}
+                                            </div>
+                                          </div>
+                                        ) : (
+                                          <span style={{ color: '#ff0055', fontSize: '0.68rem', fontFamily: 'Press Start 2P, monospace' }}>
+                                            ⚠️ UNASSIGNED JUDGE
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td>
+                                        <div style={{ color: '#fff', fontSize: '0.8rem' }}>👑 {t.leaderName}</div>
+                                        <div style={{ color: '#aaa', fontSize: '0.72rem' }}>📞 {t.leaderPhone || 'N/A'}</div>
+                                      </td>
+                                      <td>
+                                        <div style={{ color: '#ccc', fontSize: '0.78rem' }}>{t.projectTitle || 'Untitled'}</div>
+                                      </td>
+
+                                      {/* Slot Allocation Actions */}
+                                      <td style={{ textAlign: 'center' }}>
+                                        {isTba ? (
+                                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleQuickSlotChange(t.id, t.teamName, '09:30 AM - 11:30 AM')}
+                                              disabled={isSlotSaving}
+                                              style={{
+                                                background: 'rgba(0, 255, 204, 0.2)',
+                                                border: '1px solid #00ffcc',
+                                                color: '#00ffcc',
+                                                borderRadius: '4px',
+                                                padding: '4px 6px',
+                                                fontSize: '0.55rem',
+                                                fontFamily: 'Press Start 2P, monospace',
+                                                cursor: 'pointer'
+                                              }}
+                                              title="Allocate to 09:30 AM - 11:30 AM"
+                                            >
+                                              + 9:30
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleQuickSlotChange(t.id, t.teamName, '12:15 PM - 02:15 PM')}
+                                              disabled={isSlotSaving}
+                                              style={{
+                                                background: 'rgba(253, 255, 0, 0.2)',
+                                                border: '1px solid #fdff00',
+                                                color: '#fdff00',
+                                                borderRadius: '4px',
+                                                padding: '4px 6px',
+                                                fontSize: '0.55rem',
+                                                fontFamily: 'Press Start 2P, monospace',
+                                                cursor: 'pointer'
+                                              }}
+                                              title="Allocate to 12:15 PM - 02:15 PM"
+                                            >
+                                              + 12:15
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => handleQuickSlotChange(t.id, t.teamName, '02:30 PM - 04:15 PM')}
+                                              disabled={isSlotSaving}
+                                              style={{
+                                                background: 'rgba(255, 102, 204, 0.2)',
+                                                border: '1px solid #ff66cc',
+                                                color: '#ff66cc',
+                                                borderRadius: '4px',
+                                                padding: '4px 6px',
+                                                fontSize: '0.55rem',
+                                                fontFamily: 'Press Start 2P, monospace',
+                                                cursor: 'pointer'
+                                              }}
+                                              title="Allocate to 02:30 PM - 04:15 PM"
+                                            >
+                                              + 2:30
+                                            </button>
+                                          </div>
+                                        ) : (
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
+                                            <select
+                                              className="retro-select"
+                                              value={t.timeSlot}
+                                              onChange={(e) => handleQuickSlotChange(t.id, t.teamName, e.target.value)}
+                                              disabled={isSlotSaving}
+                                              style={{ padding: '4px 6px', fontSize: '0.7rem', width: 'auto' }}
+                                            >
+                                              {TIME_SLOT_OPTIONS.map(opt => (
+                                                <option key={opt.id} value={opt.value}>{opt.shortLabel}</option>
+                                              ))}
+                                            </select>
+                                          </div>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* TAB 3: LIVE EVALUATION LEADERBOARD */}
         {activeTab === 'scores-tab' && (() => {
-          // Map team scores and sort descending by totalScore (out of 50)
           const leaderboardData = teams.map(t => {
             const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
             let isScored = false;
@@ -1161,6 +2102,7 @@ export default function AdminDashboardPage() {
             if (!cleanQuery) return true;
             if (item.teamIdNo && item.teamIdNo.toLowerCase().includes(cleanQuery)) return true;
             if (item.teamName && item.teamName.toLowerCase().includes(cleanQuery)) return true;
+            if (item.timeSlot && item.timeSlot.toLowerCase().includes(cleanQuery)) return true;
             if (item.judge && item.judge.toLowerCase().includes(cleanQuery)) return true;
             if (item.leaderName && item.leaderName.toLowerCase().includes(cleanQuery)) return true;
             if (item.leaderId && item.leaderId.toLowerCase().includes(cleanQuery)) return true;
@@ -1168,12 +2110,6 @@ export default function AdminDashboardPage() {
             if (item.projectTitle && item.projectTitle.toLowerCase().includes(cleanQuery)) return true;
             if (item.remarks && item.remarks.toLowerCase().includes(cleanQuery)) return true;
             if (item.score !== undefined && String(item.score).includes(cleanQuery)) return true;
-            if (item.members && item.members.some(m =>
-              (m.name && m.name.toLowerCase().includes(cleanQuery)) ||
-              (m.email && m.email.toLowerCase().includes(cleanQuery)) ||
-              (m.idNo && m.idNo.toLowerCase().includes(cleanQuery)) ||
-              (m.branch && m.branch.toLowerCase().includes(cleanQuery))
-            )) return true;
             return false;
           });
 
@@ -1193,48 +2129,25 @@ export default function AdminDashboardPage() {
                   <table className="eval-table admin-table">
                     <thead>
                       <tr>
-                        <th style={{ width: '8%', textAlign: 'center' }}>Rank</th>
-                        <th style={{ width: '12%', textAlign: 'center' }}>Team ID</th>
-                        <th style={{ width: '18%' }}>Team Name</th>
-                        <th style={{ width: '16%' }}>Assigned Judge</th>
+                        <th style={{ width: '7%', textAlign: 'center' }}>Rank</th>
+                        <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
+                        <th style={{ width: '16%' }}>Team Name</th>
+                        <th style={{ width: '12%' }}>Time Slot</th>
+                        <th style={{ width: '14%' }}>Assigned Judge</th>
                         <th style={{ textAlign: 'center' }}>Arch (10)</th>
                         <th style={{ textAlign: 'center' }}>Scope (10)</th>
                         <th style={{ textAlign: 'center' }}>Avail (10)</th>
                         <th style={{ textAlign: 'center' }}>Timeline (10)</th>
                         <th style={{ textAlign: 'center' }}>Impl (10)</th>
-                        <th style={{ textAlign: 'center', width: '12%' }}>Total Score (50)</th>
-                        <th style={{ width: '10%' }}>Status</th>
+                        <th style={{ textAlign: 'center', width: '11%' }}>Total (50)</th>
+                        <th style={{ width: '8%' }}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {displayedLeaderboard.length === 0 ? (
                         <tr>
-                          <td colSpan="11" style={{ textAlign: 'center', color: cleanQuery ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px', fontFamily: cleanQuery ? 'Press Start 2P, monospace' : 'inherit', fontSize: cleanQuery ? '0.72rem' : 'inherit', lineHeight: '2' }}>
-                            {cleanQuery ? (
-                              <>
-                                ⚠️ NO LEADERBOARD ENTRIES FOUND MATCHING &ldquo;{searchQuery}&rdquo;
-                                <br />
-                                <button
-                                  type="button"
-                                  onClick={() => setSearchQuery('')}
-                                  style={{
-                                    marginTop: '12px',
-                                    background: '#fdff00',
-                                    color: '#000',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px 14px',
-                                    fontFamily: 'Press Start 2P, monospace',
-                                    fontSize: '0.6rem',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  ✕ CLEAR SEARCH
-                                </button>
-                              </>
-                            ) : (
-                              "No evaluations or teams registered yet."
-                            )}
+                          <td colSpan="12" style={{ textAlign: 'center', color: cleanQuery ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
+                            No evaluations found matching search query.
                           </td>
                         </tr>
                       ) : (
@@ -1256,6 +2169,8 @@ export default function AdminDashboardPage() {
                               rankBadge = `#${index + 1}`;
                             }
                           }
+
+                          const slotInfo = getTimeSlotInfo(item.timeSlot);
 
                           return (
                             <tr key={item.id || item.teamName} style={{ background: rowBg }}>
@@ -1280,6 +2195,19 @@ export default function AdminDashboardPage() {
                               <td className="criterion-name">
                                 {item.teamName}
                                 {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
+                              </td>
+                              <td>
+                                <span style={{
+                                  fontSize: '0.55rem',
+                                  fontFamily: 'Press Start 2P, monospace',
+                                  color: slotInfo.badgeColor,
+                                  background: slotInfo.badgeBg,
+                                  border: `1px solid ${slotInfo.badgeBorder}`,
+                                  padding: '2px 5px',
+                                  borderRadius: '3px'
+                                }}>
+                                  {item.timeSlot === 'TBA' ? 'TBA' : item.timeSlot}
+                                </span>
                               </td>
                               <td>{item.judge}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>
@@ -1309,11 +2237,10 @@ export default function AdminDashboardPage() {
           );
         })()}
 
-        {/* TAB 3: JUDGES PANELS & ASSIGNED TEAMS */}
+        {/* TAB 4: JUDGES PANELS & ASSIGNED TEAMS */}
         {activeTab === 'panels-tab' && (() => {
           const knownPanels = Object.values(JUDGE_PROFILES);
           
-          // Build mapping of panels to teams
           const panelMap = {};
           knownPanels.forEach(p => {
             panelMap[p.id.toUpperCase()] = {
@@ -1350,8 +2277,6 @@ export default function AdminDashboardPage() {
             }
           });
 
-          const totalAssignedCount = teams.length - unassignedTeams.length;
-
           return (
             <div className="admin-tab-content active">
               <div className="form-section">
@@ -1374,7 +2299,7 @@ export default function AdminDashboardPage() {
                       <span className="pacman-bullet" style={{ background: '#00ff66' }}></span> 🏛️ JUDGES PANELS & ASSIGNED TEAMS DOSSIER
                     </h3>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '6px', margin: 0 }}>
-                      View all judging panels (JM001 - JM011), faculty evaluators, room venues, and allocated teams.
+                      View all judging panels (JM001 - JM011), faculty evaluators, room venues, and allocated teams with presentation time slots.
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -1397,7 +2322,7 @@ export default function AdminDashboardPage() {
                         boxShadow: '0 0 15px rgba(0, 255, 102, 0.4)',
                         fontWeight: 'bold'
                       }}
-                      title="Download a ZIP containing separate individual .xlsx files for every judge panel ready for separate printing"
+                      title="Download a ZIP containing separate individual .xlsx files for every judge panel"
                     >
                       {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 DOWNLOAD ALL SEPARATE SHEETS (.ZIP)'}
                     </button>
@@ -1422,51 +2347,6 @@ export default function AdminDashboardPage() {
                     >
                       🖨️ PRINT ALL 11 PANELS (A4)
                     </button>
-                    <button
-                      type="button"
-                      onClick={handleExportJudgesPanelsExcel}
-                      style={{
-                        background: 'rgba(0, 255, 204, 0.15)',
-                        border: '2px solid #00ffcc',
-                        color: '#00ffcc',
-                        padding: '12px 18px',
-                        fontSize: '0.62rem',
-                        fontFamily: 'Press Start 2P, monospace',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px'
-                      }}
-                      title="Download multi-sheet master workbook containing all panels"
-                    >
-                      📗 MASTER WORKBOOK (.XLSX)
-                    </button>
-                  </div>
-                </div>
-
-                {/* Metrics Summary Strip */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
-                  gap: '12px',
-                  marginBottom: '24px'
-                }}>
-                  <div style={{ background: 'rgba(0, 0, 0, 0.7)', border: '1px solid var(--maze-blue)', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>TOTAL PANELS</div>
-                    <div style={{ fontSize: '1.4rem', color: '#00ffff', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{knownPanels.length} Panels</div>
-                  </div>
-                  <div style={{ background: 'rgba(0, 0, 0, 0.7)', border: '1px solid #00ffcc', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>TEAMS ASSIGNED</div>
-                    <div style={{ fontSize: '1.4rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{totalAssignedCount} Teams</div>
-                  </div>
-                  <div style={{ background: 'rgba(0, 0, 0, 0.7)', border: '1px solid #ff0055', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>UNASSIGNED TEAMS</div>
-                    <div style={{ fontSize: '1.4rem', color: '#ff0055', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{unassignedTeams.length} Teams</div>
-                  </div>
-                  <div style={{ background: 'rgba(0, 0, 0, 0.7)', border: '1px solid #fdff00', borderRadius: '8px', padding: '12px 16px', textAlign: 'center' }}>
-                    <div style={{ fontSize: '0.62rem', color: 'var(--text-muted)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>EVALUATIONS DONE</div>
-                    <div style={{ fontSize: '1.4rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{evaluations.length} Scored</div>
                   </div>
                 </div>
 
@@ -1482,8 +2362,7 @@ export default function AdminDashboardPage() {
                       assignedList.some(t => 
                         (t.teamName && t.teamName.toLowerCase().includes(cleanQuery)) ||
                         (t.teamIdNo && t.teamIdNo.toLowerCase().includes(cleanQuery)) ||
-                        (t.leaderName && t.leaderName.toLowerCase().includes(cleanQuery)) ||
-                        (t.projectTitle && t.projectTitle.toLowerCase().includes(cleanQuery))
+                        (t.timeSlot && t.timeSlot.toLowerCase().includes(cleanQuery))
                       );
 
                     if (!matchesSearch) return null;
@@ -1494,8 +2373,7 @@ export default function AdminDashboardPage() {
                         border: '2px solid ' + (assignedList.length > 0 ? 'var(--maze-blue)' : '#333'),
                         borderRadius: '10px',
                         padding: '18px 20px',
-                        boxShadow: assignedList.length > 0 ? '0 0 12px rgba(33, 33, 255, 0.2)' : 'none',
-                        transition: 'all 0.2s ease'
+                        boxShadow: assignedList.length > 0 ? '0 0 12px rgba(33, 33, 255, 0.2)' : 'none'
                       }}>
                         {/* Panel Header */}
                         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '12px', marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '12px' }}>
@@ -1554,9 +2432,8 @@ export default function AdminDashboardPage() {
                                 alignItems: 'center',
                                 gap: '6px'
                               }}
-                              title={`Download separate Excel sheet for ${panel.id} ready for printing`}
                             >
-                              📥 EXPORT {panel.id} (.XLSX)
+                              📥 EXPORT (.XLSX)
                             </button>
                             <button
                               type="button"
@@ -1574,7 +2451,6 @@ export default function AdminDashboardPage() {
                                 alignItems: 'center',
                                 gap: '6px'
                               }}
-                              title={`Open direct print view for ${panel.id} on A4 landscape`}
                             >
                               🖨️ PRINT {panel.id}
                             </button>
@@ -1602,7 +2478,7 @@ export default function AdminDashboardPage() {
                           </div>
                         </div>
 
-                        {/* Assigned Teams Table/List */}
+                        {/* Assigned Teams Table */}
                         {assignedList.length === 0 ? (
                           <div style={{
                             padding: '16px',
@@ -1615,21 +2491,19 @@ export default function AdminDashboardPage() {
                             fontFamily: 'Press Start 2P, monospace'
                           }}>
                             ⚠️ NO TEAMS ASSIGNED TO THIS PANEL YET
-                            <div style={{ marginTop: '6px', fontSize: '0.68rem', fontFamily: 'Inter, sans-serif', color: '#999' }}>
-                              Go to "TEAMS & JUDGES" tab to assign teams to {panel.id}.
-                            </div>
                           </div>
                         ) : (
                           <div className="table-responsive" style={{ margin: 0 }}>
                             <table className="eval-table admin-table" style={{ margin: 0 }}>
                               <thead>
                                 <tr>
-                                  <th style={{ width: '10%', textAlign: 'center' }}>Team ID</th>
-                                  <th style={{ width: '18%' }}>Team Name</th>
-                                  <th style={{ width: '28%' }}>Leader & Members</th>
-                                  <th style={{ width: '22%' }}>Project & Tech</th>
-                                  <th style={{ width: '12%', textAlign: 'center' }}>Score (50)</th>
-                                  <th style={{ width: '10%', textAlign: 'center' }}>Status</th>
+                                  <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
+                                  <th style={{ width: '16%' }}>Team Name</th>
+                                  <th style={{ width: '14%' }}>Time Slot</th>
+                                  <th style={{ width: '25%' }}>Leader & Members</th>
+                                  <th style={{ width: '20%' }}>Project & Tech</th>
+                                  <th style={{ width: '10%', textAlign: 'center' }}>Score (50)</th>
+                                  <th style={{ width: '6%', textAlign: 'center' }}>Status</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -1637,6 +2511,7 @@ export default function AdminDashboardPage() {
                                   const evalEntry = evaluations.find(e => (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase());
                                   const isScored = !!evalEntry;
                                   const score = evalEntry?.totalScore ?? '-';
+                                  const slotInfo = getTimeSlotInfo(t.timeSlot);
 
                                   return (
                                     <tr key={t.id || idx}>
@@ -1659,17 +2534,26 @@ export default function AdminDashboardPage() {
                                         <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{t.teamName}</strong>
                                       </td>
                                       <td>
+                                        <span style={{
+                                          fontSize: '0.55rem',
+                                          fontFamily: 'Press Start 2P, monospace',
+                                          color: slotInfo.badgeColor,
+                                          background: slotInfo.badgeBg,
+                                          border: `1px solid ${slotInfo.badgeBorder}`,
+                                          padding: '2px 6px',
+                                          borderRadius: '4px',
+                                          display: 'inline-block'
+                                        }}>
+                                          {t.timeSlot === 'TBA' ? '⏳ TBA' : t.timeSlot}
+                                        </span>
+                                      </td>
+                                      <td>
                                         <div style={{ fontSize: '0.8rem', color: '#fdff00' }}>
                                           👑 <strong>{t.leaderName}</strong> <span style={{ color: '#aaa', fontSize: '0.72rem' }}>({t.leaderId}){t.leaderBranch ? ` [${t.leaderBranch}]` : ''}</span>
                                         </div>
                                         <div style={{ fontSize: '0.72rem', color: '#888' }}>
                                           📞 {t.leaderPhone || 'N/A'} • ✉️ {t.leaderEmail}
                                         </div>
-                                        {t.members && t.members.length > 0 && (
-                                          <div style={{ marginTop: '4px', fontSize: '0.72rem', color: '#00ffcc' }}>
-                                            👥 {t.members.map(m => m.name).join(', ')}
-                                          </div>
-                                        )}
                                       </td>
                                       <td>
                                         <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: '500' }}>{t.projectTitle || 'Untitled Project'}</div>
@@ -1680,9 +2564,9 @@ export default function AdminDashboardPage() {
                                       </td>
                                       <td style={{ textAlign: 'center' }}>
                                         {isScored ? (
-                                          <span className="status-pill status-completed" style={{ fontSize: '0.6rem', padding: '3px 6px' }}>SCORED</span>
+                                          <span className="status-pill status-completed" style={{ fontSize: '0.55rem', padding: '3px 6px' }}>SCORED</span>
                                         ) : (
-                                          <span className="status-pill status-pending" style={{ fontSize: '0.6rem', padding: '3px 6px' }}>PENDING</span>
+                                          <span className="status-pill status-pending" style={{ fontSize: '0.55rem', padding: '3px 6px' }}>PENDING</span>
                                         )}
                                       </td>
                                     </tr>
@@ -1695,161 +2579,13 @@ export default function AdminDashboardPage() {
                       </div>
                     );
                   })}
-
-                  {/* Custom Judges Section if any */}
-                  {Object.keys(customPanelsMap).length > 0 && (
-                    <div style={{ marginTop: '10px' }}>
-                      <h4 style={{ color: '#ffb852', fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', marginBottom: '14px' }}>
-                        ✍️ CUSTOM JUDGES & TEAMS ({Object.keys(customPanelsMap).length})
-                      </h4>
-                      {Object.values(customPanelsMap).map((cp, cpIdx) => (
-                        <div key={cpIdx} style={{
-                          background: 'rgba(10, 10, 20, 0.95)',
-                          border: '2px solid #ffb852',
-                          borderRadius: '10px',
-                          padding: '18px 20px',
-                          marginBottom: '16px'
-                        }}>
-                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                              <span style={{ background: '#ffb852', color: '#000', padding: '4px 8px', borderRadius: '4px', fontFamily: 'Press Start 2P, monospace', fontSize: '0.65rem', fontWeight: 'bold' }}>
-                                CUSTOM
-                              </span>
-                              <strong style={{ color: '#fff', fontSize: '0.95rem' }}>{cp.profile.id}</strong>
-                              <span style={{ color: '#00ffcc', fontSize: '0.72rem', fontFamily: 'Press Start 2P, monospace' }}>
-                                ({cp.teams.length} teams)
-                              </span>
-                            </div>
-                            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                              <button
-                                type="button"
-                                onClick={() => handleExportSinglePanel(cp.profile.id)}
-                                style={{
-                                  background: 'rgba(255, 184, 82, 0.15)',
-                                  border: '1.5px solid #ffb852',
-                                  color: '#ffb852',
-                                  borderRadius: '6px',
-                                  padding: '6px 12px',
-                                  fontFamily: 'Press Start 2P, monospace',
-                                  fontSize: '0.58rem',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                📥 EXPORT (.XLSX)
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => handlePrintPanel(cp.profile.id)}
-                                style={{
-                                  background: 'rgba(253, 255, 0, 0.12)',
-                                  border: '1.5px solid #fdff00',
-                                  color: '#fdff00',
-                                  borderRadius: '6px',
-                                  padding: '6px 12px',
-                                  fontFamily: 'Press Start 2P, monospace',
-                                  fontSize: '0.58rem',
-                                  cursor: 'pointer'
-                                }}
-                              >
-                                🖨️ PRINT
-                              </button>
-                            </div>
-                          </div>
-                          <div className="table-responsive">
-                            <table className="eval-table admin-table">
-                              <thead>
-                                <tr>
-                                  <th style={{ width: '12%', textAlign: 'center' }}>Team ID</th>
-                                  <th style={{ width: '22%' }}>Team Name</th>
-                                  <th style={{ width: '32%' }}>Leader & Members</th>
-                                  <th style={{ width: '22%' }}>Project</th>
-                                  <th style={{ width: '12%', textAlign: 'center' }}>Status</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {cp.teams.map((t, idx) => (
-                                  <tr key={t.id || idx}>
-                                    <td style={{ textAlign: 'center' }}>
-                                      <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{t.teamIdNo || 'N/A'}</span>
-                                    </td>
-                                    <td><strong>{t.teamName}</strong></td>
-                                    <td>
-                                      <div>👑 {t.leaderName} ({t.leaderId})</div>
-                                      <div style={{ fontSize: '0.72rem', color: '#888' }}>{t.leaderEmail} • {t.leaderPhone}</div>
-                                    </td>
-                                    <td>{t.projectTitle}</td>
-                                    <td style={{ textAlign: 'center' }}>
-                                      <span className="status-pill status-completed" style={{ fontSize: '0.6rem' }}>ASSIGNED</span>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Unassigned Teams Section if any */}
-                  {unassignedTeams.length > 0 && (
-                    <div style={{
-                      background: 'rgba(255, 0, 85, 0.06)',
-                      border: '2px dashed #ff0055',
-                      borderRadius: '10px',
-                      padding: '18px 20px',
-                      marginTop: '10px'
-                    }}>
-                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '12px' }}>
-                        <div style={{ color: '#ff0055', fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem' }}>
-                          ⚠️ UNASSIGNED TEAMS ({unassignedTeams.length})
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setActiveTab('teams-tab');
-                            setTeamsFilter('unassigned');
-                          }}
-                          style={{
-                            background: '#ff0055',
-                            color: '#fff',
-                            border: 'none',
-                            borderRadius: '6px',
-                            padding: '6px 12px',
-                            fontFamily: 'Press Start 2P, monospace',
-                            fontSize: '0.58rem',
-                            cursor: 'pointer'
-                          }}
-                        >
-                          👉 GO ASSIGN JUDGES
-                        </button>
-                      </div>
-                      <div style={{ color: '#ccc', fontSize: '0.8rem' }}>
-                        The following teams need to be assigned to a judge panel:
-                      </div>
-                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '10px' }}>
-                        {unassignedTeams.map((t, idx) => (
-                          <span key={t.id || idx} style={{
-                            background: 'rgba(0, 0, 0, 0.6)',
-                            border: '1px solid #ff0055',
-                            borderRadius: '4px',
-                            padding: '4px 8px',
-                            fontSize: '0.75rem',
-                            color: '#ff6699'
-                          }}>
-                            <strong>{t.teamIdNo !== 'N/A' ? t.teamIdNo : `#${idx+1}`}</strong>: {t.teamName}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                 </div>
               </div>
             </div>
           );
         })()}
 
-        {/* TAB 4: ALLOWED GMAILS WHITELIST */}
+        {/* TAB 5: ALLOWED GMAILS WHITELIST */}
         {activeTab === 'whitelist-tab' && (() => {
           const displayedAllowedUsers = allowedUsers.filter(u => {
             if (!cleanQuery) return true;
@@ -1898,32 +2634,8 @@ export default function AdminDashboardPage() {
                     <tbody>
                       {displayedAllowedUsers.length === 0 ? (
                         <tr>
-                          <td colSpan="4" style={{ textAlign: 'center', color: cleanQuery ? '#ff6699' : 'var(--text-muted)', padding: '24px', fontFamily: cleanQuery ? 'Press Start 2P, monospace' : 'inherit', fontSize: cleanQuery ? '0.72rem' : 'inherit', lineHeight: '2' }}>
-                            {cleanQuery ? (
-                              <>
-                                ⚠️ NO AUTHORIZED GMAIL MATCHING &ldquo;{searchQuery}&rdquo;
-                                <br />
-                                <button
-                                  type="button"
-                                  onClick={() => setSearchQuery('')}
-                                  style={{
-                                    marginTop: '12px',
-                                    background: '#fdff00',
-                                    color: '#000',
-                                    border: 'none',
-                                    borderRadius: '6px',
-                                    padding: '6px 14px',
-                                    fontFamily: 'Press Start 2P, monospace',
-                                    fontSize: '0.6rem',
-                                    cursor: 'pointer'
-                                  }}
-                                >
-                                  ✕ CLEAR SEARCH
-                                </button>
-                              </>
-                            ) : (
-                              "No email restriction entries found. (Google OAuth is open to all users by default until an email is added)."
-                            )}
+                          <td colSpan="4" style={{ textAlign: 'center', color: cleanQuery ? '#ff6699' : 'var(--text-muted)', padding: '24px' }}>
+                            {cleanQuery ? `No authorized Gmail matching "${searchQuery}"` : "No email restriction entries found."}
                           </td>
                         </tr>
                       ) : (

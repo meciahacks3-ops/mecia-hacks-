@@ -5,8 +5,7 @@ import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
-
-const initialDemoTeams = [];
+import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 
 export default function JudgeDashboardPage() {
   const router = useRouter();
@@ -28,7 +27,7 @@ export default function JudgeDashboardPage() {
     setLoading(true);
 
     try {
-      // 1. Fetch Teams from Supabase (fetching only project details, hiding personal leader/member info)
+      // 1. Fetch Teams from Supabase (fetching project details, hiding personal leader/member info)
       const { data: supaTeams } = await supabase
         .from('teams')
         .select('id, team_name, team_id_no, project_title, main_idea, assigned_judge');
@@ -41,9 +40,11 @@ export default function JudgeDashboardPage() {
           }
 
           let cleanDesc = (st.main_idea || '').trim();
-          if (cleanDesc.includes('[Type:') || cleanDesc.includes('[type:')) {
-            cleanDesc = cleanDesc.replace(/\[Type:[^\]]+\]\s*/i, '').trim();
+          if (cleanDesc.includes('[Type:') || cleanDesc.includes('[type:') || cleanDesc.includes('[Slot:')) {
+            cleanDesc = cleanDesc.replace(/\[[^\]]+\]\s*/g, '').trim();
           }
+
+          const parsedSlot = parseTimeSlotFromTeam(st);
 
           return {
             id: st.id,
@@ -51,7 +52,8 @@ export default function JudgeDashboardPage() {
             teamIdNo: parsedTeamId,
             projectTitle: st.project_title || 'N/A',
             projectDesc: cleanDesc || st.main_idea || 'No description provided.',
-            assignedJudge: st.assigned_judge
+            assignedJudge: st.assigned_judge,
+            timeSlot: parsedSlot
           };
         });
         setTeams(formattedTeams);
@@ -93,6 +95,12 @@ export default function JudgeDashboardPage() {
   const assignedTeams = teams.filter(t => {
     if (!t.assignedJudge) return false;
     return t.assignedJudge.toLowerCase().trim() === judgeEmail.toLowerCase().trim();
+  }).sort((a, b) => {
+    const slotOrder = { '09:30 AM - 11:30 AM': 1, '12:15 PM - 02:15 PM': 2, '02:30 PM - 04:15 PM': 3, 'TBA': 4 };
+    const aSlot = slotOrder[a.timeSlot] || 5;
+    const bSlot = slotOrder[b.timeSlot] || 5;
+    if (aSlot !== bSlot) return aSlot - bSlot;
+    return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
   });
 
   const judgeProfile = getJudgeProfile(judgeEmail);
@@ -175,7 +183,7 @@ export default function JudgeDashboardPage() {
             <span className="role-badge eval-badge">STAGE 2: JUDGE EVALUATION PANEL</span>
           </div>
           <h2>ASSIGNED HACKATHON TEAMS ({assignedTeams.length})</h2>
-          <p>Review team submissions, evaluate solutions against rubrics, and assign scores for panel: <strong>{judgeEmail}</strong>.</p>
+          <p>Review team submissions, check allocated presentation slots, and assign scores for panel: <strong>{judgeEmail}</strong>.</p>
         </div>
 
         {/* Assigned Teams List Section */}
@@ -193,6 +201,7 @@ export default function JudgeDashboardPage() {
                 const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
                 const isScored = Boolean(evalEntry);
                 const scoreVal = evalEntry ? evalEntry.totalScore : 0;
+                const slotInfo = getTimeSlotInfo(t.timeSlot);
 
                 return (
                   <div key={t.id || t.teamName} className="team-card">
@@ -210,6 +219,23 @@ export default function JudgeDashboardPage() {
                         ) : (
                           <span className="status-pill status-pending">PENDING EVALUATION</span>
                         )}
+
+                        <div style={{ marginTop: '8px' }}>
+                          <span style={{
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.62rem',
+                            color: slotInfo.badgeColor,
+                            background: slotInfo.badgeBg,
+                            border: `1.5px solid ${slotInfo.badgeBorder}`,
+                            padding: '4px 10px',
+                            borderRadius: '6px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}>
+                            {t.timeSlot === 'TBA' ? '⏳ PRESENTATION SLOT: TBA' : `⏰ TIME SLOT: ${t.timeSlot}`}
+                          </span>
+                        </div>
                       </div>
 
                       <a

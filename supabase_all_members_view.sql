@@ -1,14 +1,17 @@
 -- =========================================================================
--- MECIA HACKS 3.0: Supabase SQL Views for All Team Members Details
+-- MECIA HACKS 3.0: Supabase SQL Views & Time Slot Schema Migration
 -- Run this in your Supabase SQL Editor:
 -- https://supabase.com/dashboard/project/vuqizkxqnjcyewmoeipg/sql
 -- =========================================================================
 
--- 1. DROP OLD VIEWS IF THEY EXIST
+-- 1. ADD TIME_SLOT COLUMN TO TEAMS TABLE IF NOT EXISTS
+ALTER TABLE teams ADD COLUMN IF NOT EXISTS time_slot TEXT DEFAULT 'TBA';
+
+-- 2. DROP OLD VIEWS IF THEY EXIST
 DROP VIEW IF EXISTS view_teams_with_all_members CASCADE;
 DROP VIEW IF EXISTS view_all_students_master_list CASCADE;
 
--- 2. CREATE VIEW: TEAMS WITH ALL MEMBERS (Single Row per Team with All Members)
+-- 3. CREATE VIEW: TEAMS WITH ALL MEMBERS & ALLOCATED TIME SLOTS (Single Row per Team)
 CREATE OR REPLACE VIEW view_teams_with_all_members AS
 WITH numbered_members AS (
     SELECT 
@@ -55,6 +58,7 @@ SELECT
     t.id AS team_uuid,
     COALESCE(t.team_id_no, 'N/A') AS team_id_no,
     t.team_name,
+    COALESCE(t.time_slot, 'TBA') AS time_slot,
     t.project_title,
     t.tech_stack,
     t.assigned_judge,
@@ -92,12 +96,13 @@ FROM teams t
 LEFT JOIN aggregated_members am ON t.id = am.team_id
 ORDER BY t.team_id_no ASC, t.team_name ASC;
 
--- 3. CREATE VIEW: ALL STUDENTS DIRECTORY (1 row per participant, Leader or Member)
+-- 4. CREATE VIEW: ALL STUDENTS DIRECTORY (1 row per participant with Time Slot)
 CREATE OR REPLACE VIEW view_all_students_master_list AS
 SELECT 
     t.id AS team_uuid,
     COALESCE(t.team_id_no, 'N/A') AS team_id_no,
     t.team_name,
+    COALESCE(t.time_slot, 'TBA') AS time_slot,
     'Team Leader' AS role,
     t.leader_name AS student_name,
     t.leader_id AS enrollment_no,
@@ -114,6 +119,7 @@ SELECT
     t.id AS team_uuid,
     COALESCE(t.team_id_no, 'N/A') AS team_id_no,
     t.team_name,
+    COALESCE(t.time_slot, 'TBA') AS time_slot,
     'Team Member' AS role,
     tm.member_name AS student_name,
     tm.member_id AS enrollment_no,
