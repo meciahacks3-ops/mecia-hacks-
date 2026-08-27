@@ -283,14 +283,14 @@ export default function LoginPage() {
         <div className="login-header">
           <div className="badge-wrapper">
             <span className="role-badge" id="role-badge">
-              {role === 'student' && 'STAGE 1: STUDENT REGISTRATION & PORTAL'}
+              {role === 'student' && 'STAGE 1: STUDENT DASHBOARD (VIEW ALLOCATIONS)'}
               {role === 'judge' && 'STAGE 2: JUDGE'}
               {role === 'admin' && 'STAGE 3: ADMIN'}
             </span>
           </div>
           <h2>Mecia Hack 3.0</h2>
           <p>
-            {role === 'student' && 'Sign in with your Google account to register your team or access your project dashboard.'}
+            {role === 'student' && 'Sign in with your registered Google account to view your Round 2 Judge Panel, Venue & Time Slot.'}
             {role === 'judge' && 'Evaluate hackathon submissions and score projects.'}
             {role === 'admin' && 'Manage events, teams, and administrative settings.'}
           </p>
@@ -350,21 +350,21 @@ export default function LoginPage() {
         {role === 'student' && (
           <div className="login-form active">
             <div style={{
-              background: 'rgba(0, 255, 204, 0.08)',
-              border: '1px dashed rgba(0, 255, 204, 0.5)',
-              padding: '12px 14px',
+              background: 'rgba(255, 0, 85, 0.08)',
+              border: '1.5px dashed #ff0055',
+              padding: '14px 16px',
               borderRadius: '8px',
-              color: '#00ffcc',
+              color: '#ff4d79',
               fontSize: '0.64rem',
               fontFamily: 'Press Start 2P, monospace',
               lineHeight: '1.6',
               marginBottom: '20px',
               textAlign: 'center',
-              boxShadow: '0 0 10px rgba(0, 255, 204, 0.15)'
+              boxShadow: '0 0 12px rgba(255, 0, 85, 0.2)'
             }}>
-              ✨ STUDENT REGISTRATION OPEN
+              🔒 REGISTRATION CLOSED
               <div style={{ color: '#ffffff', fontSize: '0.58rem', marginTop: '6px', lineHeight: '1.5' }}>
-                Sign in with your Google account to register your team or access your project dashboard.
+                New team registrations are now closed. Registered teams: Sign in with your Google account to view allocated Judge, Venue & Presentation Time Slot.
               </div>
             </div>
 
@@ -386,7 +386,7 @@ export default function LoginPage() {
                 <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
                 <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
               </svg>
-              CONTINUE WITH GOOGLE ACCOUNT
+              VIEW DASHBOARD (GOOGLE SIGN-IN)
             </button>
           </div>
         )}

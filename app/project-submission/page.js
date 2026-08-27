@@ -142,16 +142,16 @@ export default function ProjectSubmissionPage() {
             setMembers(parsedMembers.slice(0, 3));
           }
         } else {
-          // New student registration mode
+          // New student registration mode - NOW CLOSED
           setExistingTeamId(null);
           setIsExistingRecord(false);
-          setIsEditing(true);
+          setIsEditing(false);
         }
       } catch (e) {
         console.warn("Fetch existing registration error:", e);
         setExistingTeamId(null);
         setIsExistingRecord(false);
-        setIsEditing(true);
+        setIsEditing(false);
       } finally {
         setIsLoading(false);
       }
@@ -231,6 +231,12 @@ export default function ProjectSubmissionPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    // Strict validation: New team registrations are closed
+    if (!existingTeamId) {
+      alert("⛔ REGISTRATION CLOSED: New team registrations for Mecia Hack 3.0 are officially closed. No new teams can be registered.");
+      return;
+    }
 
     // 1. Strictly enforce compulsory Team ID for all student portal users
     if (!teamIdNo || !teamIdNo.trim() || teamIdNo.trim().toUpperCase() === 'N/A') {
@@ -401,26 +407,26 @@ export default function ProjectSubmissionPage() {
 
         <div className="login-header text-left">
           <div className="badge-wrapper">
-            <span className="role-badge">
-              {isExistingRecord ? 'STAGE 1: REGISTERED TEAM PORTAL' : 'STAGE 1: STUDENT REGISTRATION'}
+            <span className="role-badge" style={{ borderColor: !isExistingRecord ? '#ff0055' : undefined, color: !isExistingRecord ? '#ff0055' : undefined }}>
+              {isExistingRecord ? 'STAGE 1: REGISTERED TEAM PORTAL' : 'STAGE 1: REGISTRATION CLOSED'}
             </span>
             <span
-              className={`lock-badge ${isExistingRecord ? 'confirmed' : (isLeaderComplete ? 'unlocked' : 'locked')}`}
+              className={`lock-badge ${isExistingRecord ? 'confirmed' : 'locked'}`}
               style={{
-                borderColor: isExistingRecord ? '#00ffcc' : (isLeaderComplete ? '#00ffcc' : '#ff0055'),
-                color: isExistingRecord ? '#00ffcc' : (isLeaderComplete ? '#00ffcc' : '#ff0055')
+                borderColor: isExistingRecord ? '#00ffcc' : '#ff0055',
+                color: isExistingRecord ? '#00ffcc' : '#ff0055'
               }}
             >
               {isExistingRecord
-                ? '✅ REGISTRATION CONFIRMED • VIEW & EDIT'
-                : (isLeaderComplete ? '🔓 READY TO SUBMIT' : '🔒 FILL LEADER DETAILS FIRST')}
+                ? '✅ REGISTRATION CONFIRMED • VIEW MODE'
+                : '⛔ REGISTRATIONS CLOSED'}
             </span>
           </div>
-          <h2>{isExistingRecord ? 'HACKATHON TEAM DETAILS' : 'HACKATHON REGISTRATION FORM'}</h2>
+          <h2>{isExistingRecord ? 'HACKATHON TEAM DETAILS' : 'REGISTRATION WINDOW CLOSED'}</h2>
           <p>
             {isExistingRecord
-              ? 'Review your confirmed team details and make any required updates to your project entry or members.'
-              : 'Complete your team details, add team members, and outline your project to register for Mecia Hack 3.0.'}
+              ? 'Review your confirmed team details, allocated Judge Panel, presentation lab venue, and scheduled time slot.'
+              : 'New team registrations for Mecia Hack 3.0 (Round 2) are now officially closed.'}
           </p>
         </div>
 
@@ -821,52 +827,100 @@ export default function ProjectSubmissionPage() {
           </div>
         )}
 
-        {/* 5. Team Registration & Editing Form View */}
-        {!isLoading && (!isExistingRecord || isEditing) && (
-          <form onSubmit={handleSubmit}>
-            {isExistingRecord && (
-              <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-start' }}>
-                <button
-                  type="button"
-                  onClick={() => setIsEditing(false)}
-                  style={{
-                    background: 'rgba(33, 33, 255, 0.2)',
-                    color: '#00ffcc',
-                    border: '1px solid #00ffcc',
-                    borderRadius: '8px',
-                    padding: '10px 16px',
-                    fontFamily: 'Press Start 2P, monospace',
-                    fontSize: '0.6rem',
-                    cursor: 'pointer'
-                  }}
-                >
-                  ← CANCEL / BACK TO SUMMARY
-                </button>
+        {/* 5. Closed Registration Notice (For Unregistered Users) */}
+        {!isLoading && !isExistingRecord && (
+          <div className="registered-summary-card" style={{
+            background: 'rgba(20, 10, 15, 0.95)',
+            border: '2px solid #ff0055',
+            borderRadius: '16px',
+            padding: '40px 28px',
+            boxShadow: '0 0 30px rgba(255, 0, 85, 0.35)',
+            textAlign: 'center',
+            marginBottom: '32px'
+          }}>
+            <div style={{ fontSize: '3.2rem', marginBottom: '16px' }}>⛔</div>
+            <span className="role-badge" style={{ background: '#ff0055', color: '#fff', border: '2px solid #ff0055', marginBottom: '14px', display: 'inline-block' }}>
+              STAGE 1: REGISTRATION CLOSED
+            </span>
+            <h2 style={{ color: '#ff0055', fontSize: '1.25rem', fontFamily: 'Press Start 2P, monospace', margin: '14px 0 16px', textShadow: '0 0 12px rgba(255, 0, 85, 0.6)' }}>
+              NEW TEAM REGISTRATION IS CLOSED
+            </h2>
+            <p style={{ color: '#e0e0e0', fontSize: '0.88rem', maxWidth: '640px', margin: '0 auto 20px', lineHeight: '1.6' }}>
+              New team and project registrations for <strong>Mecia Hack 3.0 (Round 2)</strong> are now officially closed.
+            </p>
+            <div style={{
+              background: 'rgba(0, 0, 0, 0.75)',
+              border: '1px dashed rgba(255, 255, 255, 0.2)',
+              borderRadius: '10px',
+              padding: '18px 22px',
+              maxWidth: '620px',
+              margin: '0 auto 26px',
+              textAlign: 'left',
+              fontSize: '0.8rem',
+              color: '#bbb',
+              lineHeight: '1.6'
+            }}>
+              <div style={{ color: '#fdff00', fontWeight: 'bold', marginBottom: '8px', fontFamily: 'Press Start 2P, monospace', fontSize: '0.62rem' }}>
+                ℹ️ ARE YOU PART OF A REGISTERED TEAM?
               </div>
-            )}
+              <div>
+                Logged in account: <strong style={{ color: '#00ffcc' }}>{studentId}</strong>
+              </div>
+              <div style={{ marginTop: '8px' }}>
+                If your team has already registered, please log in using the exact <strong>Leader Email</strong>, <strong>Member Email</strong>, or <strong>Enrollment ID</strong> submitted during registration to view your allocated Judge Panel, Lab Venue, and Presentation Time Slot.
+              </div>
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'center', gap: '14px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="logout-btn"
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '0.68rem',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px'
+                }}
+              >
+                🚪 LOG OUT & SWITCH ACCOUNT
+              </button>
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="nav-back-btn"
+                style={{
+                  padding: '12px 24px',
+                  fontSize: '0.68rem'
+                }}
+              >
+                🏠 RETURN TO LOGIN
+              </button>
+            </div>
+          </div>
+        )}
 
-            {!isExistingRecord && (
-              <div style={{
-                background: 'rgba(0, 255, 204, 0.08)',
-                border: '1.5px dashed #00ffcc',
-                borderRadius: '10px',
-                padding: '14px 18px',
-                marginBottom: '22px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '12px'
-              }}>
-                <span style={{ fontSize: '1.5rem' }}>🕹️</span>
-                <div>
-                  <div style={{ color: '#00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.68rem', marginBottom: '4px' }}>
-                    NEW REGISTRATION STAGE
-                  </div>
-                  <div style={{ color: '#ccc', fontSize: '0.78rem', lineHeight: '1.4' }}>
-                    Welcome <strong style={{ color: '#fdff00' }}>{studentId}</strong>! Fill in your compulsory team leader details, add your teammates, and outline your project below.
-                  </div>
-                </div>
-              </div>
-            )}
+        {/* 6. Existing Team Registration Editing Form View */}
+        {!isLoading && isExistingRecord && isEditing && (
+          <form onSubmit={handleSubmit}>
+            <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'flex-start' }}>
+              <button
+                type="button"
+                onClick={() => setIsEditing(false)}
+                style={{
+                  background: 'rgba(33, 33, 255, 0.2)',
+                  color: '#00ffcc',
+                  border: '1px solid #00ffcc',
+                  borderRadius: '8px',
+                  padding: '10px 16px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.6rem',
+                  cursor: 'pointer'
+                }}
+              >
+                ← CANCEL / BACK TO SUMMARY
+              </button>
+            </div>
 
             {/* Allocated Venue & Panel Quick Info inside Edit View */}
             {assignedJudge && assignedJudge !== 'Unassigned' && (
