@@ -1327,16 +1327,202 @@ body::before {
   box-shadow: 0 0 10px rgba(255, 184, 255, 0.4) !important;
 }
 
-.admin-controls-bar {
-  align-items: center;
+/* Admin Master Control Frame & Perfectly Aligned Buttons */
+.admin-master-frame {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  background: rgba(0, 0, 0, 0.92);
+  border: 2px solid var(--maze-blue, #2121ff);
+  box-shadow: 0 0 20px rgba(33, 33, 255, 0.35), inset 0 0 15px rgba(33, 33, 255, 0.12);
+  border-radius: 12px;
+  padding: 16px 18px;
+  margin-bottom: 24px;
+  overflow: hidden;
+  box-sizing: border-box;
 }
 
-.admin-excel-btn {
-  margin-top: 0 !important;
-  padding: 10px 16px !important;
-  font-family: 'Outfit', 'Inter', sans-serif !important;
-  font-size: 0.85rem !important;
-  font-weight: 700 !important;
+.admin-frame-section {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.admin-frame-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px dashed rgba(33, 33, 255, 0.35);
+  padding-bottom: 6px;
+  margin-bottom: 2px;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.admin-frame-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.65rem;
+  color: var(--pacman-yellow, #fdff00);
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-frame-label.action-label {
+  color: var(--inky-cyan, #00ffcc);
+}
+
+.admin-buttons-row {
+  display: grid;
+  gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.admin-nav-grid {
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+
+.admin-export-grid {
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.admin-control-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  height: 44px;
+  min-height: 44px;
+  max-height: 44px;
+  padding: 0 10px;
+  margin: 0;
+  border-radius: 8px;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.58rem;
+  font-weight: 600;
+  text-align: center;
+  line-height: 1.2;
+  cursor: pointer;
+  box-sizing: border-box;
+  text-decoration: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: var(--text-muted, #888);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.admin-control-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.6);
+}
+
+/* Nav Tab Active / Hover States */
+.admin-tab-btn:hover {
+  color: #fff;
+  background: rgba(33, 33, 255, 0.2);
+  border-color: rgba(33, 33, 255, 0.6);
+}
+
+.admin-tab-btn.active {
+  background: var(--maze-blue, #2121ff);
+  color: var(--pacman-yellow, #fdff00);
+  border-color: var(--pacman-yellow, #fdff00);
+  box-shadow: 0 0 14px rgba(33, 33, 255, 0.8), inset 0 0 8px rgba(253, 255, 0, 0.3);
+  font-weight: bold;
+}
+
+.admin-tab-btn.schedule-tab-btn.active {
+  background: rgba(253, 255, 0, 0.15);
+  color: #fdff00;
+  border-color: #fdff00;
+  box-shadow: 0 0 14px rgba(253, 255, 0, 0.5);
+}
+
+.admin-tab-btn.eval-highlight.active {
+  background: #800080;
+  color: var(--pacman-yellow, #fdff00);
+  border-color: var(--pinky-pink, #ff66cc);
+  box-shadow: 0 0 14px rgba(255, 0, 255, 0.8);
+}
+
+.admin-tab-btn.panels-tab-btn.active {
+  background: rgba(0, 255, 102, 0.15);
+  color: #00ff66;
+  border-color: #00ff66;
+  box-shadow: 0 0 14px rgba(0, 255, 102, 0.5);
+}
+
+/* Export / Action Button Color Variants */
+.admin-export-btn.btn-gold {
+  background: linear-gradient(135deg, rgba(184, 134, 11, 0.35), rgba(230, 184, 0, 0.25));
+  border: 1.5px solid #fdff00;
+  color: #fdff00;
+}
+.admin-export-btn.btn-gold:hover {
+  background: #fdff00;
+  color: #000;
+  box-shadow: 0 0 16px rgba(253, 255, 0, 0.7);
+}
+
+.admin-export-btn.btn-yellow-outline {
+  background: rgba(253, 255, 0, 0.08);
+  border: 1.5px solid rgba(253, 255, 0, 0.5);
+  color: #fdff00;
+}
+.admin-export-btn.btn-yellow-outline:hover {
+  background: rgba(253, 255, 0, 0.25);
+  border-color: #fdff00;
+  box-shadow: 0 0 14px rgba(253, 255, 0, 0.5);
+}
+
+.admin-export-btn.btn-green {
+  background: linear-gradient(135deg, rgba(16, 124, 65, 0.35), rgba(30, 142, 62, 0.25));
+  border: 1.5px solid #00ff66;
+  color: #00ff66;
+}
+.admin-export-btn.btn-green:hover {
+  background: #00ff66;
+  color: #000;
+  box-shadow: 0 0 16px rgba(0, 255, 102, 0.7);
+}
+
+.admin-export-btn.btn-cyan {
+  background: rgba(0, 255, 204, 0.1);
+  border: 1.5px solid #00ffcc;
+  color: #00ffcc;
+}
+.admin-export-btn.btn-cyan:hover {
+  background: #00ffcc;
+  color: #000;
+  box-shadow: 0 0 16px rgba(0, 255, 204, 0.7);
+}
+
+.admin-export-btn.btn-emerald {
+  background: linear-gradient(135deg, rgba(0, 128, 0, 0.35), rgba(0, 179, 0, 0.25));
+  border: 1.5px solid #00ff88;
+  color: #00ff88;
+}
+.admin-export-btn.btn-emerald:hover {
+  background: #00ff88;
+  color: #000;
+  box-shadow: 0 0 16px rgba(0, 255, 136, 0.7);
+}
+
+.admin-export-btn.btn-blue {
+  background: rgba(33, 33, 255, 0.2);
+  border: 1.5px solid #2121ff;
+  color: #99bbff;
+}
+.admin-export-btn.btn-blue:hover {
+  background: #2121ff;
+  color: #fff;
+  box-shadow: 0 0 16px rgba(33, 33, 255, 0.7);
 }
 
 .admin-tab-content {
@@ -1889,6 +2075,22 @@ body.simple-theme .nav-back-btn:hover {
   .admin-controls-bar {
     flex-direction: column !important;
     align-items: stretch !important;
+  }
+
+  .admin-master-frame {
+    padding: 12px 10px !important;
+  }
+
+  .admin-nav-grid,
+  .admin-export-grid {
+    grid-template-columns: 1fr !important;
+    gap: 6px !important;
+  }
+
+  .admin-control-btn {
+    width: 100% !important;
+    font-size: 0.65rem !important;
+    height: 42px !important;
   }
 
   .admin-excel-btn {

@@ -881,145 +881,121 @@ export default function AdminDashboardPage() {
           <p>Allocate presentation time slots (9:30-11:30, 12:15-2:15, 2:30-4:15, TBA), assign judge panels, and monitor live evaluations.</p>
         </div>
 
-        {/* Admin Top Controls Bar */}
-        <div className="judge-nav-tabs admin-controls-bar">
-          <button
-            type="button"
-            className={`judge-nav-btn ${activeTab === 'teams-tab' ? 'active' : ''}`}
-            onClick={() => setActiveTab('teams-tab')}
-          >
-            👥 TEAMS & ALLOCATIONS {cleanQuery ? `(${searchMatchedTeams.length})` : ''}
-          </button>
-          <button
-            type="button"
-            className={`judge-nav-btn ${activeTab === 'schedule-tab' ? 'active' : ''}`}
-            onClick={() => setActiveTab('schedule-tab')}
-            style={{
-              borderColor: activeTab === 'schedule-tab' ? '#fdff00' : undefined,
-              color: activeTab === 'schedule-tab' ? '#fdff00' : undefined
-            }}
-          >
-            📅 TIME SLOTS & TIMETABLE ({allocatedSlotCount}/{teams.length})
-          </button>
-          <button
-            type="button"
-            className={`judge-nav-btn eval-highlight ${activeTab === 'scores-tab' ? 'active' : ''}`}
-            onClick={() => setActiveTab('scores-tab')}
-          >
-            ⭐ LEADERBOARD
-          </button>
-          <button
-            type="button"
-            className={`judge-nav-btn ${activeTab === 'panels-tab' ? 'active' : ''}`}
-            onClick={() => setActiveTab('panels-tab')}
-            style={{
-              borderColor: activeTab === 'panels-tab' ? '#00ff66' : undefined,
-              color: activeTab === 'panels-tab' ? '#00ff66' : undefined
-            }}
-          >
-            🏛️ JUDGES PANELS
-          </button>
-          <button
-            type="button"
-            className={`judge-nav-btn ${activeTab === 'whitelist-tab' ? 'active' : ''}`}
-            onClick={() => setActiveTab('whitelist-tab')}
-          >
-            🔐 OAUTH WHITELIST ({allowedUsers.length})
-          </button>
-          <button
-            type="button"
-            className="submit-btn"
-            style={{
-              background: 'linear-gradient(135deg, #b8860b, #e6b800)',
-              border: '2px solid #fdff00',
-              color: '#000',
-              fontWeight: 'bold',
-              padding: '10px 14px',
-              fontSize: '0.6rem',
-              fontFamily: 'Press Start 2P, monospace',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 0 12px rgba(253, 255, 0, 0.4)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-            onClick={handleExportScheduleExcel}
-            title="Download dedicated Excel schedule workbook with sheets for each time slot"
-          >
-            📅 TIMETABLE (.XLSX)
-          </button>
-          <button
-            type="button"
-            className="submit-btn"
-            style={{
-              background: 'rgba(253, 255, 0, 0.15)',
-              border: '2px solid #fdff00',
-              color: '#fdff00',
-              padding: '10px 14px',
-              fontSize: '0.6rem',
-              fontFamily: 'Press Start 2P, monospace',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-            onClick={handlePrintSchedule}
-            title="Open printable master timetable arranged by time slots on A4 landscape"
-          >
-            🖨️ PRINT TIMETABLE (A4)
-          </button>
-          <button
-            type="button"
-            className="submit-btn"
-            style={{
-              background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
-              border: '2px solid #00ff66',
-              color: '#fff',
-              padding: '10px 14px',
-              fontSize: '0.6rem',
-              fontFamily: 'Press Start 2P, monospace',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              boxShadow: '0 0 12px rgba(0, 255, 102, 0.3)',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-            onClick={handleExportAllPanelsZip}
-            disabled={isExportingZip}
-            title="Download ZIP containing separate individual .xlsx files for each judge panel"
-          >
-            {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 ALL PANELS ZIP'}
-          </button>
-          <button
-            type="button"
-            className="submit-btn"
-            style={{
-              background: 'rgba(0, 255, 204, 0.15)',
-              border: '2px solid #00ffcc',
-              color: '#00ffcc',
-              padding: '10px 14px',
-              fontSize: '0.6rem',
-              fontFamily: 'Press Start 2P, monospace',
-              borderRadius: '8px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-            onClick={handleExportJudgesPanelsExcel}
-            title="Download master multi-sheet workbook containing all panels"
-          >
-            📗 MASTER WORKBOOK (.XLSX)
-          </button>
-          <button type="button" className="submit-btn excel-btn admin-excel-btn" onClick={exportCSV} title="Export spreadsheet with all teams, members, judge assignments, and time slots">
-            📊 MASTER CSV
-          </button>
-          <button type="button" className="submit-btn" style={{ background: '#2121ff', border: '2px solid #2121ff', color: '#fff', padding: '10px 16px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', borderRadius: '8px', cursor: 'pointer' }} onClick={exportStudentsDirectoryCSV} title="Export individual participant directory with time slots">
-            👥 PARTICIPANTS CSV
-          </button>
+        {/* Admin Master Control Frame */}
+        <div className="admin-master-frame">
+          {/* Section 1: Dashboard Navigation Views */}
+          <div className="admin-frame-section">
+            <div className="admin-frame-header">
+              <div className="admin-frame-label">
+                <span className="ghost cyan-ghost" style={{ width: '12px', height: '12px', display: 'inline-block' }}></span>
+                <span>🕹️ DASHBOARD VIEWS & NAVIGATION</span>
+              </div>
+              <span style={{ color: '#888', fontSize: '0.58rem', fontFamily: 'Press Start 2P, monospace' }}>
+                SELECT ACTIVE TAB
+              </span>
+            </div>
+            <div className="admin-buttons-row admin-nav-grid">
+              <button
+                type="button"
+                className={`admin-control-btn admin-tab-btn ${activeTab === 'teams-tab' ? 'active' : ''}`}
+                onClick={() => setActiveTab('teams-tab')}
+              >
+                👥 TEAMS & JUDGES {cleanQuery ? `(${searchMatchedTeams.length})` : `(${teams.length})`}
+              </button>
+              <button
+                type="button"
+                className={`admin-control-btn admin-tab-btn schedule-tab-btn ${activeTab === 'schedule-tab' ? 'active' : ''}`}
+                onClick={() => setActiveTab('schedule-tab')}
+              >
+                📅 TIME SLOTS ({allocatedSlotCount}/{teams.length})
+              </button>
+              <button
+                type="button"
+                className={`admin-control-btn admin-tab-btn eval-highlight ${activeTab === 'scores-tab' ? 'active' : ''}`}
+                onClick={() => setActiveTab('scores-tab')}
+              >
+                ⭐ LEADERBOARD
+              </button>
+              <button
+                type="button"
+                className={`admin-control-btn admin-tab-btn panels-tab-btn ${activeTab === 'panels-tab' ? 'active' : ''}`}
+                onClick={() => setActiveTab('panels-tab')}
+              >
+                🏛️ JUDGES PANELS
+              </button>
+              <button
+                type="button"
+                className={`admin-control-btn admin-tab-btn ${activeTab === 'whitelist-tab' ? 'active' : ''}`}
+                onClick={() => setActiveTab('whitelist-tab')}
+              >
+                🔐 OAUTH WHITELIST ({allowedUsers.length})
+              </button>
+            </div>
+          </div>
+
+          {/* Section 2: Master Exports & Print Dossiers */}
+          <div className="admin-frame-section" style={{ borderTop: '1px solid rgba(33, 33, 255, 0.35)', paddingTop: '12px' }}>
+            <div className="admin-frame-header">
+              <div className="admin-frame-label action-label">
+                <span className="ghost pink-ghost" style={{ width: '12px', height: '12px', display: 'inline-block' }}></span>
+                <span>⚡ EXPORT DATA & PRINT DOSSIERS</span>
+              </div>
+              <span style={{ color: '#00ffcc', fontSize: '0.58rem', fontFamily: 'Press Start 2P, monospace' }}>
+                EXCEL • CSV • A4 PRINT
+              </span>
+            </div>
+            <div className="admin-buttons-row admin-export-grid">
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-gold"
+                onClick={handleExportScheduleExcel}
+                title="Download dedicated Excel schedule workbook with sheets for each time slot"
+              >
+                📅 TIMETABLE (.XLSX)
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-yellow-outline"
+                onClick={handlePrintSchedule}
+                title="Open printable master timetable arranged by time slots on A4 landscape"
+              >
+                🖨️ PRINT TIMETABLE (A4)
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-green"
+                onClick={handleExportAllPanelsZip}
+                disabled={isExportingZip}
+                title="Download ZIP containing separate individual .xlsx files for each judge panel"
+              >
+                {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 ALL PANELS ZIP'}
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-cyan"
+                onClick={handleExportJudgesPanelsExcel}
+                title="Download master multi-sheet workbook containing all panels"
+              >
+                📗 MASTER WORKBOOK (.XLSX)
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-emerald"
+                onClick={exportCSV}
+                title="Export spreadsheet with all teams, members, judge assignments, and time slots"
+              >
+                📊 MASTER CSV
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-blue"
+                onClick={exportStudentsDirectoryCSV}
+                title="Export individual participant directory with time slots"
+              >
+                👥 PARTICIPANTS CSV
+              </button>
+            </div>
+          </div>
         </div>
 
         {/* Active Search Notification Banner */}
