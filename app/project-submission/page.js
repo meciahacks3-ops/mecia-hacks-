@@ -181,11 +181,13 @@ export default function ProjectSubmissionPage() {
         }
         await fetchExistingRegistration(savedId);
 
-        // Auto-poll every 4s to sync newly assigned judge panel and lab locations live
+        // Auto-poll every 4s to sync newly assigned judge panel, time slot and lab locations live
         pollTimer = setInterval(() => {
           findRegisteredTeam(supabase, savedId).then(tData => {
             if (tData) {
               setAssignedJudge(tData.assigned_judge || '');
+              const parsedSlot = parseTimeSlotFromTeam(tData);
+              setTimeSlot(parsedSlot);
             }
           }).catch(err => console.warn("Live allocation poll notice:", err));
         }, 4000);
@@ -397,6 +399,23 @@ export default function ProjectSubmissionPage() {
                 <span>🏛️ {assignedJudge.toUpperCase()}</span>
                 <span>•</span>
                 <span style={{ color: '#fdff00' }}>📍 {judgeProfile?.location || 'Assigned Lab'}</span>
+              </div>
+            )}
+            {timeSlot && timeSlot !== 'TBA' && (
+              <div style={{
+                background: getTimeSlotInfo(timeSlot).badgeBg,
+                border: `1.5px solid ${getTimeSlotInfo(timeSlot).badgeBorder}`,
+                borderRadius: '6px',
+                padding: '6px 12px',
+                color: getTimeSlotInfo(timeSlot).badgeColor,
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.62rem',
+                boxShadow: `0 0 10px ${getTimeSlotInfo(timeSlot).badgeBg}`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: '6px'
+              }}>
+                <span>⏰ {timeSlot}</span>
               </div>
             )}
           </div>
@@ -944,7 +963,9 @@ export default function ProjectSubmissionPage() {
                       ALLOCATED EVALUATION PANEL: <span style={{ color: '#fdff00' }}>{assignedJudge.toUpperCase()}</span> {judgeProfile?.group ? `(${judgeProfile.group})` : ''}
                     </div>
                     <div style={{ color: '#fff', fontSize: '0.78rem' }}>
-                      📍 <strong>Venue Location:</strong> <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{judgeProfile?.location || 'Computer Engineering Dept.'}</span>
+                      <span>📍 <strong>Venue Location:</strong> <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{judgeProfile?.location || 'Computer Engineering Dept.'}</span></span>
+                      <span style={{ margin: '0 8px', color: '#666' }}>|</span>
+                      <span>⏰ <strong>Time Slot:</strong> <span style={{ color: getTimeSlotInfo(timeSlot).badgeColor, fontWeight: 'bold' }}>{timeSlot === 'TBA' ? '⏳ TBA' : timeSlot}</span></span>
                     </div>
                   </div>
                 </div>
