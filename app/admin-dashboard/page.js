@@ -9,7 +9,9 @@ import {
   normalizeTimeSlot,
   parseTimeSlotFromTeam,
   getTimeSlotInfo,
-  saveTeamAssignment
+  saveTeamAssignment,
+  computePanelSlotSplit,
+  computeAllPanelsSlotSplit
 } from '@/lib/timeSlotUtils';
 import {
   exportJudgesPanelsAndTeamsExcel,
@@ -43,6 +45,11 @@ export default function AdminDashboardPage() {
   const [judgeSelections, setJudgeSelections] = useState({});
   const [timeSlotSelections, setTimeSlotSelections] = useState({});
   const [customJudgeInputs, setCustomJudgeInputs] = useState({});
+
+  // Auto-Split 4-4-4 State
+  const [isAutoSplitting, setIsAutoSplitting] = useState(false);
+  const [autoSplitProgress, setAutoSplitProgress] = useState('');
+  const [autoSplittingPanelId, setAutoSplittingPanelId] = useState(null);
 
   // Bulk Selection & Assignment State
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
@@ -355,6 +362,136 @@ export default function AdminDashboardPage() {
       console.error("Quick slot change error:", err);
     } finally {
       setSavingSlotTeamId(null);
+    }
+  };
+
+  // 1-Click Auto-Assign balanced 4-4-4 time slots across all Judge Panels
+  const handleAutoSplitAllPanels = async () => {
+    if (!teams || teams.length === 0) {
+      alert("No teams available to allocate slots!");
+      return;
+    }
+
+    const assignedCount = teams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned').length;
+    const confirmMsg = `⚡ 1-CLICK AUTO-SPLIT TIME SLOTS (4-4-4 BALANCE)\n\n` +
+      `This will automatically balance all teams within their assigned judge panels into equal batches across the 3 official slots:\n\n` +
+      `• Slot 1: 09:30 AM — 11:30 AM (~4 teams per panel)\n` +
+      `• Slot 2: 12:15 PM — 02:15 PM (~4 teams per panel)\n` +
+      `• Slot 3: 02:30 PM — 04:15 PM (~4 teams per panel)\n\n` +
+      `Total teams to allocate: ${teams.length} (${assignedCount} assigned to judge panels)\n\n` +
+      `Do you want to proceed?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setIsAutoSplitting(true);
+    setAutoSplitProgress(`Calculating optimal 4-4-4 split across panels...`);
+
+    try {
+      const plannedAssignments = computeAllPanelsSlotSplit(teams);
+      let successCount = 0;
+      const total = plannedAssignments.length;
+
+      // Update in batches of 15 concurrent promises
+      const BATCH_SIZE = 15;
+      for (let i = 0; i < total; i += BATCH_SIZE) {
+        const batch = plannedAssignments.slice(i, i + BATCH_SIZE);
+        setAutoSplitProgress(`Saving slots... (${Math.min(i + BATCH_SIZE, total)} / ${total})`);
+
+        await Promise.all(
+          batch.map(async (item) => {
+            const { error, updatedMainIdea } = await saveTeamAssignment(
+              supabase,
+              item.id,
+              item.teamName,
+              {
+                assignedJudge: item.assignedJudge,
+                timeSlot: item.timeSlot,
+                rawMainIdea: item.rawMainIdea
+              }
+            );
+            if (!error) {
+              successCount++;
+              setTeams(prev => prev.map(t => t.id === item.id ? {
+                ...t,
+                timeSlot: item.timeSlot,
+                rawMainIdea: updatedMainIdea
+              } : t));
+              setTimeSlotSelections(prev => ({ ...prev, [item.id]: item.timeSlot }));
+            }
+          })
+        );
+      }
+
+      const s1Count = plannedAssignments.filter(a => a.timeSlot === '09:30 AM - 11:30 AM').length;
+      const s2Count = plannedAssignments.filter(a => a.timeSlot === '12:15 PM - 02:15 PM').length;
+      const s3Count = plannedAssignments.filter(a => a.timeSlot === '02:30 PM - 04:15 PM').length;
+
+      alert(
+        `🎉 AUTO-ALLOCATION COMPLETE!\n\n` +
+        `✅ Successfully assigned balanced time slots to ${successCount} teams:\n` +
+        `• Slot 1 (09:30 AM - 11:30 AM): ${s1Count} teams\n` +
+        `• Slot 2 (12:15 PM - 02:15 PM): ${s2Count} teams\n` +
+        `• Slot 3 (02:30 PM - 04:15 PM): ${s3Count} teams\n\n` +
+        `Master timetable and judge sheets have been updated!`
+      );
+    } catch (e) {
+      console.error("Auto-split all panels error:", e);
+      alert("Error during auto-allocation: " + e.message);
+    } finally {
+      setIsAutoSplitting(false);
+      setAutoSplitProgress('');
+    }
+  };
+
+  // Auto-split slots for a single panel
+  const handleAutoSplitSinglePanel = async (panelId) => {
+    const upperId = (panelId || '').trim().toUpperCase();
+    const panelTeams = teams.filter(t => (t.assignedJudge || '').trim().toUpperCase() === upperId);
+
+    if (panelTeams.length === 0) {
+      alert(`No teams are assigned to Panel ${panelId} yet!`);
+      return;
+    }
+
+    if (!confirm(`Auto-split ${panelTeams.length} teams in Panel ${panelId} equally across Slot 1, Slot 2, and Slot 3 (4-4-4)?`)) {
+      return;
+    }
+
+    setAutoSplittingPanelId(panelId);
+    try {
+      const planned = computePanelSlotSplit(panelTeams);
+      let successCount = 0;
+
+      await Promise.all(
+        planned.map(async (item) => {
+          const { error, updatedMainIdea } = await saveTeamAssignment(
+            supabase,
+            item.id,
+            item.teamName,
+            {
+              assignedJudge: item.assignedJudge,
+              timeSlot: item.timeSlot,
+              rawMainIdea: item.rawMainIdea
+            }
+          );
+          if (!error) {
+            successCount++;
+            setTeams(prev => prev.map(t => t.id === item.id ? {
+              ...t,
+              timeSlot: item.timeSlot,
+              rawMainIdea: updatedMainIdea
+            } : t));
+            setTimeSlotSelections(prev => ({ ...prev, [item.id]: item.timeSlot }));
+          }
+        })
+      );
+
+      alert(`✅ Successfully balanced ${successCount} teams for Panel ${panelId} across 3 time slots!`);
+    } catch (e) {
+      console.error("Auto split panel error:", e);
+      alert("Error auto-splitting panel: " + e.message);
+    } finally {
+      setAutoSplittingPanelId(null);
     }
   };
 
@@ -1681,6 +1818,29 @@ export default function AdminDashboardPage() {
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
+                      onClick={handleAutoSplitAllPanels}
+                      disabled={isAutoSplitting}
+                      style={{
+                        background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
+                        border: '2px solid #00ffcc',
+                        color: '#000',
+                        padding: '10px 16px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '6px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 12px rgba(0, 255, 204, 0.4)'
+                      }}
+                      title="Automatically balance all teams within their assigned judge panels into equal batches across Slot 1, Slot 2, and Slot 3 (4-4-4 split)"
+                    >
+                      {isAutoSplitting ? `⏳ ${autoSplitProgress || 'ALLOCATING...'}` : '⚡ AUTO-SPLIT ALL PANELS (4-4-4)'}
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleExportScheduleExcel}
                       style={{
                         background: 'linear-gradient(135deg, #b8860b, #e6b800)',
@@ -2281,6 +2441,50 @@ export default function AdminDashboardPage() {
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                     <button
                       type="button"
+                      onClick={handleAutoSplitAllPanels}
+                      disabled={isAutoSplitting}
+                      style={{
+                        background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
+                        border: '2px solid #00ffcc',
+                        color: '#000',
+                        padding: '12px 18px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 15px rgba(0, 255, 204, 0.4)'
+                      }}
+                      title="Automatically balance all teams within every judge panel into equal 4-4-4 batches for Slot 1, Slot 2, and Slot 3"
+                    >
+                      {isAutoSplitting ? `⏳ ${autoSplitProgress || 'ALLOCATING...'}` : '⚡ 1-CLICK AUTO-SPLIT (4-4-4)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportJudgesPanelsExcel}
+                      style={{
+                        background: 'linear-gradient(135deg, #b8860b, #e6b800)',
+                        border: '2px solid #fdff00',
+                        color: '#000',
+                        padding: '12px 18px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontWeight: 'bold'
+                      }}
+                      title="Download comprehensive Excel workbook with Master Timetable, Dedicated Time Slot sheets, Panels Summary, and all Panel Dossiers"
+                    >
+                      📥 MASTER PANELS & SLOTS (.XLSX)
+                    </button>
+                    <button
+                      type="button"
                       onClick={handleExportAllPanelsZip}
                       disabled={isExportingZip}
                       style={{
@@ -2343,6 +2547,8 @@ export default function AdminDashboardPage() {
 
                     if (!matchesSearch) return null;
 
+                    const isPanelSplitting = autoSplittingPanelId === panel.id;
+
                     return (
                       <div key={panel.id} style={{
                         background: 'rgba(10, 10, 20, 0.95)',
@@ -2392,6 +2598,28 @@ export default function AdminDashboardPage() {
                           </div>
 
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleAutoSplitSinglePanel(panel.id)}
+                              disabled={isPanelSplitting || isAutoSplitting || assignedList.length === 0}
+                              style={{
+                                background: 'rgba(0, 255, 204, 0.15)',
+                                border: '1.5px solid #00ffcc',
+                                color: '#00ffcc',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontFamily: 'Press Start 2P, monospace',
+                                fontSize: '0.58rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px',
+                                fontWeight: 'bold'
+                              }}
+                              title="Auto-split this panel's teams equally (4-4-4) across the 3 time slots"
+                            >
+                              {isPanelSplitting ? '⏳ SPLITTING...' : '⚡ AUTO-SPLIT (4-4-4)'}
+                            </button>
                             <button
                               type="button"
                               onClick={() => handleExportSinglePanel(panel.id)}
@@ -2475,9 +2703,9 @@ export default function AdminDashboardPage() {
                                 <tr>
                                   <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
                                   <th style={{ width: '16%' }}>Team Name</th>
-                                  <th style={{ width: '14%' }}>Time Slot</th>
-                                  <th style={{ width: '25%' }}>Leader & Members</th>
-                                  <th style={{ width: '20%' }}>Project & Tech</th>
+                                  <th style={{ width: '18%' }}>Time Slot</th>
+                                  <th style={{ width: '23%' }}>Leader & Members</th>
+                                  <th style={{ width: '18%' }}>Project & Tech</th>
                                   <th style={{ width: '10%', textAlign: 'center' }}>Score (50)</th>
                                   <th style={{ width: '6%', textAlign: 'center' }}>Status</th>
                                 </tr>
@@ -2488,6 +2716,7 @@ export default function AdminDashboardPage() {
                                   const isScored = !!evalEntry;
                                   const score = evalEntry?.totalScore ?? '-';
                                   const slotInfo = getTimeSlotInfo(t.timeSlot);
+                                  const isSlotSaving = savingSlotTeamId === t.id;
 
                                   return (
                                     <tr key={t.id || idx}>
@@ -2510,18 +2739,28 @@ export default function AdminDashboardPage() {
                                         <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{t.teamName}</strong>
                                       </td>
                                       <td>
-                                        <span style={{
-                                          fontSize: '0.55rem',
-                                          fontFamily: 'Press Start 2P, monospace',
-                                          color: slotInfo.badgeColor,
-                                          background: slotInfo.badgeBg,
-                                          border: `1px solid ${slotInfo.badgeBorder}`,
-                                          padding: '2px 6px',
-                                          borderRadius: '4px',
-                                          display: 'inline-block'
-                                        }}>
-                                          {t.timeSlot === 'TBA' ? '⏳ TBA' : t.timeSlot}
-                                        </span>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <select
+                                            className="retro-select"
+                                            value={t.timeSlot}
+                                            onChange={(e) => handleQuickSlotChange(t.id, t.teamName, e.target.value)}
+                                            disabled={isSlotSaving}
+                                            style={{
+                                              padding: '4px 6px',
+                                              fontSize: '0.68rem',
+                                              width: 'auto',
+                                              border: `1px solid ${slotInfo.badgeBorder}`,
+                                              color: slotInfo.badgeColor,
+                                              background: 'rgba(0, 0, 0, 0.8)'
+                                            }}
+                                            title="Click to instantly reassign time slot"
+                                          >
+                                            {TIME_SLOT_OPTIONS.map(opt => (
+                                              <option key={opt.id} value={opt.value}>{opt.shortLabel}</option>
+                                            ))}
+                                          </select>
+                                          {isSlotSaving && <span style={{ fontSize: '0.6rem', color: '#fdff00' }}>⏳</span>}
+                                        </div>
                                       </td>
                                       <td>
                                         <div style={{ fontSize: '0.8rem', color: '#fdff00' }}>
