@@ -69,6 +69,9 @@ export default function AdminDashboardPage() {
 
   const [searchQuery, setSearchQuery] = useState('');
   const [isExportingZip, setIsExportingZip] = useState(false);
+  const [showZipPanelsModal, setShowZipPanelsModal] = useState(false);
+  const [zipModalSearch, setZipModalSearch] = useState('');
+  const [zipModalSlotFilter, setZipModalSlotFilter] = useState('all');
 
   const fetchAllowedUsers = async () => {
     try {
@@ -658,7 +661,7 @@ export default function AdminDashboardPage() {
       }
       setIsExportingZip(true);
       const zipFileName = await exportAllPanelsZip(teams, evaluations);
-      alert(`✅ Separate sheets ZIP archive created and downloaded!\n\nFile: ${zipFileName}`);
+      alert(`✅ Complete ZIP Archive Created & Downloaded!\n\nAll 11 Judges Panels dossiers, dedicated time slot sheets, and master overview are included.\n\nFile: ${zipFileName}`);
     } catch (err) {
       console.error("ZIP export error:", err);
       alert("Error creating ZIP archive: " + err.message);
@@ -1101,9 +1104,8 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 className="admin-control-btn admin-export-btn btn-green"
-                onClick={handleExportAllPanelsZip}
-                disabled={isExportingZip}
-                title="Download ZIP containing separate individual .xlsx files for each judge panel"
+                onClick={() => setShowZipPanelsModal(true)}
+                title="View all judges panels with allocated time slots and export separate sheets (.ZIP)"
               >
                 {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 ALL PANELS ZIP'}
               </button>
@@ -2485,8 +2487,7 @@ export default function AdminDashboardPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={handleExportAllPanelsZip}
-                      disabled={isExportingZip}
+                      onClick={() => setShowZipPanelsModal(true)}
                       style={{
                         background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
                         border: '2px solid #00ff66',
@@ -2502,7 +2503,7 @@ export default function AdminDashboardPage() {
                         boxShadow: '0 0 15px rgba(0, 255, 102, 0.4)',
                         fontWeight: 'bold'
                       }}
-                      title="Download a ZIP containing separate individual .xlsx files for every judge panel"
+                      title="View all judge panels with allocated time slots and download separate individual .xlsx files (.ZIP)"
                     >
                       {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 DOWNLOAD ALL SEPARATE SHEETS (.ZIP)'}
                     </button>
@@ -2926,6 +2927,764 @@ export default function AdminDashboardPage() {
                       )}
                     </tbody>
                   </table>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ========================================================================= */}
+        {/* 📦 ALL JUDGES PANELS & ALLOCATED TIME SLOTS DOSSIER MODAL */}
+        {/* ========================================================================= */}
+        {showZipPanelsModal && (() => {
+          const knownPanels = Object.values(JUDGE_PROFILES);
+          const panelMap = {};
+          knownPanels.forEach(p => {
+            panelMap[p.id.toUpperCase()] = {
+              profile: p,
+              teams: []
+            };
+          });
+
+          const customPanelsMap = {};
+          const unassignedTeams = [];
+
+          teams.forEach(t => {
+            const rawJudge = (t.assignedJudge || '').trim();
+            const upperJudge = rawJudge.toUpperCase();
+
+            if (!rawJudge || rawJudge.toLowerCase() === 'unassigned') {
+              unassignedTeams.push(t);
+            } else if (panelMap[upperJudge]) {
+              panelMap[upperJudge].teams.push(t);
+            } else {
+              if (!customPanelsMap[rawJudge]) {
+                customPanelsMap[rawJudge] = {
+                  profile: {
+                    id: rawJudge,
+                    group: 'Custom Judge',
+                    names: [rawJudge],
+                    namesText: rawJudge,
+                    location: 'Assigned by Admin'
+                  },
+                  teams: []
+                };
+              }
+              customPanelsMap[rawJudge].teams.push(t);
+            }
+          });
+
+          const cleanModalQuery = zipModalSearch.trim().toLowerCase();
+
+          // Compute overall slot counts
+          let s1Total = 0, s2Total = 0, s3Total = 0, tbaTotal = 0;
+          teams.forEach(t => {
+            const slot = parseTimeSlotFromTeam(t);
+            if (slot === '09:30 AM - 11:30 AM') s1Total++;
+            else if (slot === '12:15 PM - 02:15 PM') s2Total++;
+            else if (slot === '02:30 PM - 04:15 PM') s3Total++;
+            else tbaTotal++;
+          });
+
+          const totalAssignedTeams = teams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned').length;
+
+          return (
+            <div style={{
+              position: 'fixed',
+              top: 0,
+              left: 0,
+              width: '100vw',
+              height: '100vh',
+              background: 'rgba(0, 0, 0, 0.88)',
+              backdropFilter: 'blur(8px)',
+              zIndex: 99999,
+              display: 'flex',
+              justifyContent: 'center',
+              alignItems: 'center',
+              padding: '20px'
+            }}>
+              <div style={{
+                background: 'var(--card-bg, #0a0a14)',
+                border: '3px solid var(--maze-blue, #2121ff)',
+                borderRadius: '16px',
+                width: '100%',
+                maxWidth: '1200px',
+                maxHeight: '92vh',
+                display: 'flex',
+                flexDirection: 'column',
+                boxShadow: '0 0 35px rgba(33, 33, 255, 0.6), inset 0 0 15px rgba(33, 33, 255, 0.2)',
+                overflow: 'hidden'
+              }}>
+                {/* Modal Header */}
+                <div style={{
+                  padding: '18px 24px',
+                  background: 'linear-gradient(180deg, rgba(16, 124, 65, 0.25) 0%, rgba(10, 10, 20, 0.95) 100%)',
+                  borderBottom: '2px solid rgba(0, 255, 102, 0.4)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'flex-start',
+                  flexWrap: 'wrap',
+                  gap: '14px'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                      <span style={{
+                        background: '#00ff66',
+                        color: '#000',
+                        padding: '4px 10px',
+                        borderRadius: '6px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.72rem',
+                        fontWeight: 'bold'
+                      }}>
+                        📦 ZIP DOSSIER
+                      </span>
+                      <h2 style={{
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.95rem',
+                        color: '#fff',
+                        margin: 0,
+                        letterSpacing: '-0.02em'
+                      }}>
+                        ALL JUDGES PANELS & TIME SLOTS
+                      </h2>
+                    </div>
+                    <p style={{ color: 'var(--text-muted, #a0a0c0)', fontSize: '0.82rem', margin: 0 }}>
+                      Complete assignment dossier of judging panels (JM001 - JM011), faculty evaluators, and allocated teams with presentation time slots.
+                    </p>
+                  </div>
+
+                  {/* Top Action Buttons */}
+                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={handleExportAllPanelsZip}
+                      disabled={isExportingZip}
+                      style={{
+                        background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
+                        border: '2px solid #00ff66',
+                        color: '#fff',
+                        padding: '10px 16px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        boxShadow: '0 0 15px rgba(0, 255, 102, 0.4)',
+                        fontWeight: 'bold'
+                      }}
+                      title="Download separate individual .xlsx dossier sheets for every judge panel"
+                    >
+                      {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 DOWNLOAD (.ZIP)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportScheduleExcel}
+                      style={{
+                        background: 'linear-gradient(135deg, #b8860b, #e6b800)',
+                        border: '2px solid #fdff00',
+                        color: '#000',
+                        padding: '10px 14px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                      title="Download master timetable workbook"
+                    >
+                      📅 TIMETABLE (.XLSX)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handlePrintAllPanels}
+                      style={{
+                        background: 'rgba(253, 255, 0, 0.15)',
+                        border: '1.5px solid #fdff00',
+                        color: '#fdff00',
+                        padding: '10px 14px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                      title="Print all panel sheets on A4 landscape"
+                    >
+                      🖨️ PRINT ALL (A4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowZipPanelsModal(false)}
+                      style={{
+                        background: 'rgba(255, 0, 0, 0.2)',
+                        border: '1.5px solid #ff4444',
+                        color: '#ff6666',
+                        padding: '10px 14px',
+                        fontSize: '0.75rem',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      ✕ Close
+                    </button>
+                  </div>
+                </div>
+
+                {/* KPI Metrics Chips */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gap: '10px',
+                  padding: '12px 24px',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ background: 'rgba(33, 33, 255, 0.15)', border: '1px solid #2121ff', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#99bbff', fontFamily: 'Press Start 2P, monospace' }}>🏛️ PANELS</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>11 PANELS</div>
+                  </div>
+                  <div style={{ background: 'rgba(0, 255, 102, 0.15)', border: '1px solid #00ff66', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#00ff66', fontFamily: 'Press Start 2P, monospace' }}>👥 ASSIGNED TEAMS</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>{totalAssignedTeams} TEAMS</div>
+                  </div>
+                  <div style={{ background: 'rgba(0, 255, 204, 0.12)', border: '1px solid #00ffcc', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>⏰ SLOT 1 (9:30-11:30)</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#00ffcc', marginTop: '4px' }}>{s1Total} TEAMS</div>
+                  </div>
+                  <div style={{ background: 'rgba(253, 255, 0, 0.12)', border: '1px solid #fdff00', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>⏰ SLOT 2 (12:15-2:15)</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#fdff00', marginTop: '4px' }}>{s2Total} TEAMS</div>
+                  </div>
+                  <div style={{ background: 'rgba(255, 102, 204, 0.12)', border: '1px solid #ff66cc', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace' }}>⏰ SLOT 3 (2:30-4:15)</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#ff66cc', marginTop: '4px' }}>{s3Total} TEAMS</div>
+                  </div>
+                  <div style={{ background: 'rgba(255, 184, 82, 0.12)', border: '1px solid #ffb852', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#ffb852', fontFamily: 'Press Start 2P, monospace' }}>⏳ TBA (UNALLOCATED)</div>
+                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#ffb852', marginTop: '4px' }}>{tbaTotal} TEAMS</div>
+                  </div>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div style={{
+                  padding: '12px 24px',
+                  background: 'rgba(10, 10, 20, 0.9)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ flex: 1, minWidth: '240px' }}>
+                    <input
+                      type="text"
+                      className="retro-input"
+                      placeholder="🔍 Filter panels, judges, rooms, team ID, time slots..."
+                      value={zipModalSearch}
+                      onChange={(e) => setZipModalSearch(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', fontSize: '0.8rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.62rem', color: 'var(--inky-cyan)', fontFamily: 'Press Start 2P, monospace' }}>SLOT:</span>
+                    <select
+                      className="retro-select"
+                      value={zipModalSlotFilter}
+                      onChange={(e) => setZipModalSlotFilter(e.target.value)}
+                      style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+                    >
+                      <option value="all">⭐ All Time Slots</option>
+                      <option value="09:30 AM - 11:30 AM">⏰ Slot 1: 09:30 AM - 11:30 AM</option>
+                      <option value="12:15 PM - 02:15 PM">⏰ Slot 2: 12:15 PM - 02:15 PM</option>
+                      <option value="02:30 PM - 04:15 PM">⏰ Slot 3: 02:30 PM - 04:15 PM</option>
+                      <option value="TBA">⏳ TBA (Unallocated)</option>
+                    </select>
+                  </div>
+                  {zipModalSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setZipModalSearch('')}
+                      style={{ background: '#333', border: '1px solid #555', color: '#fff', borderRadius: '4px', padding: '6px 10px', fontSize: '0.7rem', cursor: 'pointer' }}
+                    >
+                      ✕ Clear Filter
+                    </button>
+                  )}
+                </div>
+
+                {/* Scrollable Panels Content */}
+                <div style={{
+                  padding: '20px 24px',
+                  overflowY: 'auto',
+                  flex: 1,
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: '20px'
+                }}>
+                  {knownPanels.map(panel => {
+                    const allAssigned = panelMap[panel.id.toUpperCase()].teams;
+                    
+                    // Filter by slot if selected
+                    const assignedList = zipModalSlotFilter === 'all'
+                      ? allAssigned
+                      : allAssigned.filter(t => parseTimeSlotFromTeam(t) === zipModalSlotFilter);
+
+                    const matchesSearch = !cleanModalQuery ||
+                      panel.id.toLowerCase().includes(cleanModalQuery) ||
+                      panel.group.toLowerCase().includes(cleanModalQuery) ||
+                      panel.location.toLowerCase().includes(cleanModalQuery) ||
+                      panel.namesText.toLowerCase().includes(cleanModalQuery) ||
+                      assignedList.some(t =>
+                        (t.teamName && t.teamName.toLowerCase().includes(cleanModalQuery)) ||
+                        (t.teamIdNo && t.teamIdNo.toLowerCase().includes(cleanModalQuery)) ||
+                        (t.timeSlot && t.timeSlot.toLowerCase().includes(cleanModalQuery)) ||
+                        (t.leaderName && t.leaderName.toLowerCase().includes(cleanModalQuery))
+                      );
+
+                    if (!matchesSearch) return null;
+
+                    // Per-panel slot counts
+                    let pS1 = 0, pS2 = 0, pS3 = 0, pTba = 0;
+                    allAssigned.forEach(t => {
+                      const slot = parseTimeSlotFromTeam(t);
+                      if (slot === '09:30 AM - 11:30 AM') pS1++;
+                      else if (slot === '12:15 PM - 02:15 PM') pS2++;
+                      else if (slot === '02:30 PM - 04:15 PM') pS3++;
+                      else pTba++;
+                    });
+
+                    return (
+                      <div key={panel.id} style={{
+                        background: 'rgba(15, 15, 25, 0.95)',
+                        border: '2px solid ' + (allAssigned.length > 0 ? 'var(--maze-blue, #2121ff)' : '#333'),
+                        borderRadius: '10px',
+                        padding: '16px 18px',
+                        boxShadow: allAssigned.length > 0 ? '0 0 12px rgba(33, 33, 255, 0.2)' : 'none'
+                      }}>
+                        {/* Panel Header */}
+                        <div style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          flexWrap: 'wrap',
+                          gap: '10px',
+                          marginBottom: '12px',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+                          paddingBottom: '10px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                            <span style={{
+                              background: '#fdff00',
+                              color: '#000',
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.72rem',
+                              fontWeight: 'bold'
+                            }}>
+                              {panel.id}
+                            </span>
+                            <span style={{ color: '#fff', fontSize: '0.95rem', fontWeight: 'bold' }}>
+                              {panel.group}
+                            </span>
+                            <span style={{
+                              background: 'rgba(0, 255, 204, 0.12)',
+                              color: '#00ffcc',
+                              border: '1px solid #00ffcc',
+                              borderRadius: '6px',
+                              padding: '3px 8px',
+                              fontSize: '0.75rem'
+                            }}>
+                              📍 {panel.location}
+                            </span>
+                            <span style={{
+                              background: allAssigned.length > 0 ? 'rgba(33, 33, 255, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                              color: allAssigned.length > 0 ? '#99bbff' : '#888',
+                              border: '1px solid ' + (allAssigned.length > 0 ? '#2121ff' : '#444'),
+                              borderRadius: '6px',
+                              padding: '3px 8px',
+                              fontSize: '0.72rem',
+                              fontFamily: 'Press Start 2P, monospace'
+                            }}>
+                              👥 {allAssigned.length} TEAMS
+                            </span>
+                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                              <span style={{ fontSize: '0.68rem', color: '#00ffcc', background: 'rgba(0, 255, 204, 0.1)', border: '1px solid rgba(0, 255, 204, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>
+                                S1: {pS1}
+                              </span>
+                              <span style={{ fontSize: '0.68rem', color: '#fdff00', background: 'rgba(253, 255, 0, 0.1)', border: '1px solid rgba(253, 255, 0, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>
+                                S2: {pS2}
+                              </span>
+                              <span style={{ fontSize: '0.68rem', color: '#ff66cc', background: 'rgba(255, 102, 204, 0.1)', border: '1px solid rgba(255, 102, 204, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>
+                                S3: {pS3}
+                              </span>
+                              {pTba > 0 && (
+                                <span style={{ fontSize: '0.68rem', color: '#ffb852', background: 'rgba(255, 184, 82, 0.1)', border: '1px solid rgba(255, 184, 82, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>
+                                  TBA: {pTba}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                            <button
+                              type="button"
+                              onClick={() => handleExportSinglePanel(panel.id)}
+                              style={{
+                                background: 'rgba(0, 255, 102, 0.15)',
+                                border: '1.5px solid #00ff66',
+                                color: '#00ff66',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontFamily: 'Press Start 2P, monospace',
+                                fontSize: '0.58rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                              title={`Download individual multi-sheet Excel file for Panel ${panel.id}`}
+                            >
+                              📥 EXPORT (.XLSX)
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handlePrintPanel(panel.id)}
+                              style={{
+                                background: 'rgba(253, 255, 0, 0.15)',
+                                border: '1.5px solid #fdff00',
+                                color: '#fdff00',
+                                borderRadius: '6px',
+                                padding: '6px 12px',
+                                fontFamily: 'Press Start 2P, monospace',
+                                fontSize: '0.58rem',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: '6px'
+                              }}
+                              title={`Open printable A4 landscape evaluation sheet for Panel ${panel.id}`}
+                            >
+                              🖨️ PRINT {panel.id}
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Faculty Evaluators */}
+                        <div style={{ marginBottom: '12px', background: 'rgba(0, 0, 0, 0.4)', padding: '8px 12px', borderRadius: '6px', border: '1px solid #222' }}>
+                          <div style={{ fontSize: '0.6rem', color: 'var(--inky-cyan, #00ffff)', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>
+                            ⚖️ FACULTY EVALUATORS:
+                          </div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {panel.names.map((jName, jIdx) => (
+                              <span key={jIdx} style={{
+                                background: 'rgba(255, 255, 255, 0.06)',
+                                border: '1px solid #444',
+                                borderRadius: '4px',
+                                padding: '2px 8px',
+                                fontSize: '0.75rem',
+                                color: '#e0e0e0'
+                              }}>
+                                👨‍🏫 {jName}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        {/* Teams Table */}
+                        {assignedList.length === 0 ? (
+                          <div style={{
+                            padding: '14px',
+                            background: 'rgba(255, 255, 255, 0.02)',
+                            borderRadius: '6px',
+                            border: '1px dashed #444',
+                            color: '#777',
+                            fontSize: '0.72rem',
+                            textAlign: 'center',
+                            fontFamily: 'Press Start 2P, monospace'
+                          }}>
+                            ⚠️ NO TEAMS MATCHING FILTER IN THIS PANEL
+                          </div>
+                        ) : (
+                          <div className="table-responsive" style={{ margin: 0 }}>
+                            <table className="eval-table admin-table" style={{ margin: 0 }}>
+                              <thead>
+                                <tr>
+                                  <th style={{ width: '8%', textAlign: 'center' }}>Team ID</th>
+                                  <th style={{ width: '18%' }}>Team Name</th>
+                                  <th style={{ width: '22%' }}>Allocated Time Slot</th>
+                                  <th style={{ width: '22%' }}>Leader & Members</th>
+                                  <th style={{ width: '18%' }}>Project & Tech</th>
+                                  <th style={{ width: '12%', textAlign: 'center' }}>Score (50)</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {assignedList.map((t, tIdx) => {
+                                  const evalEntry = evaluations.find(e => (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase());
+                                  const isScored = !!evalEntry;
+                                  const score = evalEntry?.totalScore ?? '-';
+                                  const slotInfo = getTimeSlotInfo(t.timeSlot);
+                                  const isSlotSaving = savingSlotTeamId === t.id;
+
+                                  return (
+                                    <tr key={t.id || tIdx}>
+                                      <td style={{ textAlign: 'center' }}>
+                                        <span style={{
+                                          display: 'inline-block',
+                                          background: 'rgba(253, 255, 0, 0.15)',
+                                          color: '#fdff00',
+                                          border: '1px solid #fdff00',
+                                          borderRadius: '4px',
+                                          padding: '2px 6px',
+                                          fontFamily: 'Press Start 2P, monospace',
+                                          fontSize: '0.62rem',
+                                          fontWeight: 'bold'
+                                        }}>
+                                          {t.teamIdNo && t.teamIdNo !== 'N/A' ? t.teamIdNo : 'N/A'}
+                                        </span>
+                                      </td>
+                                      <td>
+                                        <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{t.teamName}</strong>
+                                      </td>
+                                      <td>
+                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                          <select
+                                            className="retro-select"
+                                            value={t.timeSlot}
+                                            onChange={(e) => handleQuickSlotChange(t.id, t.teamName, e.target.value)}
+                                            disabled={isSlotSaving}
+                                            style={{
+                                              padding: '4px 6px',
+                                              fontSize: '0.68rem',
+                                              color: slotInfo.badgeColor,
+                                              background: slotInfo.badgeBg,
+                                              border: `1.5px solid ${slotInfo.badgeBorder}`,
+                                              borderRadius: '4px',
+                                              fontWeight: 'bold'
+                                            }}
+                                          >
+                                            {TIME_SLOT_OPTIONS.map(opt => (
+                                              <option key={opt.id} value={opt.value} style={{ background: '#111', color: opt.badgeColor }}>
+                                                {opt.label}
+                                              </option>
+                                            ))}
+                                          </select>
+                                          {isSlotSaving && <span style={{ fontSize: '0.6rem', color: '#fdff00' }}>⏳</span>}
+                                        </div>
+                                      </td>
+                                      <td>
+                                        <div style={{ fontSize: '0.78rem' }}>
+                                          <strong style={{ color: '#00ffcc' }}>👑 {t.leaderName || 'N/A'}</strong>
+                                          {t.leaderBranch && <span style={{ color: '#aaa', marginLeft: '4px' }}>[{t.leaderBranch}]</span>}
+                                          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '2px' }}>
+                                            📞 {t.leaderPhone || 'N/A'} | ✉️ {t.leaderEmail || 'N/A'}
+                                          </div>
+                                          {t.members && t.members.length > 0 && (
+                                            <div style={{ fontSize: '0.68rem', color: '#bbb', marginTop: '2px' }}>
+                                              👥 {t.members.map(m => m.name).join(', ')}
+                                            </div>
+                                          )}
+                                        </div>
+                                      </td>
+                                      <td>
+                                        <div style={{ fontSize: '0.78rem', color: '#e0e0e0', fontWeight: 'bold' }}>
+                                          {t.projectTitle || 'N/A'}
+                                        </div>
+                                        {t.techStack && (
+                                          <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '2px' }}>
+                                            ⚡ {t.techStack}
+                                          </div>
+                                        )}
+                                      </td>
+                                      <td style={{ textAlign: 'center' }}>
+                                        {isScored ? (
+                                          <span style={{
+                                            display: 'inline-block',
+                                            background: 'rgba(0, 255, 102, 0.15)',
+                                            color: '#00ff66',
+                                            border: '1px solid #00ff66',
+                                            borderRadius: '4px',
+                                            padding: '2px 8px',
+                                            fontFamily: 'Press Start 2P, monospace',
+                                            fontSize: '0.65rem',
+                                            fontWeight: 'bold'
+                                          }}>
+                                            {score}/50
+                                          </span>
+                                        ) : (
+                                          <span style={{
+                                            display: 'inline-block',
+                                            background: 'rgba(255, 0, 0, 0.15)',
+                                            color: '#ff4444',
+                                            border: '1px solid #ff4444',
+                                            borderRadius: '4px',
+                                            padding: '2px 6px',
+                                            fontFamily: 'Press Start 2P, monospace',
+                                            fontSize: '0.58rem'
+                                          }}>
+                                            PENDING
+                                          </span>
+                                        )}
+                                      </td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+
+                  {/* Custom Panels if any */}
+                  {Object.values(customPanelsMap).map(cp => {
+                    const assignedList = zipModalSlotFilter === 'all'
+                      ? cp.teams
+                      : cp.teams.filter(t => parseTimeSlotFromTeam(t) === zipModalSlotFilter);
+
+                    if (assignedList.length === 0 && zipModalSlotFilter !== 'all') return null;
+
+                    return (
+                      <div key={cp.profile.id} style={{
+                        background: 'rgba(15, 15, 25, 0.95)',
+                        border: '2px solid #fdff00',
+                        borderRadius: '10px',
+                        padding: '16px 18px'
+                      }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                          <span style={{ background: '#fdff00', color: '#000', padding: '4px 10px', borderRadius: '6px', fontFamily: 'Press Start 2P, monospace', fontSize: '0.72rem', fontWeight: 'bold' }}>
+                            {cp.profile.id} (Custom Judge)
+                          </span>
+                          <span style={{ color: '#fdff00', fontSize: '0.72rem', fontFamily: 'Press Start 2P, monospace' }}>
+                            👥 {cp.teams.length} TEAMS
+                          </span>
+                        </div>
+                        <div className="table-responsive" style={{ margin: 0 }}>
+                          <table className="eval-table admin-table" style={{ margin: 0 }}>
+                            <thead>
+                              <tr>
+                                <th style={{ width: '8%', textAlign: 'center' }}>Team ID</th>
+                                <th style={{ width: '20%' }}>Team Name</th>
+                                <th style={{ width: '22%' }}>Allocated Time Slot</th>
+                                <th style={{ width: '25%' }}>Leader & Members</th>
+                                <th style={{ width: '25%' }}>Project & Tech</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {assignedList.map((t, idx) => (
+                                <tr key={t.id || idx}>
+                                  <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#fdff00' }}>{t.teamIdNo || 'N/A'}</td>
+                                  <td><strong>{t.teamName}</strong></td>
+                                  <td>{t.timeSlot}</td>
+                                  <td>👑 {t.leaderName} ({t.leaderPhone || 'N/A'})</td>
+                                  <td>{t.projectTitle || 'N/A'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Unassigned Teams if any */}
+                  {unassignedTeams.length > 0 && (
+                    <div style={{
+                      background: 'rgba(255, 0, 0, 0.08)',
+                      border: '2px solid #ff4444',
+                      borderRadius: '10px',
+                      padding: '16px 18px'
+                    }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                        <span style={{ background: '#ff4444', color: '#fff', padding: '4px 10px', borderRadius: '6px', fontFamily: 'Press Start 2P, monospace', fontSize: '0.72rem', fontWeight: 'bold' }}>
+                          ⚠️ UNASSIGNED TEAMS ({unassignedTeams.length})
+                        </span>
+                        <span style={{ color: '#ff6666', fontSize: '0.72rem' }}>
+                          Pending Judge Panel Allocation
+                        </span>
+                      </div>
+                      <div className="table-responsive" style={{ margin: 0 }}>
+                        <table className="eval-table admin-table" style={{ margin: 0 }}>
+                          <thead>
+                            <tr>
+                              <th style={{ width: '8%', textAlign: 'center' }}>Team ID</th>
+                              <th style={{ width: '22%' }}>Team Name</th>
+                              <th style={{ width: '22%' }}>Time Slot</th>
+                              <th style={{ width: '25%' }}>Leader & Contact</th>
+                              <th style={{ width: '23%' }}>Project Title</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {unassignedTeams.map((t, idx) => (
+                              <tr key={t.id || idx}>
+                                <td style={{ textAlign: 'center', color: '#fdff00' }}>{t.teamIdNo || 'N/A'}</td>
+                                <td><strong>{t.teamName}</strong></td>
+                                <td>{t.timeSlot}</td>
+                                <td>👑 {t.leaderName} ({t.leaderPhone || 'N/A'})</td>
+                                <td>{t.projectTitle || 'N/A'}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
+                  )}
+                </div>
+
+                {/* Modal Footer */}
+                <div style={{
+                  padding: '16px 24px',
+                  background: 'rgba(10, 10, 20, 0.98)',
+                  borderTop: '2px solid rgba(33, 33, 255, 0.4)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    📦 ZIP archive packages <strong>individual multi-sheet workbooks</strong> for all 11 judge panels with dedicated time slot sheets and summary overview.
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={handleExportAllPanelsZip}
+                      disabled={isExportingZip}
+                      style={{
+                        background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
+                        border: '2px solid #00ff66',
+                        color: '#fff',
+                        padding: '12px 20px',
+                        fontSize: '0.65rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 15px rgba(0, 255, 102, 0.4)'
+                      }}
+                    >
+                      {isExportingZip ? '⏳ PACKAGING ZIP ARCHIVE...' : '📦 DOWNLOAD COMPLETE ZIP ARCHIVE (.ZIP)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowZipPanelsModal(false)}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid #666',
+                        color: '#fff',
+                        padding: '12px 18px',
+                        fontSize: '0.75rem',
+                        borderRadius: '8px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✕ Close Dossier
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
