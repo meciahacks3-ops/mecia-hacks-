@@ -20,7 +20,11 @@ import {
   exportTimeSlotScheduleExcel,
   printPanelDossier,
   printAllPanelsDossiers,
-  printTimeSlotSchedule
+  printTimeSlotSchedule,
+  exportAttendanceSheetExcel,
+  printAttendanceSheet,
+  exportAttendanceCSV,
+  extractAllStudentsRoster
 } from '@/lib/excelExport';
 
 export default function AdminDashboardPage() {
@@ -72,6 +76,12 @@ export default function AdminDashboardPage() {
   const [showZipPanelsModal, setShowZipPanelsModal] = useState(false);
   const [zipModalSearch, setZipModalSearch] = useState('');
   const [zipModalSlotFilter, setZipModalSlotFilter] = useState('all');
+
+  // Attendance Modal & Filters State
+  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
+  const [attendancePanelFilter, setAttendancePanelFilter] = useState('all');
+  const [attendanceSlotFilter, setAttendanceSlotFilter] = useState('all');
+  const [attendanceSearchQuery, setAttendanceSearchQuery] = useState('');
 
   const fetchAllowedUsers = async () => {
     try {
@@ -680,6 +690,49 @@ export default function AdminDashboardPage() {
     printAllPanelsDossiers(teams, evaluations);
   };
 
+  // Export dedicated attendance Excel workbook (.xlsx)
+  const handleExportAttendanceExcel = () => {
+    try {
+      if (!teams || teams.length === 0) {
+        alert("No teams available to export attendance for yet!");
+        return;
+      }
+      const filename = exportAttendanceSheetExcel(teams);
+      alert(`✅ Official Student Attendance Workbook Generated!\n\nFile: ${filename}\n\nIncludes Master Attendance sheet + Individual sheets per time slot and judge panel/lab room with signature columns.`);
+    } catch (err) {
+      console.error("Attendance Excel export error:", err);
+      alert("Error generating attendance Excel sheet: " + err.message);
+    }
+  };
+
+  // Direct browser print for student attendance sheets
+  const handlePrintAttendance = (mode = 'by-panel', panelId = null) => {
+    try {
+      if (!teams || teams.length === 0) {
+        alert("No teams available to print attendance for yet!");
+        return;
+      }
+      printAttendanceSheet(teams, { mode, panelId });
+    } catch (err) {
+      console.error("Print attendance error:", err);
+      alert("Error opening printable attendance sheet: " + err.message);
+    }
+  };
+
+  // Export student attendance CSV
+  const handleExportAttendanceCSV = () => {
+    try {
+      if (!teams || teams.length === 0) {
+        alert("No teams available to export attendance for yet!");
+        return;
+      }
+      exportAttendanceCSV(teams);
+    } catch (err) {
+      console.error("Attendance CSV export error:", err);
+      alert("Error exporting attendance CSV: " + err.message);
+    }
+  };
+
   // Export Teams Master CSV
   const exportCSV = () => {
     let csvRows = [];
@@ -1085,6 +1138,37 @@ export default function AdminDashboardPage() {
               </span>
             </div>
             <div className="admin-buttons-row admin-export-grid">
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn"
+                onClick={() => setShowAttendanceModal(true)}
+                title="Open attendance manager with live roster preview, filtering, printable A4 sheets, and Excel exports"
+                style={{
+                  background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
+                  border: '2px solid #00ffcc',
+                  color: '#000',
+                  fontWeight: 'bold',
+                  boxShadow: '0 0 12px rgba(0, 255, 204, 0.3)'
+                }}
+              >
+                📝 ATTENDANCE & SIGNATURES
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-green"
+                onClick={handleExportAttendanceExcel}
+                title="Download dedicated attendance Excel workbook (.xlsx) with student signature column"
+              >
+                📗 ATTENDANCE (.XLSX)
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-yellow-outline"
+                onClick={() => handlePrintAttendance('by-panel')}
+                title="Open printable student attendance sheets with signature lines and page-breaks for each lab room"
+              >
+                🖨️ PRINT ATTENDANCE (A4)
+              </button>
               <button
                 type="button"
                 className="admin-control-btn admin-export-btn btn-gold"
@@ -3683,6 +3767,455 @@ export default function AdminDashboardPage() {
                       }}
                     >
                       ✕ Close Dossier
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ======================================================== */}
+        {/* ATTENDANCE ROSTER & STUDENT SIGNATURE DOSSIER MODAL     */}
+        {/* ======================================================== */}
+        {showAttendanceModal && (() => {
+          const allStudents = extractAllStudentsRoster(teams);
+          const cleanAttendSearch = attendanceSearchQuery.trim().toLowerCase();
+
+          const filteredStudents = allStudents.filter(s => {
+            // Panel filter
+            if (attendancePanelFilter !== 'all') {
+              if ((s.assignedJudge || '').trim().toUpperCase() !== attendancePanelFilter.toUpperCase()) {
+                return false;
+              }
+            }
+
+            // Slot filter
+            if (attendanceSlotFilter !== 'all') {
+              if (attendanceSlotFilter === 'TBA') {
+                const isKnown = ['09:30 AM - 11:30 AM', '12:15 PM - 02:15 PM', '02:30 PM - 04:15 PM'].includes(s.timeSlot);
+                if (isKnown) return false;
+              } else if (s.timeSlot !== attendanceSlotFilter) {
+                return false;
+              }
+            }
+
+            // Search filter
+            if (cleanAttendSearch) {
+              const matchName = s.studentName.toLowerCase().includes(cleanAttendSearch);
+              const matchId = s.enrollmentNo.toLowerCase().includes(cleanAttendSearch);
+              const matchTeam = s.teamName.toLowerCase().includes(cleanAttendSearch);
+              const matchTeamId = s.teamId.toLowerCase().includes(cleanAttendSearch);
+              const matchDept = s.department.toLowerCase().includes(cleanAttendSearch);
+              const matchJudge = s.assignedJudge.toLowerCase().includes(cleanAttendSearch);
+              const matchLoc = s.panelLocation.toLowerCase().includes(cleanAttendSearch);
+              if (!matchName && !matchId && !matchTeam && !matchTeamId && !matchDept && !matchJudge && !matchLoc) {
+                return false;
+              }
+            }
+
+            return true;
+          });
+
+          const totalLeaders = allStudents.filter(s => s.isLeader).length;
+          const totalMembers = allStudents.filter(s => !s.isLeader).length;
+
+          return (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 99999,
+              background: 'rgba(0, 0, 0, 0.85)',
+              backdropFilter: 'blur(8px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}>
+              <div style={{
+                background: 'rgba(12, 12, 28, 0.98)',
+                border: '2px solid #00ffcc',
+                borderRadius: '14px',
+                boxShadow: '0 0 40px rgba(0, 255, 204, 0.35)',
+                width: '100%',
+                maxWidth: '1240px',
+                maxHeight: '92vh',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}>
+                {/* Modal Header */}
+                <div style={{
+                  padding: '16px 24px',
+                  background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.15), rgba(33, 33, 255, 0.2))',
+                  borderBottom: '2px solid rgba(0, 255, 204, 0.4)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ background: '#00ffcc', color: '#000', padding: '3px 8px', borderRadius: '4px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', fontWeight: 'bold' }}>
+                        ATTENDANCE
+                      </span>
+                      <h2 style={{ margin: 0, fontSize: '1.05rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>
+                        📝 PARTICIPANT ATTENDANCE & SIGNATURES
+                      </h2>
+                    </div>
+                    <p style={{ margin: '6px 0 0 0', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+                      Generate printable attendance sheets and Excel workbooks with Team Name, Leader/Members Name, Enrollment Number, Department, and physical Signature column.
+                    </p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => handlePrintAttendance('by-panel')}
+                      style={{
+                        background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
+                        border: '2px solid #00ff66',
+                        color: '#fff',
+                        padding: '10px 16px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 12px rgba(0, 255, 102, 0.3)'
+                      }}
+                      title="Print separate attendance sheets for each lab venue (F1 to F6, S1, S2, G1, G3) with page breaks"
+                    >
+                      🖨️ PRINT LAB-WISE (A4)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handlePrintAttendance('all')}
+                      style={{
+                        background: 'rgba(253, 255, 0, 0.15)',
+                        border: '1.5px solid #fdff00',
+                        color: '#fdff00',
+                        padding: '10px 14px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                      title="Print continuous master student roster"
+                    >
+                      🖨️ PRINT MASTER
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportAttendanceExcel}
+                      style={{
+                        background: 'linear-gradient(135deg, #b8860b, #e6b800)',
+                        border: '2px solid #fdff00',
+                        color: '#000',
+                        padding: '10px 14px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                      title="Download dedicated Excel workbook (.xlsx) with signature column"
+                    >
+                      📗 EXCEL (.XLSX)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportAttendanceCSV}
+                      style={{
+                        background: 'rgba(33, 150, 243, 0.2)',
+                        border: '1.5px solid #2196f3',
+                        color: '#2196f3',
+                        padding: '10px 14px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                      title="Download attendance CSV file"
+                    >
+                      📋 CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAttendanceModal(false)}
+                      style={{
+                        background: 'rgba(255, 0, 0, 0.2)',
+                        border: '1.5px solid #ff4444',
+                        color: '#ff6666',
+                        padding: '10px 14px',
+                        fontSize: '0.75rem',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      ✕ Close
+                    </button>
+                  </div>
+                </div>
+
+                {/* Metrics Chips */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                  gap: '10px',
+                  padding: '12px 24px',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ background: 'rgba(0, 255, 204, 0.12)', border: '1px solid #00ffcc', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>👥 TOTAL STUDENTS</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>{allStudents.length} PARTICIPANTS</div>
+                  </div>
+                  <div style={{ background: 'rgba(33, 33, 255, 0.15)', border: '1px solid #2121ff', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#99bbff', fontFamily: 'Press Start 2P, monospace' }}>🛡️ REGISTERED TEAMS</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>{teams.length} TEAMS</div>
+                  </div>
+                  <div style={{ background: 'rgba(253, 255, 0, 0.12)', border: '1px solid #fdff00', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>👑 TEAM LEADERS</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fdff00', marginTop: '4px' }}>{totalLeaders} LEADERS</div>
+                  </div>
+                  <div style={{ background: 'rgba(255, 102, 204, 0.12)', border: '1px solid #ff66cc', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace' }}>👤 TEAM MEMBERS</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#ff66cc', marginTop: '4px' }}>{totalMembers} MEMBERS</div>
+                  </div>
+                  <div style={{ background: 'rgba(0, 255, 102, 0.12)', border: '1px solid #00ff66', borderRadius: '8px', padding: '8px 12px' }}>
+                    <div style={{ fontSize: '0.58rem', color: '#00ff66', fontFamily: 'Press Start 2P, monospace' }}>📍 FILTERED DISPLAY</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#00ff66', marginTop: '4px' }}>{filteredStudents.length} ROWS</div>
+                  </div>
+                </div>
+
+                {/* Filter Bar */}
+                <div style={{
+                  padding: '12px 24px',
+                  background: 'rgba(10, 10, 20, 0.9)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                  display: 'flex',
+                  gap: '12px',
+                  flexWrap: 'wrap',
+                  alignItems: 'center'
+                }}>
+                  <div style={{ flex: 1, minWidth: '240px' }}>
+                    <input
+                      type="text"
+                      className="retro-input"
+                      placeholder="🔍 Search student name, enrollment ID, team name, branch, lab..."
+                      value={attendanceSearchQuery}
+                      onChange={(e) => setAttendanceSearchQuery(e.target.value)}
+                      style={{ width: '100%', padding: '8px 12px', fontSize: '0.8rem' }}
+                    />
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.62rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>PANEL / ROOM:</span>
+                    <select
+                      className="retro-select"
+                      value={attendancePanelFilter}
+                      onChange={(e) => setAttendancePanelFilter(e.target.value)}
+                      style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+                    >
+                      <option value="all">⭐ All Judge Panels</option>
+                      {Object.values(JUDGE_PROFILES).map(p => (
+                        <option key={p.id} value={p.id}>{p.id} ({p.location})</option>
+                      ))}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.62rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>SLOT:</span>
+                    <select
+                      className="retro-select"
+                      value={attendanceSlotFilter}
+                      onChange={(e) => setAttendanceSlotFilter(e.target.value)}
+                      style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+                    >
+                      <option value="all">⭐ All Slots</option>
+                      <option value="09:30 AM - 11:30 AM">⏰ Slot 1: 09:30 AM - 11:30 AM</option>
+                      <option value="12:15 PM - 02:15 PM">⏰ Slot 2: 12:15 PM - 02:15 PM</option>
+                      <option value="02:30 PM - 04:15 PM">⏰ Slot 3: 02:30 PM - 04:15 PM</option>
+                      <option value="TBA">⏳ TBA Slot</option>
+                    </select>
+                  </div>
+                  {(attendanceSearchQuery || attendancePanelFilter !== 'all' || attendanceSlotFilter !== 'all') && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAttendanceSearchQuery('');
+                        setAttendancePanelFilter('all');
+                        setAttendanceSlotFilter('all');
+                      }}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid #888',
+                        color: '#fff',
+                        padding: '6px 12px',
+                        fontSize: '0.72rem',
+                        borderRadius: '6px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      Reset Filters
+                    </button>
+                  )}
+                </div>
+
+                {/* Table Content */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '20px 24px' }}>
+                  <div className="table-responsive" style={{ margin: 0 }}>
+                    <table className="eval-table admin-table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '4%', textAlign: 'center' }}>#</th>
+                          <th style={{ width: '16%' }}>Team ID & Name</th>
+                          <th style={{ width: '12%' }}>Participant Role</th>
+                          <th style={{ width: '18%' }}>Student Name & Contact</th>
+                          <th style={{ width: '14%', textAlign: 'center' }}>Enrollment Number</th>
+                          <th style={{ width: '16%' }}>Department / Branch</th>
+                          <th style={{ width: '12%', textAlign: 'center' }}>Slot & Lab Venue</th>
+                          <th style={{ width: '8%', textAlign: 'center' }}>Student Signature</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredStudents.length === 0 ? (
+                          <tr>
+                            <td colSpan="8" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                              ⚠️ No student participants match the selected filter criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredStudents.map((s, idx) => (
+                            <tr key={`${s.teamId}-${s.enrollmentNo}-${idx}`} style={{ background: s.isLeader ? 'rgba(253, 255, 0, 0.03)' : 'transparent' }}>
+                              <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#00ffcc' }}>
+                                {idx + 1}
+                              </td>
+                              <td>
+                                <span style={{ color: '#fdff00', fontWeight: 'bold', fontFamily: 'monospace', fontSize: '0.82rem' }}>
+                                  {s.teamId}
+                                </span>
+                                <div style={{ fontWeight: 'bold', color: '#fff', fontSize: '0.85rem' }}>
+                                  {s.teamName}
+                                </div>
+                              </td>
+                              <td>
+                                <span style={{
+                                  display: 'inline-block',
+                                  padding: '2px 8px',
+                                  borderRadius: '4px',
+                                  fontSize: '0.72rem',
+                                  fontWeight: 'bold',
+                                  background: s.isLeader ? 'rgba(253, 255, 0, 0.15)' : 'rgba(255, 255, 255, 0.08)',
+                                  color: s.isLeader ? '#fdff00' : '#ccc',
+                                  border: s.isLeader ? '1px solid rgba(253, 255, 0, 0.4)' : '1px solid rgba(255, 255, 255, 0.1)'
+                                }}>
+                                  {s.role}
+                                </span>
+                              </td>
+                              <td>
+                                <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{s.studentName}</strong>
+                                {s.phone && s.phone !== 'N/A' && (
+                                  <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px' }}>
+                                    📞 {s.phone} {s.email && s.email !== 'N/A' ? `| ✉️ ${s.email}` : ''}
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{
+                                  background: 'rgba(0, 0, 0, 0.5)',
+                                  padding: '4px 8px',
+                                  borderRadius: '4px',
+                                  border: '1px solid rgba(0, 255, 204, 0.3)',
+                                  color: '#00ffcc',
+                                  fontFamily: 'monospace',
+                                  fontWeight: 'bold',
+                                  fontSize: '0.85rem'
+                                }}>
+                                  {s.enrollmentNo}
+                                </span>
+                              </td>
+                              <td>
+                                <span style={{ color: '#ddd', fontSize: '0.8rem' }}>
+                                  {s.department}
+                                </span>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#fdff00' }}>
+                                  {s.timeSlot}
+                                </div>
+                                <div style={{ fontSize: '0.72rem', color: '#00ffcc', marginTop: '2px' }}>
+                                  🏛️ {s.assignedJudge} ({s.panelLocation})
+                                </div>
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <div style={{
+                                  border: '1px dashed rgba(255, 255, 255, 0.3)',
+                                  borderRadius: '4px',
+                                  padding: '6px 8px',
+                                  fontSize: '0.68rem',
+                                  color: 'rgba(255, 255, 255, 0.4)',
+                                  background: 'rgba(0, 0, 0, 0.3)'
+                                }}>
+                                  [ Sign On Sheet ]
+                                </div>
+                              </td>
+                            </tr>
+                          ))
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div style={{
+                  padding: '14px 24px',
+                  background: 'rgba(10, 10, 20, 0.98)',
+                  borderTop: '2px solid rgba(0, 255, 204, 0.3)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
+                    💡 <em>Print with <strong>"PRINT LAB-WISE (A4)"</strong> to distribute dedicated attendance signature sheets for each lab venue (F1-F6, S1, S2, G1, G3).</em>
+                  </div>
+                  <div style={{ display: 'flex', gap: '10px' }}>
+                    <button
+                      type="button"
+                      onClick={() => handlePrintAttendance('by-panel')}
+                      style={{
+                        background: 'linear-gradient(135deg, #107c41, #1e8e3e)',
+                        border: '2px solid #00ff66',
+                        color: '#fff',
+                        padding: '10px 18px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      🖨️ PRINT NOW
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setShowAttendanceModal(false)}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        border: '1px solid #666',
+                        color: '#fff',
+                        padding: '10px 16px',
+                        fontSize: '0.75rem',
+                        borderRadius: '8px',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ✕ Close
                     </button>
                   </div>
                 </div>

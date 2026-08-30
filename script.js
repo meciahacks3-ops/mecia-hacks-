@@ -162,19 +162,19 @@ const JUDGE_PROFILES = {
     id: 'JM008',
     group: 'Group 8',
     names: ['Dr. Niranjan M. Trivedi', 'Dr. Ajaysinh Devendrasinh Rathod', 'Prof. Nisha V Shah', 'Prof. Amit Patel'],
-    location: 'CE Dept. Second Floor, S3'
+    location: 'CE Dept. Second Floor, S1'
   },
   'JM009': {
     id: 'JM009',
     group: 'Group 9',
     names: ['Prof. Parul V Bakaraniya', 'Dr. Barkha M. Joshi', 'Prof. Arpit Mehta', 'Prof. Nirav Patel'],
-    location: 'CE Dept. Second Floor, S4'
+    location: 'CE Dept. Ground Floor, G3'
   },
   'JM010': {
     id: 'JM010',
     group: 'Group 10',
     names: ['Prof. Keyur N Upadhyay', 'Prof. Amit I Chaudhari', 'Prof. Pradish D Dadhania', 'Prof. Ronak Roy'],
-    location: 'CE Dept. Second Floor, S5'
+    location: 'CE Dept. Ground Floor, G1'
   },
   'JM011': {
     id: 'JM011',
