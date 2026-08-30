@@ -882,7 +882,7 @@ export default function AdminDashboardPage() {
         `"${t.teamName || ''}"`,
         `"${t.timeSlot || 'TBA'}"`,
         `"${t.assignedJudge || 'Unassigned'}"`,
-        `"👑 Team Leader"`,
+        `"Team Leader"`,
         `"${t.leaderName || ''}"`,
         `"${t.leaderId || ''}"`,
         `"${t.leaderEmail || ''}"`,
@@ -898,7 +898,7 @@ export default function AdminDashboardPage() {
           `"${t.teamName || ''}"`,
           `"${t.timeSlot || 'TBA'}"`,
           `"${t.assignedJudge || 'Unassigned'}"`,
-          `"👤 Member #${idx + 1}"`,
+          `"Member #${idx + 1}"`,
           `"${m.name || ''}"`,
           `"${m.idNo || ''}"`,
           `"${m.email || ''}"`,
@@ -1704,7 +1704,7 @@ export default function AdminDashboardPage() {
                                 {/* Leader */}
                                 <div style={{ background: 'rgba(253, 255, 0, 0.05)', border: '1px solid rgba(253, 255, 0, 0.3)', borderRadius: '6px', padding: '6px 8px', marginBottom: '6px' }}>
                                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '2px' }}>
-                                    <span style={{ background: '#fdff00', color: '#000', borderRadius: '3px', padding: '1px 4px', fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>👑 LEADER</span>
+                                    <span style={{ background: '#fdff00', color: '#000', borderRadius: '3px', padding: '1px 4px', fontSize: '0.55rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>LEADER</span>
                                     <strong style={{ color: '#fff', fontSize: '0.82rem' }}>{t.leaderName}</strong>
                                     {t.leaderBranch && <span style={{ color: '#00ffcc', fontSize: '0.7rem' }}>({t.leaderBranch})</span>}
                                   </div>
@@ -2187,7 +2187,7 @@ export default function AdminDashboardPage() {
                                         )}
                                       </td>
                                       <td>
-                                        <div style={{ color: '#fff', fontSize: '0.8rem' }}>👑 {t.leaderName}</div>
+                                        <div style={{ color: '#fff', fontSize: '0.8rem' }}>{t.leaderName}</div>
                                         <div style={{ color: '#aaa', fontSize: '0.72rem' }}>📞 {t.leaderPhone || 'N/A'}</div>
                                       </td>
                                       <td>
@@ -2850,7 +2850,7 @@ export default function AdminDashboardPage() {
                                       </td>
                                       <td>
                                         <div style={{ fontSize: '0.8rem', color: '#fdff00' }}>
-                                          👑 <strong>{t.leaderName}</strong> <span style={{ color: '#aaa', fontSize: '0.72rem' }}>({t.leaderId}){t.leaderBranch ? ` [${t.leaderBranch}]` : ''}</span>
+                                          <strong>{t.leaderName}</strong> <span style={{ color: '#aaa', fontSize: '0.72rem' }}>({t.leaderId}){t.leaderBranch ? ` [${t.leaderBranch}]` : ''}</span>
                                         </div>
                                         <div style={{ fontSize: '0.72rem', color: '#888' }}>
                                           📞 {t.leaderPhone || 'N/A'} • ✉️ {t.leaderEmail}
@@ -3562,7 +3562,7 @@ export default function AdminDashboardPage() {
                                       </td>
                                       <td>
                                         <div style={{ fontSize: '0.78rem' }}>
-                                          <strong style={{ color: '#00ffcc' }}>👑 {t.leaderName || 'N/A'}</strong>
+                                          <strong style={{ color: '#00ffcc' }}>{t.leaderName || 'N/A'}</strong>
                                           {t.leaderBranch && <span style={{ color: '#aaa', marginLeft: '4px' }}>[{t.leaderBranch}]</span>}
                                           <div style={{ fontSize: '0.7rem', color: '#888', marginTop: '2px' }}>
                                             📞 {t.leaderPhone || 'N/A'} | ✉️ {t.leaderEmail || 'N/A'}
@@ -3665,7 +3665,7 @@ export default function AdminDashboardPage() {
                                   <td style={{ textAlign: 'center', fontWeight: 'bold', color: '#fdff00' }}>{t.teamIdNo || 'N/A'}</td>
                                   <td><strong>{t.teamName}</strong></td>
                                   <td>{t.timeSlot}</td>
-                                  <td>👑 {t.leaderName} ({t.leaderPhone || 'N/A'})</td>
+                                  <td>{t.leaderName} ({t.leaderPhone || 'N/A'})</td>
                                   <td>{t.projectTitle || 'N/A'}</td>
                                 </tr>
                               ))}
@@ -3709,7 +3709,7 @@ export default function AdminDashboardPage() {
                                 <td style={{ textAlign: 'center', color: '#fdff00' }}>{t.teamIdNo || 'N/A'}</td>
                                 <td><strong>{t.teamName}</strong></td>
                                 <td>{t.timeSlot}</td>
-                                <td>👑 {t.leaderName} ({t.leaderPhone || 'N/A'})</td>
+                                <td>{t.leaderName} ({t.leaderPhone || 'N/A'})</td>
                                 <td>{t.projectTitle || 'N/A'}</td>
                               </tr>
                             ))}
@@ -3983,11 +3983,11 @@ export default function AdminDashboardPage() {
                     <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>{r2Students.length} PARTICIPANTS</div>
                   </div>
                   <div style={{ background: 'rgba(253, 255, 0, 0.12)', border: '1px solid #fdff00', borderRadius: '8px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '0.58rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>👑 TEAM LEADERS</div>
+                    <div style={{ fontSize: '0.58rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>TEAM LEADERS</div>
                     <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fdff00', marginTop: '4px' }}>{totalLeaders} LEADERS</div>
                   </div>
                   <div style={{ background: 'rgba(255, 102, 204, 0.12)', border: '1px solid #ff66cc', borderRadius: '8px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace' }}>👤 TEAM MEMBERS</div>
+                    <div style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace' }}>TEAM MEMBERS</div>
                     <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#ff66cc', marginTop: '4px' }}>{totalMembers} MEMBERS</div>
                   </div>
                   <div style={{ background: 'rgba(0, 255, 102, 0.12)', border: '1px solid #00ff66', borderRadius: '8px', padding: '8px 12px' }}>
