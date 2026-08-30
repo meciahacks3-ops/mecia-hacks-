@@ -113,7 +113,10 @@ export default function AdminDashboardPage() {
 
           const parsedSlot = parseTimeSlotFromTeam(st);
 
-          const parsedMembers = (st.team_members || []).map(m => {
+          const seenMemberKeys = new Set();
+          const parsedMembers = [];
+
+          (st.team_members || []).forEach(m => {
             let mName = m.member_name || '';
             let mBranch = '';
             const mMatch = mName.match(/^(.*?)\s*\((.*?)\)$/);
@@ -121,14 +124,24 @@ export default function AdminDashboardPage() {
               mName = mMatch[1].trim();
               mBranch = mMatch[2].trim();
             }
-            return {
+
+            const cleanName = mName.trim().toLowerCase();
+            const cleanId = (m.member_id || '').trim().toLowerCase();
+            const dupeKey = cleanId && cleanId !== 'n/a' ? cleanId : cleanName;
+
+            if (dupeKey) {
+              if (seenMemberKeys.has(dupeKey)) return;
+              seenMemberKeys.add(dupeKey);
+            }
+
+            parsedMembers.push({
               id: m.id,
               name: mName,
               email: m.member_email || '',
               idNo: m.member_id || '',
               phone: m.member_phone || '',
               branch: mBranch
-            };
+            });
           });
 
           return {
@@ -892,13 +905,13 @@ export default function AdminDashboardPage() {
       ]);
 
       // Members rows
-      (t.members || []).forEach((m, idx) => {
+      (t.members || []).forEach((m) => {
         csvRows.push([
           `"${t.teamIdNo || 'N/A'}"`,
           `"${t.teamName || ''}"`,
           `"${t.timeSlot || 'TBA'}"`,
           `"${t.assignedJudge || 'Unassigned'}"`,
-          `"Member #${idx + 1}"`,
+          `"Member"`,
           `"${m.name || ''}"`,
           `"${m.idNo || ''}"`,
           `"${m.email || ''}"`,
