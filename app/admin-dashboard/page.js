@@ -24,7 +24,8 @@ import {
   exportAttendanceSheetExcel,
   printAttendanceSheet,
   exportAttendanceCSV,
-  extractAllStudentsRoster
+  extractAllStudentsRoster,
+  ROUND_2_PANEL_IDS
 } from '@/lib/excelExport';
 
 export default function AdminDashboardPage() {
@@ -698,7 +699,7 @@ export default function AdminDashboardPage() {
         return;
       }
       const filename = exportAttendanceSheetExcel(teams);
-      alert(`✅ Official Student Attendance Workbook Generated!\n\nFile: ${filename}\n\nIncludes Master Attendance sheet + Individual sheets per time slot and judge panel/lab room with signature columns.`);
+      alert(`✅ Official Student Attendance Workbook Generated!\n\nFile: ${filename}\n\nIncludes Master Panel-Wise Attendance sheet + Dedicated individual sheets for each Judge Panel (JM001 to JM010) with signature columns.`);
     } catch (err) {
       console.error("Attendance Excel export error:", err);
       alert("Error generating attendance Excel sheet: " + err.message);
@@ -3783,9 +3784,15 @@ export default function AdminDashboardPage() {
           const cleanAttendSearch = attendanceSearchQuery.trim().toLowerCase();
 
           const filteredStudents = allStudents.filter(s => {
-            // Panel filter
-            if (attendancePanelFilter !== 'all') {
-              if ((s.assignedJudge || '').trim().toUpperCase() !== attendancePanelFilter.toUpperCase()) {
+            const sJudge = (s.assignedJudge || '').trim().toUpperCase();
+
+            // Panel filter (Default to Round-2 Panels JM001 to JM010)
+            if (attendancePanelFilter === 'all') {
+              if (!ROUND_2_PANEL_IDS.includes(sJudge)) {
+                return false;
+              }
+            } else {
+              if (sJudge !== attendancePanelFilter.toUpperCase()) {
                 return false;
               }
             }
@@ -3817,8 +3824,23 @@ export default function AdminDashboardPage() {
             return true;
           });
 
-          const totalLeaders = allStudents.filter(s => s.isLeader).length;
-          const totalMembers = allStudents.filter(s => !s.isLeader).length;
+          // Sort panel-wise (JM001 to JM010) then time slot then leader
+          filteredStudents.sort((a, b) => {
+            const jA = (a.assignedJudge || '').trim().toUpperCase();
+            const jB = (b.assignedJudge || '').trim().toUpperCase();
+            if (jA !== jB) return jA.localeCompare(jB);
+            const slotOrder = { '09:30 AM - 11:30 AM': 1, '12:15 PM - 02:15 PM': 2, '02:30 PM - 04:15 PM': 3, 'TBA': 4 };
+            const slotA = slotOrder[a.timeSlot] || 5;
+            const slotB = slotOrder[b.timeSlot] || 5;
+            if (slotA !== slotB) return slotA - slotB;
+            if (a.teamId !== b.teamId) return (a.teamId || '').localeCompare(b.teamId || '');
+            if (a.isLeader !== b.isLeader) return a.isLeader ? -1 : 1;
+            return (a.studentName || '').localeCompare(b.studentName || '');
+          });
+
+          const r2Students = allStudents.filter(s => ROUND_2_PANEL_IDS.includes((s.assignedJudge || '').trim().toUpperCase()));
+          const totalLeaders = r2Students.filter(s => s.isLeader).length;
+          const totalMembers = r2Students.filter(s => !s.isLeader).length;
 
           return (
             <div style={{
@@ -3858,14 +3880,14 @@ export default function AdminDashboardPage() {
                   <div>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                       <span style={{ background: '#00ffcc', color: '#000', padding: '3px 8px', borderRadius: '4px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', fontWeight: 'bold' }}>
-                        ATTENDANCE
+                        PANELS 001 - 010
                       </span>
                       <h2 style={{ margin: 0, fontSize: '1.05rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>
-                        📝 PARTICIPANT ATTENDANCE & SIGNATURES
+                        📝 JUDGE PANEL ATTENDANCE (JM001 - JM010)
                       </h2>
                     </div>
                     <p style={{ margin: '6px 0 0 0', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
-                      Generate printable attendance sheets and Excel workbooks with Team Name, Leader/Members Name, Enrollment Number, Department, and physical Signature column.
+                      Judge Panel Wise attendance sheets for Panels 001 to 010 with Team Name, Leader/Member Names, Enrollment Number, Department, and Student Signature column.
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -3884,27 +3906,9 @@ export default function AdminDashboardPage() {
                         fontWeight: 'bold',
                         boxShadow: '0 0 12px rgba(0, 255, 102, 0.3)'
                       }}
-                      title="Print separate attendance sheets for each lab venue (F1 to F6, S1, S2, G1, G3) with page breaks"
+                      title="Print dedicated attendance sheets for Panels JM001 to JM010 with page breaks for each lab venue"
                     >
-                      🖨️ PRINT LAB-WISE (A4)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => handlePrintAttendance('all')}
-                      style={{
-                        background: 'rgba(253, 255, 0, 0.15)',
-                        border: '1.5px solid #fdff00',
-                        color: '#fdff00',
-                        padding: '10px 14px',
-                        fontSize: '0.62rem',
-                        fontFamily: 'Press Start 2P, monospace',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                      title="Print continuous master student roster"
-                    >
-                      🖨️ PRINT MASTER
+                      🖨️ PRINT PANELS (001-010)
                     </button>
                     <button
                       type="button"
@@ -3920,7 +3924,7 @@ export default function AdminDashboardPage() {
                         cursor: 'pointer',
                         fontWeight: 'bold'
                       }}
-                      title="Download dedicated Excel workbook (.xlsx) with signature column"
+                      title="Download dedicated Excel workbook (.xlsx) organized by Panels JM001 to JM010"
                     >
                       📗 EXCEL (.XLSX)
                     </button>
@@ -3938,7 +3942,7 @@ export default function AdminDashboardPage() {
                         cursor: 'pointer',
                         fontWeight: 'bold'
                       }}
-                      title="Download attendance CSV file"
+                      title="Download attendance CSV file for Panels JM001 to JM010"
                     >
                       📋 CSV
                     </button>
@@ -3971,12 +3975,12 @@ export default function AdminDashboardPage() {
                   borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
                 }}>
                   <div style={{ background: 'rgba(0, 255, 204, 0.12)', border: '1px solid #00ffcc', borderRadius: '8px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '0.58rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>👥 TOTAL STUDENTS</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>{allStudents.length} PARTICIPANTS</div>
+                    <div style={{ fontSize: '0.58rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>🏛️ ROUND-2 PANELS</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>10 PANELS (001-010)</div>
                   </div>
                   <div style={{ background: 'rgba(33, 33, 255, 0.15)', border: '1px solid #2121ff', borderRadius: '8px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '0.58rem', color: '#99bbff', fontFamily: 'Press Start 2P, monospace' }}>🛡️ REGISTERED TEAMS</div>
-                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>{teams.length} TEAMS</div>
+                    <div style={{ fontSize: '0.58rem', color: '#99bbff', fontFamily: 'Press Start 2P, monospace' }}>👥 PANEL STUDENTS</div>
+                    <div style={{ fontSize: '1.05rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>{r2Students.length} PARTICIPANTS</div>
                   </div>
                   <div style={{ background: 'rgba(253, 255, 0, 0.12)', border: '1px solid #fdff00', borderRadius: '8px', padding: '8px 12px' }}>
                     <div style={{ fontSize: '0.58rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>👑 TEAM LEADERS</div>
@@ -4020,10 +4024,30 @@ export default function AdminDashboardPage() {
                       onChange={(e) => setAttendancePanelFilter(e.target.value)}
                       style={{ padding: '8px 12px', fontSize: '0.75rem' }}
                     >
-                      <option value="all">⭐ All Judge Panels</option>
-                      {Object.values(JUDGE_PROFILES).map(p => (
-                        <option key={p.id} value={p.id}>{p.id} ({p.location})</option>
-                      ))}
+                      <option value="all">⭐ All Panels (JM001 - JM010)</option>
+                      {ROUND_2_PANEL_IDS.map(pId => {
+                        const p = JUDGE_PROFILES[pId];
+                        return (
+                          <option key={pId} value={pId}>
+                            {pId} ({p?.location || 'Room N/A'})
+                          </option>
+                        );
+                      })}
+                    </select>
+                  </div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontSize: '0.62rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>SLOT:</span>
+                    <select
+                      className="retro-select"
+                      value={attendanceSlotFilter}
+                      onChange={(e) => setAttendanceSlotFilter(e.target.value)}
+                      style={{ padding: '8px 12px', fontSize: '0.75rem' }}
+                    >
+                      <option value="all">⭐ All Slots</option>
+                      <option value="09:30 AM - 11:30 AM">⏰ Slot 1: 09:30 AM - 11:30 AM</option>
+                      <option value="12:15 PM - 02:15 PM">⏰ Slot 2: 12:15 PM - 02:15 PM</option>
+                      <option value="02:30 PM - 04:15 PM">⏰ Slot 3: 02:30 PM - 04:15 PM</option>
+                      <option value="TBA">⏳ TBA Slot</option>
                     </select>
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -4182,7 +4206,7 @@ export default function AdminDashboardPage() {
                   gap: '12px'
                 }}>
                   <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                    💡 <em>Print with <strong>"PRINT LAB-WISE (A4)"</strong> to distribute dedicated attendance signature sheets for each lab venue (F1-F6, S1, S2, G1, G3).</em>
+                    💡 <em>Print with <strong>"PRINT PANELS (001-010)"</strong> to distribute dedicated attendance signature sheets for each judge panel venue (F1-F6, S1, S2, G1, G3).</em>
                   </div>
                   <div style={{ display: 'flex', gap: '10px' }}>
                     <button
@@ -4200,7 +4224,7 @@ export default function AdminDashboardPage() {
                         fontWeight: 'bold'
                       }}
                     >
-                      🖨️ PRINT NOW
+                      🖨️ PRINT PANELS (001-010)
                     </button>
                     <button
                       type="button"
