@@ -4097,7 +4097,7 @@ export default function AdminDashboardPage() {
                           <th style={{ width: '4%', textAlign: 'center' }}>#</th>
                           <th style={{ width: '16%' }}>Team ID & Name</th>
                           <th style={{ width: '12%' }}>Participant Role</th>
-                          <th style={{ width: '18%' }}>Student Name & Contact</th>
+                          <th style={{ width: '18%' }}>Student Name</th>
                           <th style={{ width: '14%', textAlign: 'center' }}>Enrollment Number</th>
                           <th style={{ width: '16%' }}>Department / Branch</th>
                           <th style={{ width: '12%', textAlign: 'center' }}>Slot & Lab Venue</th>
@@ -4141,9 +4141,9 @@ export default function AdminDashboardPage() {
                               </td>
                               <td>
                                 <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{s.studentName}</strong>
-                                {s.phone && s.phone !== 'N/A' && (
+                                {s.email && s.email !== 'N/A' && (
                                   <div style={{ color: 'var(--text-muted)', fontSize: '0.74rem', marginTop: '2px' }}>
-                                    📞 {s.phone} {s.email && s.email !== 'N/A' ? `| ✉️ ${s.email}` : ''}
+                                    ✉️ {s.email}
                                   </div>
                                 )}
                               </td>
