@@ -1024,8 +1024,25 @@ async function renderAdminTables() {
         if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
       }
 
+      let projectType = (t.project_type || t.projectType || '').trim();
+      if (!projectType && (t.main_idea || t.rawMainIdea)) {
+        const text = t.main_idea || t.rawMainIdea || '';
+        const match = text.match(/\[(?:.*?\b)?Type:\s*([^|\]\n]+)/i) || text.match(/\bType:\s*([^|\]\n,]+)/i);
+        if (match && match[1]) projectType = match[1].trim();
+      }
+      if (projectType) {
+        const lower = projectType.toLowerCase();
+        if (lower === 'software') projectType = 'Software';
+        else if (lower === 'hardware') projectType = 'Hardware';
+        else if (lower === 'hybrid') projectType = 'Hybrid';
+        else projectType = projectType.charAt(0).toUpperCase() + projectType.slice(1);
+      } else {
+        projectType = 'Hardware';
+      }
+
       return {
         ...t,
+        projectType,
         isScored,
         score,
         c1, c2, c3, c4, c5,
@@ -1058,6 +1075,16 @@ async function renderAdminTables() {
         }
       }
 
+      const pType = (item.projectType || 'Hardware').toLowerCase();
+      let typeBadge = '';
+      if (pType === 'software') {
+        typeBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.56rem; font-family:'Press Start 2P', monospace; color:#00ffcc; background:rgba(0,255,204,0.12); border:1px solid #00ffcc; padding:3px 6px; border-radius:4px; white-space:nowrap; font-weight:bold;"><span>💻</span><span>SOFTWARE</span></span>`;
+      } else if (pType === 'hybrid') {
+        typeBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.56rem; font-family:'Press Start 2P', monospace; color:#ff66cc; background:rgba(255,102,204,0.12); border:1px solid #ff66cc; padding:3px 6px; border-radius:4px; white-space:nowrap; font-weight:bold;"><span>⚡</span><span>HYBRID</span></span>`;
+      } else {
+        typeBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.56rem; font-family:'Press Start 2P', monospace; color:#ffb852; background:rgba(255,184,82,0.12); border:1px solid #ffb852; padding:3px 6px; border-radius:4px; white-space:nowrap; font-weight:bold;"><span>⚙️</span><span>HARDWARE</span></span>`;
+      }
+
       const tr = document.createElement('tr');
       if (rowBg) tr.setAttribute('style', rowBg);
       const parsedTeamId = item.teamIdNo || item.teamId || 'N/A';
@@ -1065,6 +1092,7 @@ async function renderAdminTables() {
         <td style="text-align:center; font-weight:bold; font-size:0.85rem; color:${index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff'};">${rankBadge}</td>
         <td style="text-align:center;"><span style="display:inline-block; background:rgba(253,255,0,0.15); color:#fdff00; border:1.5px solid #fdff00; border-radius:6px; padding:3px 6px; font-family:'Press Start 2P', monospace; font-size:0.62rem; font-weight:bold;">${parsedTeamId}</span></td>
         <td class="criterion-name">${item.teamName} ${index === 0 && item.isScored ? '👑' : ''}</td>
+        <td style="text-align:center;">${typeBadge}</td>
         <td>${item.judge}</td>
         <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c1}</td>
         <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c2}</td>
@@ -1096,6 +1124,7 @@ function exportAdminDataToExcel() {
   csvRows.push([
     "Team ID",
     "Team Name",
+    "Project Type",
     "Leader Name",
     "Leader Email",
     "Leader ID",
@@ -1133,9 +1162,26 @@ function exportAdminDataToExcel() {
       timestamp = evalEntry.timestamp || '';
     }
 
+    let pType = (t.project_type || t.projectType || '').trim();
+    if (!pType && (t.main_idea || t.rawMainIdea)) {
+      const text = t.main_idea || t.rawMainIdea || '';
+      const match = text.match(/\[(?:.*?\b)?Type:\s*([^|\]\n]+)/i) || text.match(/\bType:\s*([^|\]\n,]+)/i);
+      if (match && match[1]) pType = match[1].trim();
+    }
+    if (pType) {
+      const lower = pType.toLowerCase();
+      if (lower === 'software') pType = 'Software';
+      else if (lower === 'hardware') pType = 'Hardware';
+      else if (lower === 'hybrid') pType = 'Hybrid';
+      else pType = pType.charAt(0).toUpperCase() + pType.slice(1);
+    } else {
+      pType = 'Hardware';
+    }
+
     csvRows.push([
       `"${t.teamIdNo || t.teamId || 'N/A'}"`,
       `"${t.teamName || ''}"`,
+      `"${pType}"`,
       `"${t.leaderName || ''}"`,
       `"${t.leaderEmail || ''}"`,
       `"${t.leaderId || ''}"`,

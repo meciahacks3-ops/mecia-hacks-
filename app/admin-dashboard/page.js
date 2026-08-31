@@ -27,6 +27,7 @@ import {
   extractAllStudentsRoster,
   ROUND_2_PANEL_IDS
 } from '@/lib/excelExport';
+import { parseProjectTypeFromTeam, getProjectTypeInfo } from '@/lib/teamUtils';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -45,8 +46,12 @@ export default function AdminDashboardPage() {
   // Filter for Schedule Tab
   const [scheduleViewSlot, setScheduleViewSlot] = useState('all'); // 'all', 'TBA', '09:30 AM - 11:30 AM', '12:15 PM - 02:15 PM', '02:30 PM - 04:15 PM'
 
+  // Filter for Leaderboard Tab (Project Type: all, software, hybrid, hardware)
+  const [leaderboardTypeFilter, setLeaderboardTypeFilter] = useState('all');
+
   const [teams, setTeams] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
+
   const [judgeSelections, setJudgeSelections] = useState({});
   const [timeSlotSelections, setTimeSlotSelections] = useState({});
   const [customJudgeInputs, setCustomJudgeInputs] = useState({});
@@ -112,6 +117,7 @@ export default function AdminDashboardPage() {
           }
 
           const parsedSlot = parseTimeSlotFromTeam(st);
+          const parsedProjectType = parseProjectTypeFromTeam(st);
 
           const seenMemberKeys = new Set();
           const parsedMembers = [];
@@ -154,6 +160,7 @@ export default function AdminDashboardPage() {
             leaderPhone: st.leader_phone,
             leaderBranch: leaderBranch,
             projectTitle: st.project_title,
+            projectType: parsedProjectType,
             techStack: st.tech_stack,
             assignedJudge: st.assigned_judge || 'Unassigned',
             timeSlot: parsedSlot,
@@ -756,6 +763,7 @@ export default function AdminDashboardPage() {
     csvRows.push([
       "Team ID",
       "Team Name",
+      "Project Type",
       "Total Team Size",
       "Allocated Time Slot",
       "Assigned Judge",
@@ -820,6 +828,7 @@ export default function AdminDashboardPage() {
       csvRows.push([
         `"${t.teamIdNo || 'N/A'}"`,
         `"${t.teamName || ''}"`,
+        `"${t.projectType || 'Hardware'}"`,
         t.totalTeamSize || (1 + (t.members?.length || 0)),
         `"${t.timeSlot || 'TBA'}"`,
         `"${t.assignedJudge || 'Unassigned'}"`,
@@ -951,6 +960,7 @@ export default function AdminDashboardPage() {
 
     if (t.teamIdNo && t.teamIdNo.toLowerCase().includes(cleanQuery)) return true;
     if (t.teamName && t.teamName.toLowerCase().includes(cleanQuery)) return true;
+    if (t.projectType && t.projectType.toLowerCase().includes(cleanQuery)) return true;
     if (t.timeSlot && t.timeSlot.toLowerCase().includes(cleanQuery)) return true;
     if (t.assignedJudge && t.assignedJudge.toLowerCase().includes(cleanQuery)) return true;
 
@@ -1742,6 +1752,27 @@ export default function AdminDashboardPage() {
 
                               {/* Project Title */}
                               <td>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
+                                  {(() => {
+                                    const typeInfo = getProjectTypeInfo(t.projectType);
+                                    return (
+                                      <span style={{
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '3px',
+                                        fontSize: '0.52rem',
+                                        fontFamily: 'Press Start 2P, monospace',
+                                        color: typeInfo.color,
+                                        background: typeInfo.bg,
+                                        border: `1px solid ${typeInfo.border}`,
+                                        padding: '2px 5px',
+                                        borderRadius: '3px'
+                                      }}>
+                                        {typeInfo.icon} {typeInfo.label}
+                                      </span>
+                                    );
+                                  })()}
+                                </div>
                                 <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: 'bold' }}>{t.projectTitle || 'Untitled'}</div>
                                 <small style={{ color: 'var(--text-muted)' }}>{t.techStack || '-'}</small>
                               </td>
@@ -2321,6 +2352,7 @@ export default function AdminDashboardPage() {
 
             return {
               ...t,
+              projectType: t.projectType || parseProjectTypeFromTeam(t),
               isScored,
               score,
               c1, c2, c3, c4, c5,
@@ -2334,10 +2366,21 @@ export default function AdminDashboardPage() {
             return 0;
           });
 
-          const displayedLeaderboard = leaderboardData.filter(item => {
+          const totalLbCount = leaderboardData.length;
+          const softwareLbCount = leaderboardData.filter(item => (item.projectType || '').toLowerCase() === 'software').length;
+          const hybridLbCount = leaderboardData.filter(item => (item.projectType || '').toLowerCase() === 'hybrid').length;
+          const hardwareLbCount = leaderboardData.filter(item => (item.projectType || '').toLowerCase() === 'hardware').length;
+
+          const filteredByType = leaderboardData.filter(item => {
+            if (leaderboardTypeFilter === 'all') return true;
+            return (item.projectType || '').toLowerCase() === leaderboardTypeFilter.toLowerCase();
+          });
+
+          const displayedLeaderboard = filteredByType.filter(item => {
             if (!cleanQuery) return true;
             if (item.teamIdNo && item.teamIdNo.toLowerCase().includes(cleanQuery)) return true;
             if (item.teamName && item.teamName.toLowerCase().includes(cleanQuery)) return true;
+            if (item.projectType && item.projectType.toLowerCase().includes(cleanQuery)) return true;
             if (item.timeSlot && item.timeSlot.toLowerCase().includes(cleanQuery)) return true;
             if (item.judge && item.judge.toLowerCase().includes(cleanQuery)) return true;
             if (item.leaderName && item.leaderName.toLowerCase().includes(cleanQuery)) return true;
@@ -2352,7 +2395,7 @@ export default function AdminDashboardPage() {
           return (
             <div className="admin-tab-content active">
               <div className="form-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
                   <h3 className="section-title" style={{ margin: 0 }}>
                     <span className="pacman-bullet"></span> LIVE EVALUATION LEADERBOARD (RANKED BY HIGHEST SCORE)
                   </h3>
@@ -2361,29 +2404,119 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
+                {/* Project Type Filter Controls */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  flexWrap: 'wrap',
+                  marginBottom: '20px',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  padding: '10px 14px',
+                  borderRadius: '8px',
+                  border: '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                  <span style={{ fontSize: '0.62rem', color: '#aaa', fontFamily: 'Press Start 2P, monospace', marginRight: '4px' }}>
+                    TRACK / TYPE:
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardTypeFilter('all')}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.58rem',
+                      fontFamily: 'Press Start 2P, monospace',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      background: leaderboardTypeFilter === 'all' ? 'rgba(253, 255, 0, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                      color: leaderboardTypeFilter === 'all' ? '#fdff00' : '#888',
+                      border: leaderboardTypeFilter === 'all' ? '1.5px solid #fdff00' : '1px solid #444',
+                      boxShadow: leaderboardTypeFilter === 'all' ? '0 0 10px rgba(253, 255, 0, 0.3)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    ALL TRACKS ({totalLbCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardTypeFilter('software')}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.58rem',
+                      fontFamily: 'Press Start 2P, monospace',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      background: leaderboardTypeFilter === 'software' ? 'rgba(0, 255, 204, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                      color: leaderboardTypeFilter === 'software' ? '#00ffcc' : '#888',
+                      border: leaderboardTypeFilter === 'software' ? '1.5px solid #00ffcc' : '1px solid #444',
+                      boxShadow: leaderboardTypeFilter === 'software' ? '0 0 10px rgba(0, 255, 204, 0.3)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    💻 SOFTWARE ({softwareLbCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardTypeFilter('hybrid')}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.58rem',
+                      fontFamily: 'Press Start 2P, monospace',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      background: leaderboardTypeFilter === 'hybrid' ? 'rgba(255, 102, 204, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                      color: leaderboardTypeFilter === 'hybrid' ? '#ff66cc' : '#888',
+                      border: leaderboardTypeFilter === 'hybrid' ? '1.5px solid #ff66cc' : '1px solid #444',
+                      boxShadow: leaderboardTypeFilter === 'hybrid' ? '0 0 10px rgba(255, 102, 204, 0.3)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    ⚡ HYBRID ({hybridLbCount})
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setLeaderboardTypeFilter('hardware')}
+                    style={{
+                      padding: '6px 12px',
+                      fontSize: '0.58rem',
+                      fontFamily: 'Press Start 2P, monospace',
+                      borderRadius: '6px',
+                      cursor: 'pointer',
+                      background: leaderboardTypeFilter === 'hardware' ? 'rgba(255, 184, 82, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                      color: leaderboardTypeFilter === 'hardware' ? '#ffb852' : '#888',
+                      border: leaderboardTypeFilter === 'hardware' ? '1.5px solid #ffb852' : '1px solid #444',
+                      boxShadow: leaderboardTypeFilter === 'hardware' ? '0 0 10px rgba(255, 184, 82, 0.3)' : 'none',
+                      transition: 'all 0.2s ease'
+                    }}
+                  >
+                    ⚙️ HARDWARE ({hardwareLbCount})
+                  </button>
+                </div>
+
                 <div className="table-responsive">
                   <table className="eval-table admin-table">
                     <thead>
                       <tr>
-                        <th style={{ width: '7%', textAlign: 'center' }}>Rank</th>
-                        <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
-                        <th style={{ width: '16%' }}>Team Name</th>
-                        <th style={{ width: '12%' }}>Time Slot</th>
-                        <th style={{ width: '14%' }}>Assigned Judge</th>
+                        <th style={{ width: '6%', textAlign: 'center' }}>Rank</th>
+                        <th style={{ width: '8%', textAlign: 'center' }}>Team ID</th>
+                        <th style={{ width: '15%' }}>Team Name</th>
+                        <th style={{ width: '10%', textAlign: 'center' }}>Project Type</th>
+                        <th style={{ width: '11%' }}>Time Slot</th>
+                        <th style={{ width: '13%' }}>Assigned Judge</th>
                         <th style={{ textAlign: 'center' }}>Arch (10)</th>
                         <th style={{ textAlign: 'center' }}>Scope (10)</th>
                         <th style={{ textAlign: 'center' }}>Avail (10)</th>
                         <th style={{ textAlign: 'center' }}>Timeline (10)</th>
                         <th style={{ textAlign: 'center' }}>Impl (10)</th>
-                        <th style={{ textAlign: 'center', width: '11%' }}>Total (50)</th>
-                        <th style={{ width: '8%' }}>Status</th>
+                        <th style={{ textAlign: 'center', width: '10%' }}>Total (50)</th>
+                        <th style={{ width: '7%' }}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {displayedLeaderboard.length === 0 ? (
                         <tr>
-                          <td colSpan="12" style={{ textAlign: 'center', color: cleanQuery ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
-                            No evaluations found matching search query.
+                          <td colSpan="13" style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
+                            No evaluations found matching the selected filter or search query.
                           </td>
                         </tr>
                       ) : (
@@ -2407,6 +2540,7 @@ export default function AdminDashboardPage() {
                           }
 
                           const slotInfo = getTimeSlotInfo(item.timeSlot);
+                          const typeInfo = getProjectTypeInfo(item.projectType);
 
                           return (
                             <tr key={item.id || item.teamName} style={{ background: rowBg }}>
@@ -2429,8 +2563,32 @@ export default function AdminDashboardPage() {
                                 </span>
                               </td>
                               <td className="criterion-name">
-                                {item.teamName}
+                                <span style={{ fontWeight: 'bold', color: '#fff' }}>{item.teamName}</span>
                                 {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
+                                {item.projectTitle && (
+                                  <div style={{ fontSize: '0.72rem', color: '#aaa', marginTop: '2px', fontWeight: 'normal' }}>
+                                    {item.projectTitle}
+                                  </div>
+                                )}
+                              </td>
+                              <td style={{ textAlign: 'center' }}>
+                                <span style={{
+                                  display: 'inline-flex',
+                                  alignItems: 'center',
+                                  gap: '4px',
+                                  fontSize: '0.56rem',
+                                  fontFamily: 'Press Start 2P, monospace',
+                                  color: typeInfo.color,
+                                  background: typeInfo.bg,
+                                  border: `1px solid ${typeInfo.border}`,
+                                  padding: '3px 6px',
+                                  borderRadius: '4px',
+                                  whiteSpace: 'nowrap',
+                                  fontWeight: 'bold'
+                                }}>
+                                  <span>{typeInfo.icon}</span>
+                                  <span>{typeInfo.label}</span>
+                                </span>
                               </td>
                               <td>
                                 <span style={{
@@ -2440,7 +2598,8 @@ export default function AdminDashboardPage() {
                                   background: slotInfo.badgeBg,
                                   border: `1px solid ${slotInfo.badgeBorder}`,
                                   padding: '2px 5px',
-                                  borderRadius: '3px'
+                                  borderRadius: '3px',
+                                  display: 'inline-block'
                                 }}>
                                   {item.timeSlot === 'TBA' ? 'TBA' : item.timeSlot}
                                 </span>
