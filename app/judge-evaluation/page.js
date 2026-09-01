@@ -27,6 +27,7 @@ function JudgeEvaluationContent() {
   const [c4, setC4] = useState(0); // Execution Feasibility & Timeline (Max 10)
   const [c5, setC5] = useState(0); // Implementation Details (Max 10)
   const [remarks, setRemarks] = useState('');
+  const [isLocked, setIsLocked] = useState(false); // Closed editing feature for evaluated teams
 
   const [showModal, setShowModal] = useState(false);
   const [showRubrics, setShowRubrics] = useState(false);
@@ -98,7 +99,10 @@ function JudgeEvaluationContent() {
           setC4(parsed.c4);
           setC5(parsed.c5);
           setRemarks(parsed.remarks);
+          setIsLocked(true); // Evaluation exists -> editing is locked
         }
+      } else {
+        setIsLocked(false);
       }
     } catch (e) {
       console.warn("Supabase fetch marks warning:", e);
@@ -107,6 +111,11 @@ function JudgeEvaluationContent() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+
+    if (isLocked) {
+      alert("🔒 Editing Closed: Marks for this team have already been submitted and locked by the administration.");
+      return;
+    }
 
     if (hasInvalidMarks) {
       alert("⚠️ Invalid Marks: Scores for each criterion must be between 0 and 10.");
@@ -304,6 +313,30 @@ function JudgeEvaluationContent() {
           <div className="form-section">
             <h3 className="section-title"><span className="pacman-bullet"></span> EVALUATION CRITERIA MARKSHEET (MAX 50 MARKS)</h3>
 
+            {isLocked && (
+              <div style={{
+                background: 'rgba(255, 77, 77, 0.12)',
+                border: '1.5px solid #ff4d4d',
+                borderRadius: '8px',
+                padding: '14px 18px',
+                marginBottom: '20px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '14px',
+                boxShadow: '0 0 15px rgba(255, 77, 77, 0.2)'
+              }}>
+                <span style={{ fontSize: '1.8rem' }}>🔒</span>
+                <div>
+                  <div style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.72rem', color: '#ff6666', marginBottom: '6px' }}>
+                    EVALUATION LOCKED / EDITING CLOSED
+                  </div>
+                  <div style={{ fontSize: '0.84rem', color: '#eee', lineHeight: '1.4' }}>
+                    Marks for this team have already been submitted and finalized. Editing has been closed by the administration.
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="table-responsive">
               <table className="eval-table">
                 <thead>
@@ -337,6 +370,8 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
+                        disabled={isLocked}
+                        style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
                         className={`eval-score-input ${isInvalid(c1) ? 'invalid-input' : ''}`}
                         value={c1}
                         onChange={(e) => setC1(e.target.value)}
@@ -366,6 +401,8 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
+                        disabled={isLocked}
+                        style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
                         className={`eval-score-input ${isInvalid(c2) ? 'invalid-input' : ''}`}
                         value={c2}
                         onChange={(e) => setC2(e.target.value)}
@@ -395,6 +432,8 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
+                        disabled={isLocked}
+                        style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
                         className={`eval-score-input ${isInvalid(c3) ? 'invalid-input' : ''}`}
                         value={c3}
                         onChange={(e) => setC3(e.target.value)}
@@ -424,6 +463,8 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
+                        disabled={isLocked}
+                        style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
                         className={`eval-score-input ${isInvalid(c4) ? 'invalid-input' : ''}`}
                         value={c4}
                         onChange={(e) => setC4(e.target.value)}
@@ -453,6 +494,8 @@ function JudgeEvaluationContent() {
                         max="10"
                         placeholder="0 - 10"
                         required
+                        disabled={isLocked}
+                        style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
                         className={`eval-score-input ${isInvalid(c5) ? 'invalid-input' : ''}`}
                         value={c5}
                         onChange={(e) => setC5(e.target.value)}
@@ -480,14 +523,37 @@ function JudgeEvaluationContent() {
                 rows="3"
                 placeholder="Add constructive feedback, strengths, and recommendations for the team..."
                 value={remarks}
+                disabled={isLocked}
+                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#ffffff' } : {}}
                 onChange={(e) => setRemarks(e.target.value)}
               ></textarea>
             </div>
           </div>
 
-          <button type="submit" className="submit-btn full-width-btn">
-            <span className="pacman-icon"></span> SUBMIT EVALUATION MARKS
-          </button>
+          {isLocked ? (
+            <button
+              type="button"
+              disabled
+              className="submit-btn full-width-btn"
+              style={{
+                background: 'rgba(255, 77, 77, 0.12)',
+                color: '#ff8888',
+                border: '1.5px solid #ff4d4d',
+                cursor: 'not-allowed',
+                boxShadow: 'none',
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.7rem',
+                padding: '14px',
+                opacity: 0.95
+              }}
+            >
+              🔒 EDITING CLOSED — MARKS ARE FINALIZED
+            </button>
+          ) : (
+            <button type="submit" className="submit-btn full-width-btn">
+              <span className="pacman-icon"></span> SUBMIT EVALUATION MARKS
+            </button>
+          )}
         </form>
 
         <div className="arcade-footer">

@@ -236,9 +236,15 @@ export default function JudgeDashboardPage() {
 
                       <a
                         href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
-                        className={`eval-btn ${isScored ? 'edit-btn' : ''}`}
+                        className={`eval-btn ${isScored ? 'locked-btn' : ''}`}
+                        style={isScored ? {
+                          background: 'rgba(255, 77, 77, 0.12)',
+                          color: '#ff8888',
+                          border: '1.5px solid #ff4d4d'
+                        } : {}}
+                        title={isScored ? 'Marks evaluated and finalized (View only)' : `Evaluate ${t.teamName}`}
                       >
-                        {isScored ? '✏️ EDIT MARKS' : '⭐ EVALUATE TEAM'}
+                        {isScored ? '🔒 VIEW MARKS (LOCKED)' : '⭐ EVALUATE TEAM'}
                       </a>
                     </div>
 

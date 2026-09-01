@@ -1286,7 +1286,7 @@ async function updateJudgeDashboardStatus() {
       const evalBtn = card.querySelector('.eval-btn');
       if (evalBtn) {
         evalBtn.className = 'eval-btn edit-btn';
-        evalBtn.innerHTML = '✏️ EDIT MARKS';
+        evalBtn.innerHTML = '🔒 VIEW MARKS (LOCKED)';
       }
     }
   });
