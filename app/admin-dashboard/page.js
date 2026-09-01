@@ -28,7 +28,8 @@ import {
   ROUND_2_PANEL_IDS,
   exportProjectTracksWorkbook,
   exportSingleTrackExcel,
-  exportAllTracksZip
+  exportAllTracksZip,
+  exportTop30Soft15HybAllHardExcel
 } from '@/lib/excelExport';
 import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord } from '@/lib/teamUtils';
 
@@ -666,8 +667,188 @@ export default function AdminDashboardPage() {
     setSelectedRound3TeamIds(Array.from(new Set([...soft, ...hyb, ...hard])));
   };
 
+  const selectTopRound3SpecialPreset = (sortedList) => {
+    const soft = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'software').slice(0, 30).map(t => t.id);
+    const hyb = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'hybrid').slice(0, 15).map(t => t.id);
+    const hard = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'hardware').map(t => t.id);
+    setSelectedRound3TeamIds(Array.from(new Set([...soft, ...hyb, ...hard])));
+  };
+
   const clearRound3Selection = () => {
     setSelectedRound3TeamIds([]);
+  };
+
+  // Export Leaderboard Special Selection Excel (Top 30 Soft + Top 15 Hyb + All Hard)
+  const handleExportSpecialLeaderboardExcel = () => {
+    try {
+      if (!teams || teams.length === 0) {
+        alert("No teams available to export yet!");
+        return;
+      }
+      const filename = exportTop30Soft15HybAllHardExcel(teams, evaluations);
+      alert(`✅ Special Leaderboard Excel Workbook Generated!\n\nFile: ${filename}\n\nSheets Included:\n• Summary & Combined Roster (49 Teams)\n• Top 30 Software Projects\n• Top 15 Hybrid Projects\n• All Hardware Projects`);
+    } catch (err) {
+      console.error("Special leaderboard export error:", err);
+      alert("Error generating special leaderboard Excel workbook: " + err.message);
+    }
+  };
+
+  // Export Leaderboard Special Selection CSV (Top 30 Soft + Top 15 Hyb + All Hard)
+  const handleExportSpecialLeaderboardCSV = () => {
+    try {
+      if (!teams || teams.length === 0) {
+        alert("No teams available to export yet!");
+        return;
+      }
+
+      const leaderboardData = teams.map(t => {
+        const evalEntry = evaluations.find(e => (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase());
+        let isScored = false;
+        let score = 0;
+        let c1 = '-', c2 = '-', c3 = '-', c4 = '-', c5 = '-', remarks = 'Pending';
+        let judge = t.assignedJudge || 'Unassigned';
+
+        if (evalEntry) {
+          isScored = true;
+          score = Number(evalEntry.totalScore) || 0;
+          c1 = evalEntry.c1;
+          c2 = evalEntry.c2;
+          c3 = evalEntry.c3;
+          c4 = evalEntry.c4;
+          c5 = evalEntry.c5;
+          remarks = evalEntry.remarks || 'Scored';
+          if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
+        }
+
+        const pType = t.projectType || parseProjectTypeFromTeam(t);
+
+        return {
+          ...t,
+          projectType: pType,
+          isScored,
+          score,
+          c1, c2, c3, c4, c5,
+          remarks,
+          judge
+        };
+      }).sort((a, b) => {
+        if (a.isScored && b.isScored) return b.score - a.score;
+        if (a.isScored && !b.isScored) return -1;
+        if (!a.isScored && b.isScored) return 1;
+        return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
+      });
+
+      const softwareTeams = leaderboardData.filter(t => (t.projectType || '').toLowerCase() === 'software').slice(0, 30);
+      const hybridTeams = leaderboardData.filter(t => (t.projectType || '').toLowerCase() === 'hybrid').slice(0, 15);
+      const hardwareTeams = leaderboardData.filter(t => (t.projectType || '').toLowerCase() === 'hardware');
+
+      const combinedSelected = [
+        ...softwareTeams.map((t, idx) => ({ ...t, selectionCategory: 'Top 30 Software', categoryRank: idx + 1 })),
+        ...hybridTeams.map((t, idx) => ({ ...t, selectionCategory: 'Top 15 Hybrid', categoryRank: idx + 1 })),
+        ...hardwareTeams.map((t, idx) => ({ ...t, selectionCategory: 'All Hardware', categoryRank: idx + 1 }))
+      ];
+
+      const csvRows = [
+        ['"MECIA HACKS 3.0 — SPECIAL LEADERBOARD SELECTION CSV REPORT"'],
+        ['"SELECTION: TOP 30 SOFTWARE + TOP 15 HYBRID + ALL HARDWARE TEAMS"'],
+        [`"Generated: ${new Date().toLocaleString()}"`, `"Total Selected Teams: ${combinedSelected.length}"`, `"Total Participants: ${combinedSelected.reduce((s, t) => s + (t.totalTeamSize || (1 + (t.members?.length || 0))), 0)}"`],
+        [],
+        [
+          '"S.No"',
+          '"Category"',
+          '"Track Rank"',
+          '"Team ID"',
+          '"Team Name"',
+          '"Project Title"',
+          '"Track"',
+          '"Score (50)"',
+          '"Arch (10)"',
+          '"Scope (10)"',
+          '"Avail (10)"',
+          '"Timeline (10)"',
+          '"Impl (10)"',
+          '"Status"',
+          '"Total Members (Incl. Leader)"',
+          '"Leader Name"',
+          '"Leader ID"',
+          '"Leader Branch"',
+          '"Leader Phone"',
+          '"Leader Email"',
+          '"Member 1 Name"',
+          '"Member 1 ID"',
+          '"Member 1 Phone"',
+          '"Member 2 Name"',
+          '"Member 2 ID"',
+          '"Member 2 Phone"',
+          '"Member 3 Name"',
+          '"Member 3 ID"',
+          '"Member 3 Phone"',
+          '"Assigned Judge"',
+          '"Time Slot"',
+          '"Judge Remarks"',
+          '"All Members Summary"'
+        ]
+      ];
+
+      combinedSelected.forEach((t, i) => {
+        const totalSize = t.totalTeamSize || (1 + (t.members?.length || 0));
+        const m1 = t.members && t.members[0] ? t.members[0] : null;
+        const m2 = t.members && t.members[1] ? t.members[1] : null;
+        const m3 = t.members && t.members[2] ? t.members[2] : null;
+
+        const allMembersStr = [
+          `Leader: ${t.leaderName || ''} (${t.leaderId || ''})${t.leaderBranch ? ` [${t.leaderBranch}]` : ''} Ph: ${t.leaderPhone || ''}`,
+          ...(t.members || []).map((m, idx) => `M${idx+1}: ${m.name || ''} (${m.idNo || ''}) Ph: ${m.phone || ''}`)
+        ].join(' | ');
+
+        csvRows.push([
+          i + 1,
+          `"${t.selectionCategory}"`,
+          `"#${t.categoryRank}"`,
+          `"${t.teamIdNo || 'N/A'}"`,
+          `"${(t.teamName || '').replace(/"/g, '""')}"`,
+          `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
+          `"${t.projectType || ''}"`,
+          t.isScored ? t.score : '"Pending"',
+          t.c1,
+          t.c2,
+          t.c3,
+          t.c4,
+          t.c5,
+          t.isScored ? '"SCORED"' : '"PENDING"',
+          totalSize,
+          `"${(t.leaderName || '').replace(/"/g, '""')}"`,
+          `"${t.leaderId || ''}"`,
+          `"${t.leaderBranch || ''}"`,
+          `"${t.leaderPhone || ''}"`,
+          `"${t.leaderEmail || ''}"`,
+          `"${m1 ? (m1.name || '').replace(/"/g, '""') : ''}"`,
+          `"${m1 ? m1.idNo || '' : ''}"`,
+          `"${m1 ? m1.phone || '' : ''}"`,
+          `"${m2 ? (m2.name || '').replace(/"/g, '""') : ''}"`,
+          `"${m2 ? m2.idNo || '' : ''}"`,
+          `"${m2 ? m2.phone || '' : ''}"`,
+          `"${m3 ? (m3.name || '').replace(/"/g, '""') : ''}"`,
+          `"${m3 ? m3.idNo || '' : ''}"`,
+          `"${m3 ? m3.phone || '' : ''}"`,
+          `"${t.judge || 'Unassigned'}"`,
+          `"${t.timeSlot || 'TBA'}"`,
+          `"${(t.remarks || '').replace(/"/g, '""')}"`,
+          `"${allMembersStr.replace(/"/g, '""')}"`
+        ]);
+      });
+
+      const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(csvRows.map(e => e.join(",")).join("\n"));
+      const link = document.createElement("a");
+      link.setAttribute("href", csvContent);
+      link.setAttribute("download", `MECIA_HACKS_3.0_Top30Soft_Top15Hyb_AllHard_Leaderboard_${new Date().toISOString().slice(0,10)}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (err) {
+      console.error("CSV export error:", err);
+      alert("Error exporting CSV: " + err.message);
+    }
   };
 
   // Export Judges Panels & Teams Master Excel (.xlsx)
@@ -1273,6 +1454,21 @@ export default function AdminDashboardPage() {
                 title="Export individual participant directory with time slots"
               >
                 👥 PARTICIPANTS CSV
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-gold"
+                onClick={handleExportSpecialLeaderboardExcel}
+                title="Download Leaderboard Excel with Top 30 Software, Top 15 Hybrid, and All Hardware teams"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.2), rgba(0, 255, 204, 0.2))',
+                  border: '1.5px solid #fdff00',
+                  color: '#fdff00',
+                  fontWeight: 'bold',
+                  boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
+                }}
+              >
+                ⭐ TOP 30 SOFT + 15 HYB + HARD (.XLSX)
               </button>
             </div>
           </div>
@@ -2531,9 +2727,55 @@ export default function AdminDashboardPage() {
                   <h3 className="section-title" style={{ margin: 0 }}>
                     <span className="pacman-bullet"></span> LIVE EVALUATION LEADERBOARD (RANKED BY HIGHEST SCORE)
                   </h3>
-                  <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.58rem', padding: '6px 12px' }}>
-                    🔴 LIVE REAL-TIME SYNC (3S POLL)
-                  </span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleExportSpecialLeaderboardCSV}
+                      style={{
+                        background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
+                        color: '#000',
+                        border: '2px solid #00ffcc',
+                        borderRadius: '6px',
+                        padding: '8px 16px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.62rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 0 15px rgba(0, 255, 204, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Download CSV file for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
+                    >
+                      📊 EXPORT CSV (TOP 30S + 15H + HARD)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleExportSpecialLeaderboardExcel}
+                      style={{
+                        background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                        color: '#000',
+                        border: '2px solid #fdff00',
+                        borderRadius: '6px',
+                        padding: '8px 16px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.62rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 0 15px rgba(253, 255, 0, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Download Excel (.xlsx) file for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
+                    >
+                      📥 DOWNLOAD EXCEL (TOP 30S + 15H + HARD)
+                    </button>
+                    <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.58rem', padding: '6px 12px' }}>
+                      🔴 LIVE REAL-TIME SYNC (3S POLL)
+                    </span>
+                  </div>
                 </div>
 
                 {/* ROUND 3 MEMBER CALCULATOR & FINALISTS HUB */}
@@ -2664,6 +2906,24 @@ export default function AdminDashboardPage() {
                       }}
                     >
                       ⚡ TOP 5 PER TRACK (15)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectTopRound3SpecialPreset(leaderboardData)}
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.25), rgba(0, 255, 204, 0.25))',
+                        color: '#fdff00',
+                        border: '1.5px solid #fdff00',
+                        borderRadius: '5px',
+                        padding: '6px 12px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
+                      }}
+                    >
+                      ⭐ TOP 30 SOFT + 15 HYB + ALL HARD (49)
                     </button>
                     <button
                       type="button"
@@ -2801,23 +3061,25 @@ export default function AdminDashboardPage() {
                     </div>
                   </div>
 
-                  {/* Actions Toolbar (when teams > 0) */}
-                  {round3TotalTeams > 0 && (
-                    <div style={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      flexWrap: 'wrap',
-                      gap: '10px',
-                      background: 'rgba(0, 0, 0, 0.4)',
-                      padding: '10px 14px',
-                      borderRadius: '6px',
-                      border: '1px solid rgba(255, 255, 255, 0.1)'
-                    }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.65rem', color: '#ccc' }}>
-                          Selected Finalists ({round3TotalTeams} teams, {round3TotalMembers} members):
-                        </span>
+                  {/* Actions Toolbar */}
+                  <div style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px',
+                    background: 'rgba(0, 0, 0, 0.4)',
+                    padding: '10px 14px',
+                    borderRadius: '6px',
+                    border: '1px solid rgba(255, 255, 255, 0.1)'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.65rem', color: '#ccc' }}>
+                        {round3TotalTeams > 0
+                          ? `Selected Finalists (${round3TotalTeams} teams, ${round3TotalMembers} members):`
+                          : 'Download full Top 30 Software, Top 15 Hybrid, All Hardware Excel report:'}
+                      </span>
+                      {round3TotalTeams > 0 && (
                         <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
                           {round3SelectedTeams.slice(0, 8).map(st => (
                             <span key={st.id} style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid rgba(0, 255, 204, 0.3)', borderRadius: '3px', padding: '2px 5px', fontSize: '0.62rem' }}>
@@ -2830,48 +3092,90 @@ export default function AdminDashboardPage() {
                             </span>
                           )}
                         </div>
-                      </div>
-
-                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                        <button
-                          type="button"
-                          onClick={handleCopyRound3Roster}
-                          style={{
-                            background: '#fdff00',
-                            color: '#000',
-                            border: 'none',
-                            borderRadius: '5px',
-                            padding: '6px 12px',
-                            fontFamily: 'Press Start 2P, monospace',
-                            fontSize: '0.55rem',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            boxShadow: '0 0 8px rgba(253, 255, 0, 0.3)'
-                          }}
-                        >
-                          📋 COPY ROSTER ({round3TotalMembers} MEMBERS)
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleExportRound3Csv}
-                          style={{
-                            background: '#00ffcc',
-                            color: '#000',
-                            border: 'none',
-                            borderRadius: '5px',
-                            padding: '6px 12px',
-                            fontFamily: 'Press Start 2P, monospace',
-                            fontSize: '0.55rem',
-                            fontWeight: 'bold',
-                            cursor: 'pointer',
-                            boxShadow: '0 0 8px rgba(0, 255, 204, 0.3)'
-                          }}
-                        >
-                          📊 EXPORT ROUND 3 CSV
-                        </button>
-                      </div>
+                      )}
                     </div>
-                  )}
+
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <button
+                        type="button"
+                        onClick={handleExportSpecialLeaderboardCSV}
+                        style={{
+                          background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '5px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.55rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 0 10px rgba(0, 255, 204, 0.3)'
+                        }}
+                        title="Download CSV for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
+                      >
+                        📊 EXPORT TOP 30S + 15H + HARD (.CSV)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportSpecialLeaderboardExcel}
+                        style={{
+                          background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '5px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.55rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
+                        }}
+                        title="Download Excel for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
+                      >
+                        ⭐ EXPORT TOP 30S + 15H + HARD (.XLSX)
+                      </button>
+                      {round3TotalTeams > 0 && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={handleCopyRound3Roster}
+                            style={{
+                              background: '#fdff00',
+                              color: '#000',
+                              border: 'none',
+                              borderRadius: '5px',
+                              padding: '6px 12px',
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.55rem',
+                              fontWeight: 'bold',
+                              cursor: 'pointer',
+                              boxShadow: '0 0 8px rgba(253, 255, 0, 0.3)'
+                            }}
+                          >
+                            📋 COPY ROSTER ({round3TotalMembers} MEMBERS)
+                          </button>
+                          <button
+                            type="button"
+                            onClick={handleExportRound3Csv}
+                            style={{
+                              background: '#00ffcc',
+                              color: '#000',
+                              border: 'none',
+                              borderRadius: '5px',
+                              padding: '6px 12px',
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.55rem',
+                              fontWeight: 'bold',
+                              cursor: 'pointer',
+                              boxShadow: '0 0 8px rgba(0, 255, 204, 0.3)'
+                            }}
+                          >
+                            📊 EXPORT ROUND 3 CSV
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  </div>
                 </div>
 
                 {/* Project Type Filter Controls & Summary Stats */}
@@ -2966,17 +3270,46 @@ export default function AdminDashboardPage() {
                     marginLeft: 'auto',
                     display: 'flex',
                     alignItems: 'center',
-                    gap: '6px',
-                    background: 'rgba(0, 255, 204, 0.12)',
-                    border: '1px solid #00ffcc',
-                    borderRadius: '6px',
-                    padding: '6px 12px',
-                    fontFamily: 'Press Start 2P, monospace',
-                    fontSize: '0.58rem',
-                    color: '#00ffcc',
-                    boxShadow: '0 0 10px rgba(0, 255, 204, 0.2)'
+                    gap: '8px',
+                    flexWrap: 'wrap'
                   }}>
-                    👥 TOTAL MEMBERS: <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{totalDisplayedParticipants}</span> (INCL. LEADERS)
+                    <button
+                      type="button"
+                      onClick={handleExportSpecialLeaderboardCSV}
+                      style={{
+                        background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(253, 255, 0, 0.2))',
+                        color: '#00ffcc',
+                        border: '1.5px solid #00ffcc',
+                        borderRadius: '6px',
+                        padding: '6px 12px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.58rem',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 8px rgba(0, 255, 204, 0.25)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Download CSV file for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
+                    >
+                      📊 EXPORT TOP 30S + 15H + HARD CSV
+                    </button>
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: 'rgba(0, 255, 204, 0.12)',
+                      border: '1px solid #00ffcc',
+                      borderRadius: '6px',
+                      padding: '6px 12px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.58rem',
+                      color: '#00ffcc',
+                      boxShadow: '0 0 10px rgba(0, 255, 204, 0.2)'
+                    }}>
+                      👥 TOTAL MEMBERS: <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{totalDisplayedParticipants}</span> (INCL. LEADERS)
+                    </div>
                   </div>
                 </div>
 

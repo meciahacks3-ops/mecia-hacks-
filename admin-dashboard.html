@@ -61,6 +61,9 @@
       <button type="button" class="submit-btn excel-btn admin-excel-btn" onclick="exportAdminDataToExcel()">
         📊 EXPORT ALL TO EXCEL (.CSV)
       </button>
+      <button type="button" class="submit-btn excel-btn" style="background: linear-gradient(135deg, #fdff00, #ffb852); color: #000; border: 1.5px solid #fdff00; font-weight: bold;" onclick="exportSpecialLeaderboardExcel()">
+        ⭐ EXPORT TOP 30S + 15H + HARD (.CSV)
+      </button>
     </div>
 
     <!-- TAB 1: TEAMS & JUDGE ASSIGNMENTS -->
@@ -91,7 +94,12 @@
     <!-- TAB 2: MARKSHEET & LIVE SCORES OVERVIEW -->
     <div id="scores-tab" class="admin-tab-content">
       <div class="form-section">
-        <h3 class="section-title"><span class="pacman-bullet"></span> LIVE EVALUATION LEADERBOARD</h3>
+        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 15px;">
+          <h3 class="section-title" style="margin: 0;"><span class="pacman-bullet"></span> LIVE EVALUATION LEADERBOARD</h3>
+          <button type="button" class="submit-btn excel-btn" style="background: linear-gradient(135deg, #fdff00, #ffb852); color: #000; border: 1.5px solid #fdff00; font-weight: bold; padding: 6px 12px; font-size: 0.65rem;" onclick="exportSpecialLeaderboardExcel()">
+            📥 DOWNLOAD EXCEL (TOP 30S + 15H + HARD)
+          </button>
+        </div>
         
         <div class="table-responsive">
           <table class="eval-table admin-table">

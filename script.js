@@ -1257,6 +1257,141 @@ function exportAdminDataToExcel() {
   document.body.removeChild(downloadAnchor);
 }
 
+// Generate & Download Special Leaderboard Report: Top 30 Software + Top 15 Hybrid + All Hardware
+function exportSpecialLeaderboardExcel() {
+  const teams = getTeamsData();
+  let evaluations = [];
+  try {
+    evaluations = JSON.parse(localStorage.getItem('teamEvaluations') || '[]');
+  } catch (e) {
+    evaluations = [];
+  }
+
+  // Map and rank teams
+  const scoredTeams = teams.map(t => {
+    const evalEntry = evaluations.find(e => (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase());
+    let isScored = false;
+    let score = 0;
+    let c1 = "-", c2 = "-", c3 = "-", c4 = "-", c5 = "-", remarks = "Pending";
+    let judge = t.assignedJudge || 'Unassigned';
+
+    if (evalEntry) {
+      isScored = true;
+      score = Number(evalEntry.totalScore) || 0;
+      c1 = evalEntry.c1;
+      c2 = evalEntry.c2;
+      c3 = evalEntry.c3;
+      c4 = evalEntry.c4;
+      c5 = evalEntry.c5 || 0;
+      remarks = evalEntry.remarks || "Scored";
+      if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
+    }
+
+    let pType = 'Hardware';
+    if (t.projectType) {
+      const lower = t.projectType.toLowerCase();
+      if (lower === 'software') pType = 'Software';
+      else if (lower === 'hybrid') pType = 'Hybrid';
+      else if (lower === 'hardware') pType = 'Hardware';
+      else pType = pType.charAt(0).toUpperCase() + pType.slice(1);
+    }
+
+    return {
+      ...t,
+      projectType: pType,
+      isScored,
+      score,
+      c1, c2, c3, c4, c5,
+      remarks,
+      judge,
+      totalTeamSize: 1 + (t.members ? t.members.length : 0)
+    };
+  }).sort((a, b) => {
+    if (a.isScored && b.isScored) return b.score - a.score;
+    if (a.isScored && !b.isScored) return -1;
+    if (!a.isScored && b.isScored) return 1;
+    return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
+  });
+
+  const soft = scoredTeams.filter(t => t.projectType.toLowerCase() === 'software').slice(0, 30);
+  const hyb = scoredTeams.filter(t => t.projectType.toLowerCase() === 'hybrid').slice(0, 15);
+  const hard = scoredTeams.filter(t => t.projectType.toLowerCase() === 'hardware');
+
+  const combined = [
+    ...soft.map((t, i) => ({ ...t, cat: 'Top 30 Software', catRank: i + 1 })),
+    ...hyb.map((t, i) => ({ ...t, cat: 'Top 15 Hybrid', catRank: i + 1 })),
+    ...hard.map((t, i) => ({ ...t, cat: 'All Hardware', catRank: i + 1 }))
+  ];
+
+  let csvRows = [];
+  csvRows.push(["MECIA HACKS 3.0 — SPECIAL LEADERBOARD QUALIFIERS REPORT"]);
+  csvRows.push(["SELECTION: TOP 30 SOFTWARE + TOP 15 HYBRID + ALL HARDWARE TEAMS"]);
+  csvRows.push([`Generated: ${new Date().toLocaleString()}`, `Total Selected Teams: ${combined.length}`, `Total Participants: ${combined.reduce((s, t) => s + t.totalTeamSize, 0)}`]);
+  csvRows.push([]);
+  csvRows.push([
+    "S.No",
+    "Category",
+    "Track Rank",
+    "Team ID",
+    "Team Name",
+    "Project Title",
+    "Track",
+    "Score (50)",
+    "Arch (10)",
+    "Scope (10)",
+    "Avail (10)",
+    "Timeline (10)",
+    "Impl (10)",
+    "Status",
+    "Total Members",
+    "Leader Name",
+    "Leader Phone",
+    "Leader Email",
+    "Assigned Judge",
+    "All Members Roster"
+  ]);
+
+  combined.forEach((t, i) => {
+    const allMembersStr = [
+      `Leader: ${t.leaderName || ''} (${t.leaderId || ''}) Ph: ${t.leaderPhone || ''}`,
+      ...(t.members || []).map((m, idx) => `M${idx+1}: ${m.name || ''} (${m.idNo || ''}) Ph: ${m.phone || ''}`)
+    ].join(' | ');
+
+    csvRows.push([
+      i + 1,
+      `"${t.cat}"`,
+      `"#${t.catRank}"`,
+      `"${t.teamIdNo || t.teamId || 'N/A'}"`,
+      `"${(t.teamName || '').replace(/"/g, '""')}"`,
+      `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
+      `"${t.projectType}"`,
+      t.isScored ? t.score : 'Pending',
+      t.c1,
+      t.c2,
+      t.c3,
+      t.c4,
+      t.c5,
+      t.isScored ? 'SCORED' : 'PENDING',
+      t.totalTeamSize,
+      `"${(t.leaderName || '').replace(/"/g, '""')}"`,
+      `"${t.leaderPhone || ''}"`,
+      `"${t.leaderEmail || ''}"`,
+      `"${t.judge || 'Unassigned'}"`,
+      `"${allMembersStr.replace(/"/g, '""')}"`
+    ]);
+  });
+
+  const csvContent = csvRows.map(row => row.join(",")).join("\n");
+  const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const downloadAnchor = document.createElement('a');
+  downloadAnchor.href = url;
+  downloadAnchor.setAttribute('download', `Mecia_Hack_3.0_Top30Soft_Top15Hyb_AllHard_Leaderboard_${Date.now()}.csv`);
+  document.body.appendChild(downloadAnchor);
+  downloadAnchor.click();
+  document.body.removeChild(downloadAnchor);
+}
+
 async function updateJudgeDashboardStatus() {
   const teamCards = document.querySelectorAll('.team-card');
   if (!teamCards || teamCards.length === 0) return;
