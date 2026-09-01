@@ -1105,6 +1105,29 @@ async function renderAdminTables() {
         typeBadge = `<span style="display:inline-flex; align-items:center; gap:4px; font-size:0.56rem; font-family:'Press Start 2P', monospace; color:#ffb852; background:rgba(255,184,82,0.12); border:1px solid #ffb852; padding:3px 6px; border-radius:4px; white-space:nowrap; font-weight:bold;"><span>⚙️</span><span>HARDWARE</span></span>`;
       }
 
+      const totalMembersCount = item.totalTeamSize || (1 + (item.members?.length || 0));
+      const hasMembers = item.members && item.members.length > 0;
+      let membersHtml = `
+        <div style="display:flex; flex-direction:column; gap:4px;">
+          <div>
+            <span style="display:inline-flex; align-items:center; gap:4px; background:rgba(0,255,204,0.15); color:#00ffcc; border:1px solid #00ffcc; border-radius:4px; padding:3px 6px; font-family:'Press Start 2P', monospace; font-size:0.55rem; font-weight:bold;">
+              👥 ${totalMembersCount} ${totalMembersCount === 1 ? 'MEMBER' : 'MEMBERS'}
+            </span>
+          </div>
+          <div style="font-size:0.72rem; color:#fff; line-height:1.3;">
+            <span style="color:#fdff00; font-weight:bold;">👑 ${item.leaderName || 'Leader'}</span>
+            ${item.leaderBranch ? `<span style="color:#888; font-size:0.65rem;"> (${item.leaderBranch})</span>` : ''}
+          </div>
+          ${hasMembers ? `
+            <div style="font-size:0.68rem; color:#aaa; line-height:1.3;">
+              <span style="color:#00ffcc;">+${item.members.length} ${item.members.length === 1 ? 'member' : 'members'}:</span> ${item.members.map(m => m.name).filter(Boolean).join(', ')}
+            </div>
+          ` : `
+            <div style="font-size:0.62rem; color:#666; font-style:italic;">• Solo (Leader Only)</div>
+          `}
+        </div>
+      `;
+
       const tr = document.createElement('tr');
       if (rowBg) tr.setAttribute('style', rowBg);
       const parsedTeamId = item.teamIdNo || item.teamId || 'N/A';
@@ -1112,6 +1135,7 @@ async function renderAdminTables() {
         <td style="text-align:center; font-weight:bold; font-size:0.85rem; color:${index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff'};">${rankBadge}</td>
         <td style="text-align:center;"><span style="display:inline-block; background:rgba(253,255,0,0.15); color:#fdff00; border:1.5px solid #fdff00; border-radius:6px; padding:3px 6px; font-family:'Press Start 2P', monospace; font-size:0.62rem; font-weight:bold;">${parsedTeamId}</span></td>
         <td class="criterion-name">${item.teamName} ${index === 0 && item.isScored ? '👑' : ''}</td>
+        <td>${membersHtml}</td>
         <td style="text-align:center;">${typeBadge}</td>
         <td>${item.judge}</td>
         <td style="text-align:center; font-weight:700; color:var(--inky-cyan);">${item.c1}</td>

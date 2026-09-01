@@ -2386,8 +2386,15 @@ export default function AdminDashboardPage() {
             if (item.projectTitle && item.projectTitle.toLowerCase().includes(cleanQuery)) return true;
             if (item.remarks && item.remarks.toLowerCase().includes(cleanQuery)) return true;
             if (item.score !== undefined && String(item.score).includes(cleanQuery)) return true;
+            if (item.members && item.members.some(m =>
+              (m.name && m.name.toLowerCase().includes(cleanQuery)) ||
+              (m.idNo && m.idNo.toLowerCase().includes(cleanQuery)) ||
+              (m.email && m.email.toLowerCase().includes(cleanQuery))
+            )) return true;
             return false;
           });
+
+          const totalDisplayedParticipants = displayedLeaderboard.reduce((sum, item) => sum + (item.totalTeamSize || (1 + (item.members?.length || 0))), 0);
 
           return (
             <div className="admin-tab-content active">
@@ -2401,7 +2408,7 @@ export default function AdminDashboardPage() {
                   </span>
                 </div>
 
-                {/* Project Type Filter Controls */}
+                {/* Project Type Filter Controls & Summary Stats */}
                 <div style={{
                   display: 'flex',
                   alignItems: 'center',
@@ -2488,31 +2495,49 @@ export default function AdminDashboardPage() {
                   >
                     ⚙️ HARDWARE ({hardwareLbCount})
                   </button>
+
+                  <div style={{
+                    marginLeft: 'auto',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '6px',
+                    background: 'rgba(0, 255, 204, 0.12)',
+                    border: '1px solid #00ffcc',
+                    borderRadius: '6px',
+                    padding: '6px 12px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.58rem',
+                    color: '#00ffcc',
+                    boxShadow: '0 0 10px rgba(0, 255, 204, 0.2)'
+                  }}>
+                    👥 TOTAL MEMBERS: <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{totalDisplayedParticipants}</span> (INCL. LEADERS)
+                  </div>
                 </div>
 
                 <div className="table-responsive">
                   <table className="eval-table admin-table">
                     <thead>
                       <tr>
-                        <th style={{ width: '6%', textAlign: 'center' }}>Rank</th>
-                        <th style={{ width: '8%', textAlign: 'center' }}>Team ID</th>
-                        <th style={{ width: '15%' }}>Team Name</th>
-                        <th style={{ width: '10%', textAlign: 'center' }}>Project Type</th>
-                        <th style={{ width: '11%' }}>Time Slot</th>
-                        <th style={{ width: '13%' }}>Assigned Judge</th>
+                        <th style={{ width: '5%', textAlign: 'center' }}>Rank</th>
+                        <th style={{ width: '7%', textAlign: 'center' }}>Team ID</th>
+                        <th style={{ width: '13%' }}>Team Name</th>
+                        <th style={{ width: '14%' }}>Total Members</th>
+                        <th style={{ width: '9%', textAlign: 'center' }}>Project Type</th>
+                        <th style={{ width: '10%' }}>Time Slot</th>
+                        <th style={{ width: '11%' }}>Assigned Judge</th>
                         <th style={{ textAlign: 'center' }}>Arch (10)</th>
                         <th style={{ textAlign: 'center' }}>Scope (10)</th>
                         <th style={{ textAlign: 'center' }}>Avail (10)</th>
                         <th style={{ textAlign: 'center' }}>Timeline (10)</th>
                         <th style={{ textAlign: 'center' }}>Impl (10)</th>
-                        <th style={{ textAlign: 'center', width: '10%' }}>Total (50)</th>
-                        <th style={{ width: '7%' }}>Status</th>
+                        <th style={{ textAlign: 'center', width: '8%' }}>Total (50)</th>
+                        <th style={{ width: '6%' }}>Status</th>
                       </tr>
                     </thead>
                     <tbody>
                       {displayedLeaderboard.length === 0 ? (
                         <tr>
-                          <td colSpan="13" style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
+                          <td colSpan="14" style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
                             No evaluations found matching the selected filter or search query.
                           </td>
                         </tr>
@@ -2538,6 +2563,8 @@ export default function AdminDashboardPage() {
 
                           const slotInfo = getTimeSlotInfo(item.timeSlot);
                           const typeInfo = getProjectTypeInfo(item.projectType);
+                          const totalMembersCount = item.totalTeamSize || (1 + (item.members?.length || 0));
+                          const hasMembers = item.members && item.members.length > 0;
 
                           return (
                             <tr key={item.id || item.teamName} style={{ background: rowBg }}>
@@ -2567,6 +2594,41 @@ export default function AdminDashboardPage() {
                                     {item.projectTitle}
                                   </div>
                                 )}
+                              </td>
+                              {/* Total Team Members (including Team Leader) */}
+                              <td>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                                  <div>
+                                    <span style={{
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px',
+                                      background: 'rgba(0, 255, 204, 0.15)',
+                                      color: '#00ffcc',
+                                      border: '1px solid #00ffcc',
+                                      borderRadius: '4px',
+                                      padding: '3px 6px',
+                                      fontFamily: 'Press Start 2P, monospace',
+                                      fontSize: '0.55rem',
+                                      fontWeight: 'bold'
+                                    }}>
+                                      👥 {totalMembersCount} {totalMembersCount === 1 ? 'MEMBER' : 'MEMBERS'}
+                                    </span>
+                                  </div>
+                                  <div style={{ fontSize: '0.72rem', color: '#fff', lineHeight: '1.3' }}>
+                                    <span style={{ color: '#fdff00', fontWeight: 'bold' }}>👑 {item.leaderName || 'Leader'}</span>
+                                    {item.leaderBranch && <span style={{ color: '#888', fontSize: '0.65rem' }}> ({item.leaderBranch})</span>}
+                                  </div>
+                                  {hasMembers ? (
+                                    <div style={{ fontSize: '0.68rem', color: '#aaa', lineHeight: '1.3' }}>
+                                      <span style={{ color: '#00ffcc' }}>+{item.members.length} {item.members.length === 1 ? 'member' : 'members'}:</span> {item.members.map(m => m.name).filter(Boolean).join(', ')}
+                                    </div>
+                                  ) : (
+                                    <div style={{ fontSize: '0.62rem', color: '#666', fontStyle: 'italic' }}>
+                                      • Solo (Leader Only)
+                                    </div>
+                                  )}
+                                </div>
                               </td>
                               <td style={{ textAlign: 'center' }}>
                                 <span style={{
