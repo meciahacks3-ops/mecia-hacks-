@@ -70,6 +70,9 @@ export default function AdminDashboardPage() {
   const [bulkJudgeChoice, setBulkJudgeChoice] = useState('JM001');
   const [isSavingBulk, setIsSavingBulk] = useState(false);
 
+  // Round 3 Selection & Member Calculator State
+  const [selectedRound3TeamIds, setSelectedRound3TeamIds] = useState([]);
+
   // Per-team saving tracking
   const [assigningTeamId, setAssigningTeamId] = useState(null);
   const [savingSlotTeamId, setSavingSlotTeamId] = useState(null);
@@ -632,6 +635,39 @@ export default function AdminDashboardPage() {
     } else {
       setSelectedTeamIds(prev => Array.from(new Set([...prev, ...displayedIds])));
     }
+  };
+
+  // Round 3 Leaderboard Selection & Calculator Handlers
+  const toggleSelectRound3Team = (teamId) => {
+    setSelectedRound3TeamIds(prev =>
+      prev.includes(teamId) ? prev.filter(id => id !== teamId) : [...prev, teamId]
+    );
+  };
+
+  const toggleSelectAllRound3Displayed = (displayedList) => {
+    const displayedIds = displayedList.map(t => t.id);
+    const allSelected = displayedIds.length > 0 && displayedIds.every(id => selectedRound3TeamIds.includes(id));
+    if (allSelected) {
+      setSelectedRound3TeamIds(prev => prev.filter(id => !displayedIds.includes(id)));
+    } else {
+      setSelectedRound3TeamIds(prev => Array.from(new Set([...prev, ...displayedIds])));
+    }
+  };
+
+  const selectTopRound3Teams = (sortedList, count) => {
+    const topIds = sortedList.slice(0, count).map(t => t.id);
+    setSelectedRound3TeamIds(topIds);
+  };
+
+  const selectTopRound3PerTrack = (sortedList, countPerTrack) => {
+    const soft = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'software').slice(0, countPerTrack).map(t => t.id);
+    const hyb = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'hybrid').slice(0, countPerTrack).map(t => t.id);
+    const hard = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'hardware').slice(0, countPerTrack).map(t => t.id);
+    setSelectedRound3TeamIds(Array.from(new Set([...soft, ...hyb, ...hard])));
+  };
+
+  const clearRound3Selection = () => {
+    setSelectedRound3TeamIds([]);
   };
 
   // Export Judges Panels & Teams Master Excel (.xlsx)
@@ -2396,6 +2432,98 @@ export default function AdminDashboardPage() {
 
           const totalDisplayedParticipants = displayedLeaderboard.reduce((sum, item) => sum + (item.totalTeamSize || (1 + (item.members?.length || 0))), 0);
 
+          // Round 3 Selection & Member Calculator computations
+          const round3SelectedTeams = leaderboardData.filter(t => selectedRound3TeamIds.includes(t.id));
+          const round3TotalTeams = round3SelectedTeams.length;
+          const round3TotalMembers = round3SelectedTeams.reduce((sum, t) => sum + (t.totalTeamSize || (1 + (t.members?.length || 0))), 0);
+          const round3TotalLeaders = round3SelectedTeams.length;
+          const round3TotalRegularMembers = round3SelectedTeams.reduce((sum, t) => sum + (t.members?.length || 0), 0);
+          const round3SoftwareTeams = round3SelectedTeams.filter(t => (t.projectType || '').toLowerCase() === 'software');
+          const round3SoftwareMembers = round3SoftwareTeams.reduce((sum, t) => sum + (t.totalTeamSize || (1 + (t.members?.length || 0))), 0);
+          const round3HybridTeams = round3SelectedTeams.filter(t => (t.projectType || '').toLowerCase() === 'hybrid');
+          const round3HybridMembers = round3HybridTeams.reduce((sum, t) => sum + (t.totalTeamSize || (1 + (t.members?.length || 0))), 0);
+          const round3HardwareTeams = round3SelectedTeams.filter(t => (t.projectType || '').toLowerCase() === 'hardware');
+          const round3HardwareMembers = round3HardwareTeams.reduce((sum, t) => sum + (t.totalTeamSize || (1 + (t.members?.length || 0))), 0);
+          const round3AvgTeamSize = round3TotalTeams > 0 ? (round3TotalMembers / round3TotalTeams).toFixed(1) : 0;
+
+          const isAllDisplayedSelectedRound3 = displayedLeaderboard.length > 0 && displayedLeaderboard.every(item => selectedRound3TeamIds.includes(item.id));
+
+          const handleCopyRound3Roster = () => {
+            if (round3SelectedTeams.length === 0) return;
+            const lines = [
+              `=== MECIA HACKS 3.0 — ROUND 3 FINALISTS ROSTER ===`,
+              `Total Qualified Teams: ${round3TotalTeams}`,
+              `Total Participants (Incl. Leaders): ${round3TotalMembers}`,
+              `Leaders: ${round3TotalLeaders} | Regular Members: ${round3TotalRegularMembers}`,
+              `Track Breakdown: Software (${round3SoftwareTeams.length} teams, ${round3SoftwareMembers} members), Hybrid (${round3HybridTeams.length} teams, ${round3HybridMembers} members), Hardware (${round3HardwareTeams.length} teams, ${round3HardwareMembers} members)`,
+              ``,
+              `--- QUALIFIED TEAMS LIST ---`
+            ];
+
+            round3SelectedTeams.forEach((t, i) => {
+              const totalSize = t.totalTeamSize || (1 + (t.members?.length || 0));
+              const membersList = t.members && t.members.length > 0
+                ? t.members.map(m => `${m.name} (${m.idNo || 'N/A'})`).join(', ')
+                : 'None (Solo)';
+              lines.push(
+                `${i + 1}. [${t.teamIdNo || 'N/A'}] ${t.teamName} | Score: ${t.score}/50 | Track: ${t.projectType} | Total Members: ${totalSize}`
+              );
+              lines.push(`   👑 Leader: ${t.leaderName} (${t.leaderId || 'N/A'}) Phone: ${t.leaderPhone || 'N/A'}`);
+              lines.push(`   👥 Members: ${membersList}`);
+              lines.push(`   💡 Project: ${t.projectTitle || 'N/A'}`);
+              lines.push(``);
+            });
+
+            navigator.clipboard.writeText(lines.join('\n'));
+            alert(`📋 Copied Round 3 Finalists Roster (${round3TotalTeams} teams, ${round3TotalMembers} total participants) to clipboard!`);
+          };
+
+          const handleExportRound3Csv = () => {
+            if (round3SelectedTeams.length === 0) return;
+            const csvRows = [
+              ['"Round 3 Qualifier Rank"', '"Team ID"', '"Team Name"', '"Project Title"', '"Track"', '"Score (50)"', '"Total Team Size (Incl. Leader)"', '"Leader Name"', '"Leader ID"', '"Leader Phone"', '"Leader Email"', '"Leader Branch"', '"Member 1 Name"', '"Member 1 ID"', '"Member 1 Phone"', '"Member 2 Name"', '"Member 2 ID"', '"Member 2 Phone"', '"Member 3 Name"', '"Member 3 ID"', '"Member 3 Phone"']
+            ];
+
+            round3SelectedTeams.forEach((t, i) => {
+              const totalSize = t.totalTeamSize || (1 + (t.members?.length || 0));
+              const m1 = t.members && t.members[0] ? t.members[0] : null;
+              const m2 = t.members && t.members[1] ? t.members[1] : null;
+              const m3 = t.members && t.members[2] ? t.members[2] : null;
+
+              csvRows.push([
+                `"#${i + 1}"`,
+                `"${t.teamIdNo || 'N/A'}"`,
+                `"${(t.teamName || '').replace(/"/g, '""')}"`,
+                `"${(t.projectTitle || '').replace(/"/g, '""')}"`,
+                `"${t.projectType || 'Hardware'}"`,
+                `"${t.score || 0}"`,
+                totalSize,
+                `"${(t.leaderName || '').replace(/"/g, '""')}"`,
+                `"${t.leaderId || ''}"`,
+                `"${t.leaderPhone || ''}"`,
+                `"${t.leaderEmail || ''}"`,
+                `"${t.leaderBranch || ''}"`,
+                `"${m1 ? (m1.name || '').replace(/"/g, '""') : ''}"`,
+                `"${m1 ? m1.idNo || '' : ''}"`,
+                `"${m1 ? m1.phone || '' : ''}"`,
+                `"${m2 ? (m2.name || '').replace(/"/g, '""') : ''}"`,
+                `"${m2 ? m2.idNo || '' : ''}"`,
+                `"${m2 ? m2.phone || '' : ''}"`,
+                `"${m3 ? (m3.name || '').replace(/"/g, '""') : ''}"`,
+                `"${m3 ? m3.idNo || '' : ''}"`,
+                `"${m3 ? m3.phone || '' : ''}"`
+              ]);
+            });
+
+            const csvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(csvRows.map(e => e.join(",")).join("\n"));
+            const link = document.createElement("a");
+            link.setAttribute("href", csvContent);
+            link.setAttribute("download", `Round_3_Finalists_Members_Report_${new Date().toISOString().slice(0,10)}.csv`);
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+          };
+
           return (
             <div className="admin-tab-content active">
               <div className="form-section">
@@ -2406,6 +2534,344 @@ export default function AdminDashboardPage() {
                   <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.58rem', padding: '6px 12px' }}>
                     🔴 LIVE REAL-TIME SYNC (3S POLL)
                   </span>
+                </div>
+
+                {/* ROUND 3 MEMBER CALCULATOR & FINALISTS HUB */}
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(0, 40, 60, 0.7) 0%, rgba(10, 20, 40, 0.85) 100%)',
+                  border: '2px solid var(--neon-cyan, #00ffcc)',
+                  borderRadius: '10px',
+                  padding: '16px 20px',
+                  marginBottom: '20px',
+                  boxShadow: '0 0 20px rgba(0, 255, 204, 0.25)'
+                }}>
+                  {/* Calculator Top Bar */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '14px', borderBottom: '1px solid rgba(0, 255, 204, 0.25)', paddingBottom: '12px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '1.3rem' }}>🧮</span>
+                      <div>
+                        <h4 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.75rem', color: '#00ffcc', letterSpacing: '1px' }}>
+                          ROUND 3 MEMBER CALCULATOR & FINALISTS SELECTOR
+                        </h4>
+                        <div style={{ fontSize: '0.72rem', color: '#ccc', marginTop: '4px' }}>
+                          Select teams below to compute total members (leaders + members) & track breakdown for Round 3 qualifiers.
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Live Status Pill */}
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '8px',
+                      background: round3TotalTeams > 0 ? 'rgba(253, 255, 0, 0.15)' : 'rgba(255, 255, 255, 0.05)',
+                      border: `1.5px solid ${round3TotalTeams > 0 ? '#fdff00' : '#555'}`,
+                      color: round3TotalTeams > 0 ? '#fdff00' : '#888',
+                      padding: '6px 14px',
+                      borderRadius: '6px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.62rem',
+                      fontWeight: 'bold',
+                      boxShadow: round3TotalTeams > 0 ? '0 0 12px rgba(253, 255, 0, 0.3)' : 'none'
+                    }}>
+                      <span>🎯 {round3TotalTeams} TEAMS CHOSEN</span>
+                      <span>•</span>
+                      <span>👥 {round3TotalMembers} TOTAL MEMBERS</span>
+                    </div>
+                  </div>
+
+                  {/* Quick Preset Buttons & Selectors */}
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                    <span style={{ fontSize: '0.6rem', color: '#888', fontFamily: 'Press Start 2P, monospace', marginRight: '4px' }}>
+                      ⚡ QUICK PRESETS:
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => selectTopRound3Teams(leaderboardData, 5)}
+                      style={{
+                        background: 'rgba(253, 255, 0, 0.15)',
+                        color: '#fdff00',
+                        border: '1px solid #fdff00',
+                        borderRadius: '5px',
+                        padding: '6px 10px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      TOP 5 (RANK 1-5)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectTopRound3Teams(leaderboardData, 10)}
+                      style={{
+                        background: 'rgba(0, 255, 204, 0.15)',
+                        color: '#00ffcc',
+                        border: '1px solid #00ffcc',
+                        borderRadius: '5px',
+                        padding: '6px 10px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      TOP 10 (RANK 1-10)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectTopRound3Teams(leaderboardData, 15)}
+                      style={{
+                        background: 'rgba(255, 102, 204, 0.15)',
+                        color: '#ff66cc',
+                        border: '1px solid #ff66cc',
+                        borderRadius: '5px',
+                        padding: '6px 10px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      TOP 15 (RANK 1-15)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectTopRound3PerTrack(leaderboardData, 3)}
+                      style={{
+                        background: 'rgba(255, 184, 82, 0.15)',
+                        color: '#ffb852',
+                        border: '1px solid #ffb852',
+                        borderRadius: '5px',
+                        padding: '6px 10px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⚡ TOP 3 PER TRACK (9)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => selectTopRound3PerTrack(leaderboardData, 5)}
+                      style={{
+                        background: 'rgba(0, 255, 204, 0.15)',
+                        color: '#00ffcc',
+                        border: '1px solid #00ffcc',
+                        borderRadius: '5px',
+                        padding: '6px 10px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ⚡ TOP 5 PER TRACK (15)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => toggleSelectAllRound3Displayed(displayedLeaderboard)}
+                      style={{
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        color: '#fff',
+                        border: '1px solid #666',
+                        borderRadius: '5px',
+                        padding: '6px 10px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ☑️ SELECT ALL DISPLAYED ({displayedLeaderboard.length})
+                    </button>
+                    {selectedRound3TeamIds.length > 0 && (
+                      <button
+                        type="button"
+                        onClick={clearRound3Selection}
+                        style={{
+                          background: 'rgba(255, 0, 85, 0.2)',
+                          color: '#ff6699',
+                          border: '1px solid #ff0055',
+                          borderRadius: '5px',
+                          padding: '6px 10px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.55rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✕ CLEAR ({selectedRound3TeamIds.length})
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Real-time Calculation Metric Cards */}
+                  <div style={{
+                    display: 'grid',
+                    gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                    gap: '12px',
+                    marginBottom: '16px'
+                  }}>
+                    {/* Card 1: Total Participants */}
+                    <div style={{
+                      background: 'rgba(0, 255, 204, 0.08)',
+                      border: '1.5px solid #00ffcc',
+                      borderRadius: '8px',
+                      padding: '12px 14px',
+                      boxShadow: '0 0 10px rgba(0, 255, 204, 0.15)'
+                    }}>
+                      <div style={{ fontSize: '0.58rem', fontFamily: 'Press Start 2P, monospace', color: '#00ffcc', marginBottom: '6px' }}>
+                        👥 TOTAL MEMBERS
+                      </div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#fff', fontFamily: 'Press Start 2P, monospace' }}>
+                        {round3TotalMembers}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '4px' }}>
+                        <span style={{ color: '#fdff00', fontWeight: 'bold' }}>👑 {round3TotalLeaders}</span> Leaders + <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>🤝 {round3TotalRegularMembers}</span> Members
+                      </div>
+                    </div>
+
+                    {/* Card 2: Total Qualified Teams */}
+                    <div style={{
+                      background: 'rgba(253, 255, 0, 0.08)',
+                      border: '1.5px solid #fdff00',
+                      borderRadius: '8px',
+                      padding: '12px 14px',
+                      boxShadow: '0 0 10px rgba(253, 255, 0, 0.15)'
+                    }}>
+                      <div style={{ fontSize: '0.58rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00', marginBottom: '6px' }}>
+                        🏆 CHOSEN TEAMS
+                      </div>
+                      <div style={{ fontSize: '1.6rem', fontWeight: 'bold', color: '#fff', fontFamily: 'Press Start 2P, monospace' }}>
+                        {round3TotalTeams}
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '4px' }}>
+                        Avg size: <strong style={{ color: '#fff' }}>{round3AvgTeamSize}</strong> members/team
+                      </div>
+                    </div>
+
+                    {/* Card 3: Software Track */}
+                    <div style={{
+                      background: 'rgba(0, 255, 204, 0.05)',
+                      border: '1px solid rgba(0, 255, 204, 0.4)',
+                      borderRadius: '8px',
+                      padding: '12px 14px'
+                    }}>
+                      <div style={{ fontSize: '0.56rem', fontFamily: 'Press Start 2P, monospace', color: '#00ffcc', marginBottom: '4px' }}>
+                        💻 SOFTWARE
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>
+                        {round3SoftwareMembers} <span style={{ fontSize: '0.65rem', color: '#aaa' }}>members</span>
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '4px' }}>
+                        {round3SoftwareTeams.length} {round3SoftwareTeams.length === 1 ? 'team' : 'teams'} selected
+                      </div>
+                    </div>
+
+                    {/* Card 4: Hybrid Track */}
+                    <div style={{
+                      background: 'rgba(255, 102, 204, 0.05)',
+                      border: '1px solid rgba(255, 102, 204, 0.4)',
+                      borderRadius: '8px',
+                      padding: '12px 14px'
+                    }}>
+                      <div style={{ fontSize: '0.56rem', fontFamily: 'Press Start 2P, monospace', color: '#ff66cc', marginBottom: '4px' }}>
+                        ⚡ HYBRID
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace' }}>
+                        {round3HybridMembers} <span style={{ fontSize: '0.65rem', color: '#aaa' }}>members</span>
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '4px' }}>
+                        {round3HybridTeams.length} {round3HybridTeams.length === 1 ? 'team' : 'teams'} selected
+                      </div>
+                    </div>
+
+                    {/* Card 5: Hardware Track */}
+                    <div style={{
+                      background: 'rgba(255, 184, 82, 0.05)',
+                      border: '1px solid rgba(255, 184, 82, 0.4)',
+                      borderRadius: '8px',
+                      padding: '12px 14px'
+                    }}>
+                      <div style={{ fontSize: '0.56rem', fontFamily: 'Press Start 2P, monospace', color: '#ffb852', marginBottom: '4px' }}>
+                        ⚙️ HARDWARE
+                      </div>
+                      <div style={{ fontSize: '1.1rem', fontWeight: 'bold', color: '#ffb852', fontFamily: 'Press Start 2P, monospace' }}>
+                        {round3HardwareMembers} <span style={{ fontSize: '0.65rem', color: '#aaa' }}>members</span>
+                      </div>
+                      <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '4px' }}>
+                        {round3HardwareTeams.length} {round3HardwareTeams.length === 1 ? 'team' : 'teams'} selected
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Actions Toolbar (when teams > 0) */}
+                  {round3TotalTeams > 0 && (
+                    <div style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      flexWrap: 'wrap',
+                      gap: '10px',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      padding: '10px 14px',
+                      borderRadius: '6px',
+                      border: '1px solid rgba(255, 255, 255, 0.1)'
+                    }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                        <span style={{ fontSize: '0.65rem', color: '#ccc' }}>
+                          Selected Finalists ({round3TotalTeams} teams, {round3TotalMembers} members):
+                        </span>
+                        <div style={{ display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+                          {round3SelectedTeams.slice(0, 8).map(st => (
+                            <span key={st.id} style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid rgba(0, 255, 204, 0.3)', borderRadius: '3px', padding: '2px 5px', fontSize: '0.62rem' }}>
+                              {st.teamIdNo || st.teamName} (👥{st.totalTeamSize || (1 + (st.members?.length || 0))})
+                            </span>
+                          ))}
+                          {round3TotalTeams > 8 && (
+                            <span style={{ color: '#888', fontSize: '0.62rem', alignSelf: 'center' }}>
+                              +{round3TotalTeams - 8} more
+                            </span>
+                          )}
+                        </div>
+                      </div>
+
+                      <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                        <button
+                          type="button"
+                          onClick={handleCopyRound3Roster}
+                          style={{
+                            background: '#fdff00',
+                            color: '#000',
+                            border: 'none',
+                            borderRadius: '5px',
+                            padding: '6px 12px',
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.55rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 0 8px rgba(253, 255, 0, 0.3)'
+                          }}
+                        >
+                          📋 COPY ROSTER ({round3TotalMembers} MEMBERS)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleExportRound3Csv}
+                          style={{
+                            background: '#00ffcc',
+                            color: '#000',
+                            border: 'none',
+                            borderRadius: '5px',
+                            padding: '6px 12px',
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.55rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 0 8px rgba(0, 255, 204, 0.3)'
+                          }}
+                        >
+                          📊 EXPORT ROUND 3 CSV
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Project Type Filter Controls & Summary Stats */}
@@ -2518,6 +2984,15 @@ export default function AdminDashboardPage() {
                   <table className="eval-table admin-table">
                     <thead>
                       <tr>
+                        <th style={{ width: '4%', textAlign: 'center' }}>
+                          <input
+                            type="checkbox"
+                            checked={isAllDisplayedSelectedRound3}
+                            onChange={() => toggleSelectAllRound3Displayed(displayedLeaderboard)}
+                            title="Select/Deselect all displayed teams for Round 3"
+                            style={{ cursor: 'pointer', transform: 'scale(1.2)', accentColor: '#00ffcc' }}
+                          />
+                        </th>
                         <th style={{ width: '5%', textAlign: 'center' }}>Rank</th>
                         <th style={{ width: '7%', textAlign: 'center' }}>Team ID</th>
                         <th style={{ width: '13%' }}>Team Name</th>
@@ -2537,7 +3012,7 @@ export default function AdminDashboardPage() {
                     <tbody>
                       {displayedLeaderboard.length === 0 ? (
                         <tr>
-                          <td colSpan="14" style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
+                          <td colSpan="15" style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
                             No evaluations found matching the selected filter or search query.
                           </td>
                         </tr>
@@ -2565,9 +3040,24 @@ export default function AdminDashboardPage() {
                           const typeInfo = getProjectTypeInfo(item.projectType);
                           const totalMembersCount = item.totalTeamSize || (1 + (item.members?.length || 0));
                           const hasMembers = item.members && item.members.length > 0;
+                          const isRound3Selected = selectedRound3TeamIds.includes(item.id);
+
+                          if (isRound3Selected) {
+                            rowBg = 'rgba(0, 255, 204, 0.14)';
+                          }
 
                           return (
                             <tr key={item.id || item.teamName} style={{ background: rowBg }}>
+                              {/* Round 3 Selection Checkbox */}
+                              <td style={{ textAlign: 'center' }}>
+                                <input
+                                  type="checkbox"
+                                  checked={isRound3Selected}
+                                  onChange={() => toggleSelectRound3Team(item.id)}
+                                  title={`Select ${item.teamName} for Round 3`}
+                                  style={{ cursor: 'pointer', transform: 'scale(1.25)', accentColor: '#00ffcc' }}
+                                />
+                              </td>
                               <td style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '0.85rem', color: index === 0 && item.isScored ? '#fdff00' : index === 1 && item.isScored ? '#e0e0e0' : index === 2 && item.isScored ? '#cd7f32' : '#fff' }}>
                                 {rankBadge}
                               </td>
@@ -2589,6 +3079,21 @@ export default function AdminDashboardPage() {
                               <td className="criterion-name">
                                 <span style={{ fontWeight: 'bold', color: '#fff' }}>{item.teamName}</span>
                                 {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
+                                {isRound3Selected && (
+                                  <span style={{
+                                    background: '#00ffcc',
+                                    color: '#000',
+                                    borderRadius: '3px',
+                                    padding: '2px 5px',
+                                    fontSize: '0.52rem',
+                                    fontFamily: 'Press Start 2P, monospace',
+                                    fontWeight: 'bold',
+                                    marginLeft: '6px',
+                                    boxShadow: '0 0 6px rgba(0, 255, 204, 0.4)'
+                                  }}>
+                                    ⚡ R3
+                                  </span>
+                                )}
                                 {item.projectTitle && (
                                   <div style={{ fontSize: '0.72rem', color: '#aaa', marginTop: '2px', fontWeight: 'normal' }}>
                                     {item.projectTitle}
