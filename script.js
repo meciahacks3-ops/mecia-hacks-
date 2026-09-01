@@ -918,17 +918,37 @@ async function renderAdminTables() {
     try {
       const { data, error } = await supabaseClient.from('evaluations').select('*');
       if (data && !error && data.length > 0) {
-        evaluations = data.map(d => ({
-          teamName: d.team_name,
-          judgeEmail: d.judge_email,
-          c1: d.c1_innovation,
-          c2: d.c2_execution,
-          c3: d.c3_feasibility,
-          c4: d.c4_presentation,
-          totalScore: d.total_score,
-          remarks: d.remarks,
-          timestamp: new Date(d.updated_at || Date.now()).toLocaleString()
-        }));
+        evaluations = data.map(d => {
+          let c5Val = 0;
+          let cleanRemarks = d.remarks || '';
+          if (cleanRemarks) {
+            const c5Match = cleanRemarks.match(/\[C5(?:\s+Implementation)?:\s*(\d+)(?:\/10)?\]/i);
+            if (c5Match) {
+              c5Val = parseInt(c5Match[1], 10);
+              cleanRemarks = cleanRemarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim();
+            }
+          }
+          const c1Val = Number(d.c1_innovation ?? d.c1) || 0;
+          const c2Val = Number(d.c2_execution ?? d.c2) || 0;
+          const c3Val = Number(d.c3_feasibility ?? d.c3) || 0;
+          const c4Val = Number(d.c4_presentation ?? d.c4) || 0;
+          if (c5Val === 0 && d.total_score !== undefined && d.total_score !== null) {
+            const diff = Number(d.total_score) - (c1Val + c2Val + c3Val + c4Val);
+            if (diff >= 0 && diff <= 10) c5Val = diff;
+          }
+          return {
+            teamName: d.team_name,
+            judgeEmail: d.judge_email,
+            c1: c1Val,
+            c2: c2Val,
+            c3: c3Val,
+            c4: c4Val,
+            c5: c5Val,
+            totalScore: d.total_score,
+            remarks: cleanRemarks,
+            timestamp: new Date(d.updated_at || Date.now()).toLocaleString()
+          };
+        });
       }
     } catch (e) {
       console.warn("Supabase fetch evaluations warning:", e);

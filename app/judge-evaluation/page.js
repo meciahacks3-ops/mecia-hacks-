@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
+import { parseEvaluationRecord } from '@/lib/teamUtils';
 
 function JudgeEvaluationContent() {
   const router = useRouter();
@@ -89,20 +90,15 @@ function JudgeEvaluationContent() {
         .maybeSingle();
 
       if (data && !error) {
-        setC1(data.c1_innovation ?? 0);
-        setC2(data.c2_execution ?? 0);
-        setC3(data.c3_feasibility ?? 0);
-        setC4(data.c4_presentation ?? 0);
-        
-        let rem = data.remarks ?? '';
-        const c5Match = rem.match(/^\[C5 Implementation:\s*(\d+)\/10\]\s*/i);
-        if (c5Match) {
-          setC5(parseInt(c5Match[1]));
-          rem = rem.replace(/^\[C5 Implementation:\s*\d+\/10\]\s*/i, '');
-        } else {
-          setC5(0);
+        const parsed = parseEvaluationRecord(data);
+        if (parsed) {
+          setC1(parsed.c1);
+          setC2(parsed.c2);
+          setC3(parsed.c3);
+          setC4(parsed.c4);
+          setC5(parsed.c5);
+          setRemarks(parsed.remarks);
         }
-        setRemarks(rem);
       }
     } catch (e) {
       console.warn("Supabase fetch marks warning:", e);
@@ -125,17 +121,24 @@ function JudgeEvaluationContent() {
         .eq('judge_email', judgeEmail)
         .maybeSingle();
 
+      const numC1 = parseInt(c1) || 0;
+      const numC2 = parseInt(c2) || 0;
+      const numC3 = parseInt(c3) || 0;
+      const numC4 = parseInt(c4) || 0;
       const numC5 = parseInt(c5) || 0;
-      const formattedRemarks = numC5 > 0 ? `[C5 Implementation: ${numC5}/10] ${remarks}` : remarks;
-      const totalNum = totalScore === 'INVALID' ? 0 : Number(totalScore);
+
+      const cleanRemarks = remarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim();
+      const formattedRemarks = `[C5 Implementation: ${numC5}/10] ${cleanRemarks}`.trim();
+      const calculatedTotal = numC1 + numC2 + numC3 + numC4 + numC5;
+      const totalNum = totalScore === 'INVALID' ? 0 : calculatedTotal;
 
       const evalPayload = {
         team_name: teamName,
         judge_email: judgeEmail,
-        c1_innovation: parseInt(c1) || 0,
-        c2_execution: parseInt(c2) || 0,
-        c3_feasibility: parseInt(c3) || 0,
-        c4_presentation: parseInt(c4) || 0,
+        c1_innovation: numC1,
+        c2_execution: numC2,
+        c3_feasibility: numC3,
+        c4_presentation: numC4,
         total_score: totalNum,
         remarks: formattedRemarks,
         updated_at: new Date()

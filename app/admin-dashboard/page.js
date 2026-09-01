@@ -25,9 +25,12 @@ import {
   printAttendanceSheet,
   exportAttendanceCSV,
   extractAllStudentsRoster,
-  ROUND_2_PANEL_IDS
+  ROUND_2_PANEL_IDS,
+  exportProjectTracksWorkbook,
+  exportSingleTrackExcel,
+  exportAllTracksZip
 } from '@/lib/excelExport';
-import { parseProjectTypeFromTeam, getProjectTypeInfo } from '@/lib/teamUtils';
+import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord } from '@/lib/teamUtils';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -88,6 +91,10 @@ export default function AdminDashboardPage() {
   const [attendancePanelFilter, setAttendancePanelFilter] = useState('all');
   const [attendanceSlotFilter, setAttendanceSlotFilter] = useState('all');
   const [attendanceSearchQuery, setAttendanceSearchQuery] = useState('');
+
+  // Project Tracks Modal State
+  const [showTracksModal, setShowTracksModal] = useState(false);
+  const [isExportingTracksZip, setIsExportingTracksZip] = useState(false);
 
   const fetchAllowedUsers = async () => {
     try {
@@ -199,17 +206,7 @@ export default function AdminDashboardPage() {
       // 2. Fetch Evaluations
       const { data: supaEvals } = await supabase.from('evaluations').select('*');
       if (supaEvals && supaEvals.length > 0) {
-        const formattedEvals = supaEvals.map(se => ({
-          teamName: se.team_name,
-          judgeEmail: se.judge_email,
-          c1: se.c1_innovation ?? 0,
-          c2: se.c2_execution ?? 0,
-          c3: se.c3_feasibility ?? 0,
-          c4: se.c4_presentation ?? 0,
-          c5: se.c5_details ?? 0,
-          totalScore: se.total_score,
-          remarks: se.remarks
-        }));
+        const formattedEvals = supaEvals.map(parseEvaluationRecord).filter(Boolean);
         setEvaluations(formattedEvals);
       } else {
         setEvaluations([]);
@@ -801,7 +798,7 @@ export default function AdminDashboardPage() {
     ]);
 
     teams.forEach(t => {
-      const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
+      const evalEntry = evaluations.find(e => (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase());
       let status = "PENDING";
       let c1 = "-", c2 = "-", c3 = "-", c4 = "-", c5 = "-", total = "-", remarks = "-";
 
@@ -2332,7 +2329,7 @@ export default function AdminDashboardPage() {
         {/* TAB 3: LIVE EVALUATION LEADERBOARD */}
         {activeTab === 'scores-tab' && (() => {
           const leaderboardData = teams.map(t => {
-            const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
+            const evalEntry = evaluations.find(e => (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase());
             let isScored = false;
             let score = 0;
             let c1 = '-', c2 = '-', c3 = '-', c4 = '-', c5 = '-', remarks = 'Evaluation pending';

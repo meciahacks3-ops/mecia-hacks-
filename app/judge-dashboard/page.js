@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
+import { parseEvaluationRecord } from '@/lib/teamUtils';
 
 export default function JudgeDashboardPage() {
   const router = useRouter();
@@ -64,12 +65,7 @@ export default function JudgeDashboardPage() {
       // 2. Fetch Evaluations from Supabase
       const { data: supaEvals } = await supabase.from('evaluations').select('*');
       if (supaEvals && supaEvals.length > 0) {
-        const formattedEvals = supaEvals.map(se => ({
-          teamName: se.team_name,
-          judgeEmail: se.judge_email,
-          totalScore: se.total_score,
-          remarks: se.remarks
-        }));
+        const formattedEvals = supaEvals.map(parseEvaluationRecord).filter(Boolean);
         setEvaluations(formattedEvals);
       } else {
         setEvaluations([]);
@@ -198,7 +194,7 @@ export default function JudgeDashboardPage() {
               </div>
             ) : (
               assignedTeams.map(t => {
-                const evalEntry = evaluations.find(e => e.teamName.toLowerCase() === t.teamName.toLowerCase());
+                const evalEntry = evaluations.find(e => (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase());
                 const isScored = Boolean(evalEntry);
                 const scoreVal = evalEntry ? evalEntry.totalScore : 0;
                 const slotInfo = getTimeSlotInfo(t.timeSlot);
