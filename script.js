@@ -110,12 +110,77 @@ async function handleStudentLogin(event) {
 }
 
 const VALID_JUDGE_IDS = [
+  'MM001', 'MM002', 'MM003', 'MM004', 'MM005',
+  'MM006', 'MM007', 'MM008', 'MM009', 'MM010',
   'JM001', 'JM002', 'JM003', 'JM004', 'JM005',
   'JM006', 'JM007', 'JM008', 'JM009', 'JM010', 'JM011'
 ];
 const COMMON_JUDGE_PASS = 'Judge@Mecia2026!';
 
 const JUDGE_PROFILES = {
+  // ⭐ FINAL ROUND JUDGES (MM001 to MM010)
+  'MM001': {
+    id: 'MM001',
+    group: 'Final Round Panel 1',
+    names: ['Dr. P V RAMANA', 'Dr. Chetan O Yadav', 'Prof. Sanjay Natvarlal Patel', 'Dr. K P Mredula'],
+    location: 'CE Dept. First Floor, F1'
+  },
+  'MM002': {
+    id: 'MM002',
+    group: 'Final Round Panel 2',
+    names: ['Dr. Dipen S Shah', 'Dr. Nilay Narendrakumar Shah', 'Dr Jonita Roman', 'Prof. Priyal R. Patel'],
+    location: 'CE Dept. First Floor, F2'
+  },
+  'MM003': {
+    id: 'MM003',
+    group: 'Final Round Panel 3',
+    names: ['Dr. Neha Soni', 'Prof. Rimi V Gupta', 'Prof. Viral S Patel', 'Dr. Jigar B. Sura'],
+    location: 'CE Dept. First Floor, F3'
+  },
+  'MM004': {
+    id: 'MM004',
+    group: 'Final Round Panel 4',
+    names: ['Prof. Jayna B. Shah', 'Dr. Pratik Shah', 'Prof. Keyur Suthar', 'Dr. Bhavini Pandya'],
+    location: 'CE Dept. First Floor, F4'
+  },
+  'MM005': {
+    id: 'MM005',
+    group: 'Final Round Panel 5',
+    names: ['Dr. Mala H Mehta', 'Prof. Nisha S Velani', 'Prof. Hetal Ranjitsingh Chauhan', 'Dr. C D Kotwal'],
+    location: 'CE Dept. First Floor, F5'
+  },
+  'MM006': {
+    id: 'MM006',
+    group: 'Final Round Panel 6',
+    names: ['Prof. Jigneshkumar Narendrakumar Patel', 'Prof. Rashmin B Prajapati', 'Dr. Shrina Patel', 'Prof. Rakesh Gajjar'],
+    location: 'CE Dept. First Floor, F6'
+  },
+  'MM007': {
+    id: 'MM007',
+    group: 'Final Round Panel 7',
+    names: ['Dr. Falguni N Patel', 'Dr. Minal Patel', 'Dr. Nirali Rathod', 'Dr. Saurabh Patel'],
+    location: 'CE Dept. Second Floor, S2'
+  },
+  'MM008': {
+    id: 'MM008',
+    group: 'Final Round Panel 8',
+    names: ['Dr. Niranjan M. Trivedi', 'Dr. Ajaysinh Devendrasinh Rathod', 'Prof. Nisha V Shah', 'Prof. Amit Patel'],
+    location: 'CE Dept. Second Floor, S1'
+  },
+  'MM009': {
+    id: 'MM009',
+    group: 'Final Round Panel 9',
+    names: ['Prof. Parul V Bakaraniya', 'Dr. Barkha M. Joshi', 'Prof. Arpit Mehta', 'Prof. Nirav Patel'],
+    location: 'CE Dept. Ground Floor, G3'
+  },
+  'MM010': {
+    id: 'MM010',
+    group: 'Final Round Panel 10',
+    names: ['Prof. Keyur N Upadhyay', 'Prof. Amit I Chaudhari', 'Prof. Pradish D Dadhania', 'Prof. Ronak Roy'],
+    location: 'CE Dept. Ground Floor, G1'
+  },
+
+  // ── Round-2 Archive Panels (JM001 to JM011) ──
   'JM001': {
     id: 'JM001',
     group: 'Group 1',
@@ -203,7 +268,9 @@ async function handleJudgeLogin(event) {
   }
 
   const enteredPass = (judgePass || '').trim();
-  const isPassValid = enteredPass === COMMON_JUDGE_PASS || 
+  const isIdPasswordMatch = (enteredPass === `${cleanId}!`) || (enteredPass.toLowerCase() === `${cleanId.toLowerCase()}!`);
+  const isPassValid = isIdPasswordMatch ||
+                      enteredPass === COMMON_JUDGE_PASS || 
                       enteredPass.toLowerCase() === 'judge@mecia2026' || 
                       enteredPass.toLowerCase() === 'meciajudge2026!' || 
                       enteredPass === 'MeciaHacks2026!' ||

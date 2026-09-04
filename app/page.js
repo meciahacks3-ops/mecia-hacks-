@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
+import { FINAL_ROUND_JUDGE_IDS, ROUND_2_JUDGE_IDS } from '@/lib/judgeProfiles';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -26,8 +27,8 @@ export default function LoginPage() {
   const COMMON_JUDGE_PASS = 'Judge@Mecia2026!';
 
   const VALID_JUDGE_IDS = [
-    'JM001', 'JM002', 'JM003', 'JM004', 'JM005',
-    'JM006', 'JM007', 'JM008', 'JM009', 'JM010', 'JM011'
+    ...FINAL_ROUND_JUDGE_IDS, // MM001 to MM010
+    ...ROUND_2_JUDGE_IDS       // JM001 to JM011
   ];
 
   const ALLOWED_ADMIN_EMAILS = {
@@ -196,7 +197,11 @@ export default function LoginPage() {
     }
 
     const enteredPass = judgePass.trim();
-    const isPassValid = enteredPass === COMMON_JUDGE_PASS || 
+    // Support ID with '!' at the end (e.g. MM001! or mm001!) as requested for final round
+    const isIdPasswordMatch = (enteredPass === `${cleanId}!`) || (enteredPass.toLowerCase() === `${cleanId.toLowerCase()}!`);
+
+    const isPassValid = isIdPasswordMatch ||
+                        enteredPass === COMMON_JUDGE_PASS || 
                         enteredPass.toLowerCase() === 'judge@mecia2026' || 
                         enteredPass.toLowerCase() === 'meciajudge2026!' || 
                         enteredPass === 'MeciaHacks2026!' ||
@@ -435,7 +440,7 @@ export default function LoginPage() {
               <input
                 type="text"
                 id="judge-id"
-                placeholder="Enter Judge User ID"
+                placeholder="e.g. MM001 - MM010"
                 required
                 value={judgeId}
                 onChange={(e) => setJudgeId(e.target.value.toUpperCase())}

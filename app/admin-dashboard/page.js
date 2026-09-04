@@ -68,7 +68,7 @@ export default function AdminDashboardPage() {
 
   // Bulk Selection & Assignment State
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
-  const [bulkJudgeChoice, setBulkJudgeChoice] = useState('JM001');
+  const [bulkJudgeChoice, setBulkJudgeChoice] = useState('MM001');
   const [isSavingBulk, setIsSavingBulk] = useState(false);
   const [isUnassigningFinalists, setIsUnassigningFinalists] = useState(false);
 
@@ -1684,9 +1684,16 @@ export default function AdminDashboardPage() {
                         style={{ padding: '6px 10px', fontSize: '0.75rem', width: 'auto' }}
                       >
                         <option value="Unassigned">⚠️ Unassigned</option>
-                        {Object.values(JUDGE_PROFILES).map(p => (
-                          <option key={p.id} value={p.id}>{p.id} ({p.group})</option>
-                        ))}
+                        <optgroup label="⭐ Final Round Judges (MM001 - MM010)">
+                          {Object.values(JUDGE_PROFILES).filter(p => p.id.startsWith('MM')).map(p => (
+                            <option key={p.id} value={p.id}>{p.id} ({p.group})</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="── Round-2 Archive Judges (JM001 - JM011) ──">
+                          {Object.values(JUDGE_PROFILES).filter(p => p.id.startsWith('JM')).map(p => (
+                            <option key={p.id} value={p.id}>{p.id} ({p.group})</option>
+                          ))}
+                        </optgroup>
                       </select>
                       <button
                         type="button"
@@ -1922,8 +1929,15 @@ export default function AdminDashboardPage() {
                                   style={{ padding: '6px 8px', fontSize: '0.75rem' }}
                                 >
                                   <option value="Unassigned">⚠️ Unassigned</option>
-                                  <optgroup label="── Round-2 Judge IDs (JM001 - JM011) ──">
-                                    {judgeProfilesList.map(p => (
+                                  <optgroup label="⭐ Final Round Judges (MM001 - MM010)">
+                                    {judgeProfilesList.filter(p => p.id.startsWith('MM')).map(p => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.id} • {p.group}
+                                      </option>
+                                    ))}
+                                  </optgroup>
+                                  <optgroup label="── Round-2 Archive Judges (JM001 - JM011) ──">
+                                    {judgeProfilesList.filter(p => p.id.startsWith('JM')).map(p => (
                                       <option key={p.id} value={p.id}>
                                         {p.id} • {p.group}
                                       </option>
@@ -3101,6 +3115,7 @@ export default function AdminDashboardPage() {
                       );
 
                     if (!matchesSearch) return null;
+                    if (scopeFilter === 'finalists' && panel.id.startsWith('JM') && assignedList.length === 0) return null;
 
                     return (
                       <div key={panel.id} style={{
