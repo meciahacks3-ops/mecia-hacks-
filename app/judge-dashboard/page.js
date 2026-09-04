@@ -110,6 +110,7 @@ export default function JudgeDashboardPage() {
     ? finalistAssignedTeams
     : assignedTeams;
 
+  const isFinalRoundJudge = (judgeEmail || '').trim().toUpperCase().startsWith('MM');
   const judgeProfile = getJudgeProfile(judgeEmail);
 
   return (
@@ -158,24 +159,26 @@ export default function JudgeDashboardPage() {
             )}
           </div>
 
-          {/* Top Right Corner: View Rubrics & Logout Buttons */}
+          {/* Top Right Corner: View Rubrics (Round 2 only) & Logout Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <button
-              type="button"
-              onClick={() => setShowRubrics(true)}
-              style={{
-                background: 'rgba(0, 255, 204, 0.15)',
-                color: '#00ffcc',
-                border: '1.5px solid #00ffcc',
-                borderRadius: '8px',
-                padding: '10px 14px',
-                fontFamily: 'Press Start 2P, monospace',
-                fontSize: '0.6rem',
-                cursor: 'pointer'
-              }}
-            >
-              📋 VIEW RUBRICS
-            </button>
+            {!isFinalRoundJudge && (
+              <button
+                type="button"
+                onClick={() => setShowRubrics(true)}
+                style={{
+                  background: 'rgba(0, 255, 204, 0.15)',
+                  color: '#00ffcc',
+                  border: '1.5px solid #00ffcc',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.6rem',
+                  cursor: 'pointer'
+                }}
+              >
+                📋 VIEW RUBRICS
+              </button>
+            )}
             <button type="button" className="logout-btn" onClick={handleLogout}>
               🚪 LOG OUT
             </button>
@@ -203,10 +206,12 @@ export default function JudgeDashboardPage() {
               <span style={{ fontSize: '1.6rem' }}>🏆</span>
               <div>
                 <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', color: '#fdff00', letterSpacing: '1px' }}>
-                  STAGE 3: FINAL ROUND EVALUATIONS ACTIVE
+                  {isFinalRoundJudge ? 'STAGE 3: FINAL ROUND FEEDBACK PANEL' : 'STAGE 3: FINAL ROUND EVALUATIONS ACTIVE'}
                 </h3>
                 <p style={{ margin: '4px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
-                  Evaluating the 49 qualified finalist teams. Your panel has <strong style={{ color: '#00ffcc' }}>{finalistAssignedTeams.length} Finalist {finalistAssignedTeams.length === 1 ? 'Team' : 'Teams'}</strong> to evaluate.
+                  {isFinalRoundJudge
+                    ? `Reviewing the 49 qualified finalist teams. Provide feedback for your ${finalistAssignedTeams.length} assigned finalist ${finalistAssignedTeams.length === 1 ? 'team' : 'teams'}.`
+                    : `Evaluating the 49 qualified finalist teams. Your panel has ${finalistAssignedTeams.length} Finalist ${finalistAssignedTeams.length === 1 ? 'Team' : 'Teams'} to evaluate.`}
                 </p>
               </div>
             </div>
@@ -256,20 +261,24 @@ export default function JudgeDashboardPage() {
         <div className="login-header text-left">
           <div className="badge-wrapper">
             <span className="role-badge eval-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
-              STAGE 3: FINAL ROUND EVALUATION PANEL
+              {isFinalRoundJudge ? 'STAGE 3: FINAL ROUND FEEDBACK PANEL' : 'STAGE 3: FINAL ROUND EVALUATION PANEL'}
             </span>
           </div>
-          <h2>ASSIGNED FINAL ROUND TEAMS ({displayedAssignedTeams.length})</h2>
+          <h2>{isFinalRoundJudge ? 'ASSIGNED FINALIST TEAMS FOR FEEDBACK' : 'ASSIGNED FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})</h2>
           <p>
-            {finalistsOnlyFilter
-              ? `Review Final Round qualified submissions, check presentation slots, and assign scores for panel: ${judgeEmail}.`
-              : `Viewing all assigned teams (including Round 2 archive) for panel: ${judgeEmail}.`}
+            {isFinalRoundJudge
+              ? `Provide constructive qualitative feedback and recommendations for assigned finalist teams (Panel: ${judgeEmail.toUpperCase()}). Marks are disabled.`
+              : (finalistsOnlyFilter
+                  ? `Review Final Round qualified submissions and assign scores for panel: ${judgeEmail}.`
+                  : `Viewing all assigned teams (including Round 2 archive) for panel: ${judgeEmail}.`)}
           </p>
         </div>
 
         {/* Assigned Teams List Section */}
         <div className="form-section">
-          <h3 className="section-title"><span className="pacman-bullet"></span> FINAL ROUND TEAMS (CLICK NAME TO EVALUATE)</h3>
+          <h3 className="section-title">
+            <span className="pacman-bullet"></span> {isFinalRoundJudge ? 'FINAL ROUND TEAMS (CLICK TO ADD / VIEW FEEDBACK)' : 'FINAL ROUND TEAMS (CLICK NAME TO EVALUATE)'}
+          </h3>
 
           <div className="teams-list">
             {displayedAssignedTeams.length === 0 ? (
@@ -299,8 +308,16 @@ export default function JudgeDashboardPage() {
               </div>
             ) : (
               displayedAssignedTeams.map(t => {
-                const evalEntry = evaluations.find(e => (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase());
-                const isScored = Boolean(evalEntry);
+                const evalEntry = evaluations.find(e => {
+                  const nameMatch = (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
+                  if (!nameMatch) return false;
+                  if (isFinalRoundJudge) {
+                    return (e.judgeEmail || '').trim().toUpperCase() === (judgeEmail || '').trim().toUpperCase();
+                  }
+                  return true;
+                });
+                const hasFeedback = Boolean(evalEntry && evalEntry.remarks && evalEntry.remarks.trim());
+                const isScored = isFinalRoundJudge ? hasFeedback : Boolean(evalEntry);
                 const scoreVal = evalEntry ? evalEntry.totalScore : 0;
                 const slotInfo = getTimeSlotInfo(t.timeSlot);
 
@@ -312,7 +329,7 @@ export default function JudgeDashboardPage() {
                           <a
                             href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
                             className="team-name-link"
-                            title={`Click to evaluate ${t.teamName}`}
+                            title={`Click to ${isFinalRoundJudge ? 'give feedback for' : 'evaluate'} ${t.teamName}`}
                           >
                             <span className="team-name">{t.teamName}</span>
                           </a>
@@ -348,10 +365,22 @@ export default function JudgeDashboardPage() {
                         </div>
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
-                          {isScored ? (
-                            <span className="status-pill status-completed">SCORED ({scoreVal}/50)</span>
+                          {isFinalRoundJudge ? (
+                            hasFeedback ? (
+                              <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc' }}>
+                                💬 FEEDBACK SUBMITTED
+                              </span>
+                            ) : (
+                              <span className="status-pill status-pending" style={{ background: 'rgba(253, 255, 0, 0.12)', color: '#fdff00', border: '1px solid rgba(253, 255, 0, 0.4)' }}>
+                                ⏳ FEEDBACK PENDING
+                              </span>
+                            )
                           ) : (
-                            <span className="status-pill status-pending">PENDING EVALUATION</span>
+                            isScored ? (
+                              <span className="status-pill status-completed">SCORED ({scoreVal}/50)</span>
+                            ) : (
+                              <span className="status-pill status-pending">PENDING EVALUATION</span>
+                            )
                           )}
 
                           {t.isFinalist && t.finalistInfo?.score && (
@@ -369,36 +398,58 @@ export default function JudgeDashboardPage() {
                           )}
                         </div>
 
-                        <div style={{ marginTop: '8px' }}>
-                          <span style={{
-                            fontFamily: 'Press Start 2P, monospace',
-                            fontSize: '0.62rem',
-                            color: slotInfo.badgeColor,
-                            background: slotInfo.badgeBg,
-                            border: `1.5px solid ${slotInfo.badgeBorder}`,
-                            padding: '4px 10px',
-                            borderRadius: '6px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px'
-                          }}>
-                            {t.timeSlot === 'TBA' ? '⏳ PRESENTATION SLOT: TBA' : `⏰ TIME SLOT: ${t.timeSlot}`}
-                          </span>
-                        </div>
+                        {!isFinalRoundJudge && (
+                          <div style={{ marginTop: '8px' }}>
+                            <span style={{
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.62rem',
+                              color: slotInfo.badgeColor,
+                              background: slotInfo.badgeBg,
+                              border: `1.5px solid ${slotInfo.badgeBorder}`,
+                              padding: '4px 10px',
+                              borderRadius: '6px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px'
+                            }}>
+                              {t.timeSlot === 'TBA' ? '⏳ PRESENTATION SLOT: TBA' : `⏰ TIME SLOT: ${t.timeSlot}`}
+                            </span>
+                          </div>
+                        )}
                       </div>
 
-                      <a
-                        href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
-                        className={`eval-btn ${isScored ? 'locked-btn' : ''}`}
-                        style={isScored ? {
-                          background: 'rgba(255, 77, 77, 0.12)',
-                          color: '#ff8888',
-                          border: '1.5px solid #ff4d4d'
-                        } : {}}
-                        title={isScored ? 'Marks evaluated and finalized (View only)' : `Evaluate ${t.teamName}`}
-                      >
-                        {isScored ? '🔒 VIEW MARKS (LOCKED)' : '⭐ EVALUATE TEAM'}
-                      </a>
+                      {isFinalRoundJudge ? (
+                        <a
+                          href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
+                          className="eval-btn"
+                          style={hasFeedback ? {
+                            background: 'rgba(0, 255, 204, 0.15)',
+                            color: '#00ffcc',
+                            border: '1.5px solid #00ffcc'
+                          } : {
+                            background: '#00ffcc',
+                            color: '#000',
+                            border: 'none',
+                            fontWeight: 'bold'
+                          }}
+                          title={hasFeedback ? `View or edit feedback for ${t.teamName}` : `Add feedback for ${t.teamName}`}
+                        >
+                          {hasFeedback ? '💬 VIEW / EDIT FEEDBACK' : '✍️ ADD FEEDBACK'}
+                        </a>
+                      ) : (
+                        <a
+                          href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
+                          className={`eval-btn ${isScored ? 'locked-btn' : ''}`}
+                          style={isScored ? {
+                            background: 'rgba(255, 77, 77, 0.12)',
+                            color: '#ff8888',
+                            border: '1.5px solid #ff4d4d'
+                          } : {}}
+                          title={isScored ? 'Marks evaluated and finalized (View only)' : `Evaluate ${t.teamName}`}
+                        >
+                          {isScored ? '🔒 VIEW MARKS (LOCKED)' : '⭐ EVALUATE TEAM'}
+                        </a>
+                      )}
                     </div>
 
                     <div className="team-card-body">
@@ -414,6 +465,25 @@ export default function JudgeDashboardPage() {
                         <span className="info-label">🎯 Project Description:</span>
                         <span className="info-val" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{t.projectDesc}</span>
                       </div>
+
+                      {isFinalRoundJudge && hasFeedback && (
+                        <div style={{
+                          marginTop: '12px',
+                          padding: '12px 14px',
+                          background: 'rgba(0, 255, 204, 0.08)',
+                          border: '1px solid rgba(0, 255, 204, 0.35)',
+                          borderRadius: '6px'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
+                            <span style={{ fontSize: '0.74rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                              💬 SUBMITTED FEEDBACK:
+                            </span>
+                          </div>
+                          <p style={{ color: '#ffffff', fontSize: '0.86rem', whiteSpace: 'pre-wrap', lineHeight: '1.5', margin: 0 }}>
+                            {evalEntry.remarks}
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );

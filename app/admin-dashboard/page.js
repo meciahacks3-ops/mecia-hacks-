@@ -3255,59 +3255,75 @@ export default function AdminDashboardPage() {
                                   <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
                                 </tr>
                               </thead>
-                              <tbody>
-                                {assignedList.map((t, idx) => {
-                                  const evalEntry = evaluations.find(e => (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase());
-                                  const isScored = !!evalEntry;
-                                  const score = evalEntry?.totalScore ?? '-';
+                                <tbody>
+                                 {assignedList.map((t, idx) => {
+                                   const isPanelMM = (panel.id || '').toUpperCase().startsWith('MM');
+                                   const evalEntry = evaluations.find(e => {
+                                     const nameMatch = (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase();
+                                     if (!nameMatch) return false;
+                                     if (isPanelMM) {
+                                       return (e.judgeEmail || '').toUpperCase() === (panel.id || '').toUpperCase();
+                                     }
+                                     return true;
+                                   });
+                                   const hasFeedback = Boolean(evalEntry && evalEntry.remarks && evalEntry.remarks.trim());
+                                   const isScored = isPanelMM ? hasFeedback : !!evalEntry;
+                                   const score = evalEntry?.totalScore ?? '-';
 
-                                  return (
-                                    <tr key={t.id || idx}>
-                                      <td style={{ textAlign: 'center' }}>
-                                        <span style={{
-                                          display: 'inline-block',
-                                          background: 'rgba(253, 255, 0, 0.15)',
-                                          color: '#fdff00',
-                                          border: '1px solid #fdff00',
-                                          borderRadius: '4px',
-                                          padding: '2px 6px',
-                                          fontFamily: 'Press Start 2P, monospace',
-                                          fontSize: '0.62rem',
-                                          fontWeight: 'bold'
-                                        }}>
-                                          {t.teamIdNo && t.teamIdNo !== 'N/A' ? t.teamIdNo : 'N/A'}
-                                        </span>
-                                      </td>
-                                      <td className="criterion-name">
-                                        <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{t.teamName}</strong>
-                                      </td>
+                                   return (
+                                     <tr key={t.id || idx}>
+                                       <td style={{ textAlign: 'center' }}>
+                                         <span style={{
+                                           display: 'inline-block',
+                                           background: 'rgba(253, 255, 0, 0.15)',
+                                           color: '#fdff00',
+                                           border: '1px solid #fdff00',
+                                           borderRadius: '4px',
+                                           padding: '2px 6px',
+                                           fontFamily: 'Press Start 2P, monospace',
+                                           fontSize: '0.62rem',
+                                           fontWeight: 'bold'
+                                         }}>
+                                           {t.teamIdNo && t.teamIdNo !== 'N/A' ? t.teamIdNo : 'N/A'}
+                                         </span>
+                                       </td>
+                                       <td className="criterion-name">
+                                         <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{t.teamName}</strong>
+                                         {isPanelMM && hasFeedback && (
+                                           <div style={{ fontSize: '0.74rem', color: '#00ffcc', marginTop: '4px', fontStyle: 'italic', maxWidth: '380px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                             &ldquo;{evalEntry.remarks}&rdquo;
+                                           </div>
+                                         )}
+                                       </td>
 
-                                      <td>
-                                        <div style={{ fontSize: '0.8rem', color: '#fdff00' }}>
-                                          <strong>{t.leaderName}</strong> <span style={{ color: '#aaa', fontSize: '0.72rem' }}>({t.leaderId}){t.leaderBranch ? ` [${t.leaderBranch}]` : ''}</span>
-                                        </div>
-                                        <div style={{ fontSize: '0.72rem', color: '#888' }}>
-                                          📞 {t.leaderPhone || 'N/A'} • ✉️ {t.leaderEmail}
-                                        </div>
-                                      </td>
-                                      <td>
-                                        <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: '500' }}>{t.projectTitle || 'Untitled Project'}</div>
-                                        <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{t.techStack || '-'}</div>
-                                      </td>
-                                      <td style={{ textAlign: 'center', fontWeight: 'bold', fontSize: '0.95rem', color: isScored ? '#fdff00' : 'var(--text-muted)' }}>
-                                        {isScored ? `${score} / 50` : '-'}
-                                      </td>
-                                      <td style={{ textAlign: 'center' }}>
-                                        {isScored ? (
-                                          <span className="status-pill status-completed" style={{ fontSize: '0.55rem', padding: '3px 6px' }}>SCORED</span>
-                                        ) : (
-                                          <span className="status-pill status-pending" style={{ fontSize: '0.55rem', padding: '3px 6px' }}>PENDING</span>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
+                                       <td>
+                                         <div style={{ fontSize: '0.8rem', color: '#fdff00' }}>
+                                           <strong>{t.leaderName}</strong> <span style={{ color: '#aaa', fontSize: '0.72rem' }}>({t.leaderId}){t.leaderBranch ? ` [${t.leaderBranch}]` : ''}</span>
+                                         </div>
+                                         <div style={{ fontSize: '0.72rem', color: '#888' }}>
+                                           📞 {t.leaderPhone || 'N/A'} • ✉️ {t.leaderEmail}
+                                         </div>
+                                       </td>
+                                       <td>
+                                         <div style={{ color: '#fff', fontSize: '0.82rem', fontWeight: '500' }}>{t.projectTitle || 'Untitled Project'}</div>
+                                         <div style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>{t.techStack || '-'}</div>
+                                       </td>
+                                       <td style={{ textAlign: 'center', fontWeight: 'bold', fontSize: isPanelMM ? '0.72rem' : '0.95rem', color: isScored ? (isPanelMM ? '#00ffcc' : '#fdff00') : 'var(--text-muted)' }}>
+                                         {isPanelMM ? (hasFeedback ? '💬 FEEDBACK' : '-') : (isScored ? `${score} / 50` : '-')}
+                                       </td>
+                                       <td style={{ textAlign: 'center' }}>
+                                         {isScored ? (
+                                           <span className="status-pill status-completed" style={{ fontSize: '0.55rem', padding: '3px 6px', ...(isPanelMM ? { background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc' } : {}) }}>
+                                             {isPanelMM ? 'SUBMITTED' : 'SCORED'}
+                                           </span>
+                                         ) : (
+                                           <span className="status-pill status-pending" style={{ fontSize: '0.55rem', padding: '3px 6px' }}>PENDING</span>
+                                         )}
+                                       </td>
+                                     </tr>
+                                   );
+                                 })}
+                               </tbody>
                             </table>
                           </div>
                         )}
@@ -3846,13 +3862,22 @@ export default function AdminDashboardPage() {
                                   <th style={{ width: '22%' }}>Team Name</th>
                                   <th style={{ width: '32%' }}>Leader & Members</th>
                                   <th style={{ width: '26%' }}>Project & Tech</th>
-                                  <th style={{ width: '12%', textAlign: 'center' }}>Score (50)</th>
+                                  <th style={{ width: '12%', textAlign: 'center' }}>{(panel.id || '').toUpperCase().startsWith('MM') ? 'Feedback' : 'Score (50)'}</th>
                                 </tr>
                               </thead>
                               <tbody>
                                 {assignedList.map((t, tIdx) => {
-                                  const evalEntry = evaluations.find(e => (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase());
-                                  const isScored = !!evalEntry;
+                                  const isPanelMM = (panel.id || '').toUpperCase().startsWith('MM');
+                                  const evalEntry = evaluations.find(e => {
+                                    const nameMatch = (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase();
+                                    if (!nameMatch) return false;
+                                    if (isPanelMM) {
+                                      return (e.judgeEmail || '').toUpperCase() === (panel.id || '').toUpperCase();
+                                    }
+                                    return true;
+                                  });
+                                  const hasFeedback = Boolean(evalEntry && evalEntry.remarks && evalEntry.remarks.trim());
+                                  const isScored = isPanelMM ? hasFeedback : !!evalEntry;
                                   const score = evalEntry?.totalScore ?? '-';
 
                                   return (
@@ -3874,6 +3899,11 @@ export default function AdminDashboardPage() {
                                       </td>
                                       <td>
                                         <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{t.teamName}</strong>
+                                        {isPanelMM && hasFeedback && (
+                                          <div style={{ fontSize: '0.72rem', color: '#00ffcc', marginTop: '4px', fontStyle: 'italic', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                            &ldquo;{evalEntry.remarks}&rdquo;
+                                          </div>
+                                        )}
                                       </td>
                                       <td>
                                         <div style={{ fontSize: '0.78rem' }}>
@@ -3903,16 +3933,16 @@ export default function AdminDashboardPage() {
                                         {isScored ? (
                                           <span style={{
                                             display: 'inline-block',
-                                            background: 'rgba(0, 255, 102, 0.15)',
-                                            color: '#00ff66',
-                                            border: '1px solid #00ff66',
+                                            background: isPanelMM ? 'rgba(0, 255, 204, 0.15)' : 'rgba(0, 255, 102, 0.15)',
+                                            color: isPanelMM ? '#00ffcc' : '#00ff66',
+                                            border: isPanelMM ? '1px solid #00ffcc' : '1px solid #00ff66',
                                             borderRadius: '4px',
                                             padding: '2px 8px',
                                             fontFamily: 'Press Start 2P, monospace',
-                                            fontSize: '0.65rem',
+                                            fontSize: isPanelMM ? '0.55rem' : '0.65rem',
                                             fontWeight: 'bold'
                                           }}>
-                                            {score}/50
+                                            {isPanelMM ? 'GIVEN' : `${score}/50`}
                                           </span>
                                         ) : (
                                           <span style={{
