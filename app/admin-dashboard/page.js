@@ -56,10 +56,6 @@ export default function AdminDashboardPage() {
 
   // Filters for Tab 1 (Teams & Judges)
   const [teamsFilter, setTeamsFilter] = useState('all'); // 'unassigned', 'assigned', 'all'
-  const [timeSlotFilter, setTimeSlotFilter] = useState('all'); // 'all', 'TBA', '09:30 AM - 11:30 AM', '12:15 PM - 02:15 PM', '02:30 PM - 04:15 PM'
-  
-  // Filter for Schedule Tab
-  const [scheduleViewSlot, setScheduleViewSlot] = useState('all'); // 'all', 'TBA', '09:30 AM - 11:30 AM', '12:15 PM - 02:15 PM', '02:30 PM - 04:15 PM'
 
   // Filter for Leaderboard Tab (Project Type: all, software, hybrid, hardware)
   const [leaderboardTypeFilter, setLeaderboardTypeFilter] = useState('all');
@@ -68,26 +64,19 @@ export default function AdminDashboardPage() {
   const [evaluations, setEvaluations] = useState([]);
 
   const [judgeSelections, setJudgeSelections] = useState({});
-  const [timeSlotSelections, setTimeSlotSelections] = useState({});
   const [customJudgeInputs, setCustomJudgeInputs] = useState({});
-
-  // Auto-Split 4-4-4 State
-  const [isAutoSplitting, setIsAutoSplitting] = useState(false);
-  const [autoSplitProgress, setAutoSplitProgress] = useState('');
-  const [autoSplittingPanelId, setAutoSplittingPanelId] = useState(null);
 
   // Bulk Selection & Assignment State
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
-  const [bulkSlotChoice, setBulkSlotChoice] = useState('09:30 AM - 11:30 AM');
   const [bulkJudgeChoice, setBulkJudgeChoice] = useState('JM001');
   const [isSavingBulk, setIsSavingBulk] = useState(false);
+  const [isUnassigningFinalists, setIsUnassigningFinalists] = useState(false);
 
   // Round 3 Selection & Member Calculator State
   const [selectedRound3TeamIds, setSelectedRound3TeamIds] = useState([]);
 
   // Per-team saving tracking
   const [assigningTeamId, setAssigningTeamId] = useState(null);
-  const [savingSlotTeamId, setSavingSlotTeamId] = useState(null);
 
   // Whitelist State
   const [allowedUsers, setAllowedUsers] = useState([]);
@@ -99,12 +88,10 @@ export default function AdminDashboardPage() {
   const [isExportingZip, setIsExportingZip] = useState(false);
   const [showZipPanelsModal, setShowZipPanelsModal] = useState(false);
   const [zipModalSearch, setZipModalSearch] = useState('');
-  const [zipModalSlotFilter, setZipModalSlotFilter] = useState('all');
 
   // Attendance Modal & Filters State
   const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [attendancePanelFilter, setAttendancePanelFilter] = useState('all');
-  const [attendanceSlotFilter, setAttendanceSlotFilter] = useState('all');
   const [attendanceSearchQuery, setAttendanceSearchQuery] = useState('');
 
   // Project Tracks Modal State
@@ -213,19 +200,9 @@ export default function AdminDashboardPage() {
           return next;
         });
 
-        setTimeSlotSelections(prev => {
-          const next = { ...prev };
-          formattedTeams.forEach(t => {
-            if (next[t.id] === undefined) {
-              next[t.id] = t.timeSlot;
-            }
-          });
-          return next;
-        });
       } else {
         setTeams([]);
         setJudgeSelections({});
-        setTimeSlotSelections({});
       }
 
       // 2. Fetch Evaluations
@@ -328,7 +305,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Save both Judge Panel & Time Slot for a single team
+  // Save Judge Panel for a single team
   const handleSaveTeam = async (teamId, teamName) => {
     const currentTeam = teams.find(t => t.id === teamId);
     const selectedJudgeVal = judgeSelections[teamId] !== undefined ? judgeSelections[teamId] : (currentTeam?.assignedJudge || 'Unassigned');
@@ -342,9 +319,6 @@ export default function AdminDashboardPage() {
       }
     }
 
-    const selectedSlotVal = timeSlotSelections[teamId] !== undefined ? timeSlotSelections[teamId] : (currentTeam?.timeSlot || 'TBA');
-    const finalSlot = normalizeTimeSlot(selectedSlotVal);
-
     setAssigningTeamId(teamId);
 
     try {
@@ -354,7 +328,7 @@ export default function AdminDashboardPage() {
         teamName,
         {
           assignedJudge: finalJudge,
-          timeSlot: finalSlot,
+          timeSlot: currentTeam?.timeSlot || 'TBA',
           rawMainIdea: currentTeam?.rawMainIdea || ''
         }
       );
@@ -369,230 +343,16 @@ export default function AdminDashboardPage() {
       setTeams(prev => prev.map(t => t.id === teamId ? {
         ...t,
         assignedJudge: finalJudge,
-        timeSlot: finalSlot,
         rawMainIdea: updatedMainIdea
       } : t));
 
       setJudgeSelections(prev => ({ ...prev, [teamId]: finalJudge }));
-      setTimeSlotSelections(prev => ({ ...prev, [teamId]: finalSlot }));
-      alert(`✅ Updated "${teamName}":\n• Judge: ${finalJudge}\n• Time Slot: ${finalSlot}`);
+      alert(`✅ Updated "${teamName}":\n• Judge: ${finalJudge}`);
     } catch (err) {
       console.error("Save team error:", err);
       alert(`Updated "${teamName}"!`);
     } finally {
       setAssigningTeamId(null);
-    }
-  };
-
-  // Quick single-click time slot update (used on schedule view)
-  const handleQuickSlotChange = async (teamId, teamName, targetSlot) => {
-    const finalSlot = normalizeTimeSlot(targetSlot);
-    const currentTeam = teams.find(t => t.id === teamId);
-    setSavingSlotTeamId(teamId);
-
-    try {
-      const { error, updatedMainIdea } = await saveTeamAssignment(
-        supabase,
-        teamId,
-        teamName,
-        {
-          assignedJudge: currentTeam?.assignedJudge || 'Unassigned',
-          timeSlot: finalSlot,
-          rawMainIdea: currentTeam?.rawMainIdea || ''
-        }
-      );
-
-      if (error) {
-        alert("Error updating slot: " + error.message);
-        return;
-      }
-
-      setTeams(prev => prev.map(t => t.id === teamId ? {
-        ...t,
-        timeSlot: finalSlot,
-        rawMainIdea: updatedMainIdea
-      } : t));
-
-      setTimeSlotSelections(prev => ({ ...prev, [teamId]: finalSlot }));
-    } catch (err) {
-      console.error("Quick slot change error:", err);
-    } finally {
-      setSavingSlotTeamId(null);
-    }
-  };
-
-  // 1-Click Auto-Assign balanced 4-4-4 time slots across all Judge Panels
-  const handleAutoSplitAllPanels = async () => {
-    if (!teams || teams.length === 0) {
-      alert("No teams available to allocate slots!");
-      return;
-    }
-
-    const assignedCount = teams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned').length;
-    const confirmMsg = `⚡ 1-CLICK AUTO-SPLIT TIME SLOTS (4-4-4 BALANCE)\n\n` +
-      `This will automatically balance all teams within their assigned judge panels into equal batches across the 3 official slots:\n\n` +
-      `• Slot 1: 09:30 AM — 11:30 AM (~4 teams per panel)\n` +
-      `• Slot 2: 12:15 PM — 02:15 PM (~4 teams per panel)\n` +
-      `• Slot 3: 02:30 PM — 04:15 PM (~4 teams per panel)\n\n` +
-      `Total teams to allocate: ${teams.length} (${assignedCount} assigned to judge panels)\n\n` +
-      `Do you want to proceed?`;
-
-    if (!confirm(confirmMsg)) return;
-
-    setIsAutoSplitting(true);
-    setAutoSplitProgress(`Calculating optimal 4-4-4 split across panels...`);
-
-    try {
-      const plannedAssignments = computeAllPanelsSlotSplit(teams);
-      let successCount = 0;
-      const total = plannedAssignments.length;
-
-      // Update in batches of 15 concurrent promises
-      const BATCH_SIZE = 15;
-      for (let i = 0; i < total; i += BATCH_SIZE) {
-        const batch = plannedAssignments.slice(i, i + BATCH_SIZE);
-        setAutoSplitProgress(`Saving slots... (${Math.min(i + BATCH_SIZE, total)} / ${total})`);
-
-        await Promise.all(
-          batch.map(async (item) => {
-            const { error, updatedMainIdea } = await saveTeamAssignment(
-              supabase,
-              item.id,
-              item.teamName,
-              {
-                assignedJudge: item.assignedJudge,
-                timeSlot: item.timeSlot,
-                rawMainIdea: item.rawMainIdea
-              }
-            );
-            if (!error) {
-              successCount++;
-              setTeams(prev => prev.map(t => t.id === item.id ? {
-                ...t,
-                timeSlot: item.timeSlot,
-                rawMainIdea: updatedMainIdea
-              } : t));
-              setTimeSlotSelections(prev => ({ ...prev, [item.id]: item.timeSlot }));
-            }
-          })
-        );
-      }
-
-      const s1Count = plannedAssignments.filter(a => a.timeSlot === '09:30 AM - 11:30 AM').length;
-      const s2Count = plannedAssignments.filter(a => a.timeSlot === '12:15 PM - 02:15 PM').length;
-      const s3Count = plannedAssignments.filter(a => a.timeSlot === '02:30 PM - 04:15 PM').length;
-
-      alert(
-        `🎉 AUTO-ALLOCATION COMPLETE!\n\n` +
-        `✅ Successfully assigned balanced time slots to ${successCount} teams:\n` +
-        `• Slot 1 (09:30 AM - 11:30 AM): ${s1Count} teams\n` +
-        `• Slot 2 (12:15 PM - 02:15 PM): ${s2Count} teams\n` +
-        `• Slot 3 (02:30 PM - 04:15 PM): ${s3Count} teams\n\n` +
-        `Master timetable and judge sheets have been updated!`
-      );
-    } catch (e) {
-      console.error("Auto-split all panels error:", e);
-      alert("Error during auto-allocation: " + e.message);
-    } finally {
-      setIsAutoSplitting(false);
-      setAutoSplitProgress('');
-    }
-  };
-
-  // Auto-split slots for a single panel
-  const handleAutoSplitSinglePanel = async (panelId) => {
-    const upperId = (panelId || '').trim().toUpperCase();
-    const panelTeams = teams.filter(t => (t.assignedJudge || '').trim().toUpperCase() === upperId);
-
-    if (panelTeams.length === 0) {
-      alert(`No teams are assigned to Panel ${panelId} yet!`);
-      return;
-    }
-
-    if (!confirm(`Auto-split ${panelTeams.length} teams in Panel ${panelId} equally across Slot 1, Slot 2, and Slot 3 (4-4-4)?`)) {
-      return;
-    }
-
-    setAutoSplittingPanelId(panelId);
-    try {
-      const planned = computePanelSlotSplit(panelTeams);
-      let successCount = 0;
-
-      await Promise.all(
-        planned.map(async (item) => {
-          const { error, updatedMainIdea } = await saveTeamAssignment(
-            supabase,
-            item.id,
-            item.teamName,
-            {
-              assignedJudge: item.assignedJudge,
-              timeSlot: item.timeSlot,
-              rawMainIdea: item.rawMainIdea
-            }
-          );
-          if (!error) {
-            successCount++;
-            setTeams(prev => prev.map(t => t.id === item.id ? {
-              ...t,
-              timeSlot: item.timeSlot,
-              rawMainIdea: updatedMainIdea
-            } : t));
-            setTimeSlotSelections(prev => ({ ...prev, [item.id]: item.timeSlot }));
-          }
-        })
-      );
-
-      alert(`✅ Successfully balanced ${successCount} teams for Panel ${panelId} across 3 time slots!`);
-    } catch (e) {
-      console.error("Auto split panel error:", e);
-      alert("Error auto-splitting panel: " + e.message);
-    } finally {
-      setAutoSplittingPanelId(null);
-    }
-  };
-
-  // Bulk Apply Time Slot to Selected Teams
-  const handleBulkApplySlot = async () => {
-    if (selectedTeamIds.length === 0) {
-      alert("Please select at least one team using the checkboxes.");
-      return;
-    }
-
-    const normSlot = normalizeTimeSlot(bulkSlotChoice);
-    if (!confirm(`Are you sure you want to allocate Time Slot "${normSlot}" to the ${selectedTeamIds.length} selected team(s)?`)) {
-      return;
-    }
-
-    setIsSavingBulk(true);
-    try {
-      let successCount = 0;
-      for (const teamId of selectedTeamIds) {
-        const currentTeam = teams.find(t => t.id === teamId);
-        if (currentTeam) {
-          const { error, updatedMainIdea } = await saveTeamAssignment(
-            supabase,
-            teamId,
-            currentTeam.teamName,
-            {
-              assignedJudge: currentTeam.assignedJudge,
-              timeSlot: normSlot,
-              rawMainIdea: currentTeam.rawMainIdea || ''
-            }
-          );
-          if (!error) {
-            successCount++;
-            setTeams(prev => prev.map(t => t.id === teamId ? { ...t, timeSlot: normSlot, rawMainIdea: updatedMainIdea } : t));
-            setTimeSlotSelections(prev => ({ ...prev, [teamId]: normSlot }));
-          }
-        }
-      }
-      alert(`✅ Successfully allocated Time Slot "${normSlot}" to ${successCount} team(s)!`);
-      setSelectedTeamIds([]);
-    } catch (e) {
-      console.error("Bulk slot assignment error:", e);
-      alert("Bulk assignment notice: " + e.message);
-    } finally {
-      setIsSavingBulk(false);
     }
   };
 
@@ -604,7 +364,12 @@ export default function AdminDashboardPage() {
     }
 
     const targetJudge = bulkJudgeChoice;
-    if (!confirm(`Are you sure you want to assign Judge Panel "${targetJudge}" to the ${selectedTeamIds.length} selected team(s)?`)) {
+    const isUnassign = targetJudge === 'Unassigned';
+    const confirmPrompt = isUnassign
+      ? `Are you sure you want to UNASSIGN the ${selectedTeamIds.length} selected team(s)?\n\nThey will disappear from the judges portal until re-assigned.`
+      : `Are you sure you want to assign Judge Panel "${targetJudge}" to the ${selectedTeamIds.length} selected team(s)?`;
+
+    if (!confirm(confirmPrompt)) {
       return;
     }
 
@@ -631,13 +396,65 @@ export default function AdminDashboardPage() {
           }
         }
       }
-      alert(`✅ Successfully assigned Judge "${targetJudge}" to ${successCount} team(s)!`);
+      alert(isUnassign
+        ? `✅ Successfully unassigned ${successCount} team(s)!`
+        : `✅ Successfully assigned Judge "${targetJudge}" to ${successCount} team(s)!`
+      );
       setSelectedTeamIds([]);
     } catch (e) {
       console.error("Bulk judge assignment error:", e);
       alert("Bulk assignment notice: " + e.message);
     } finally {
       setIsSavingBulk(false);
+    }
+  };
+
+  // Dedicated 1-Click Action to Unassign All 49 Finalist Teams from Judges
+  const handleUnassignAllFinalists = async () => {
+    const finalistTeamsList = teams.filter(t => t.isFinalist);
+    if (finalistTeamsList.length === 0) {
+      alert("No qualified finalist teams found.");
+      return;
+    }
+
+    const confirmMsg = `⚠️ UNASSIGN ALL ${finalistTeamsList.length} FINALISTS?\n\n` +
+      `This will set assigned_judge to 'Unassigned' for all 49 qualified finalists.\n` +
+      `Judges will see 0 assigned teams on their portal until you re-assign them.\n\n` +
+      `Are you sure you want to proceed?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setIsUnassigningFinalists(true);
+    try {
+      let unassignedCount = 0;
+      for (const t of finalistTeamsList) {
+        const { error } = await supabase
+          .from('teams')
+          .update({ assigned_judge: 'Unassigned' })
+          .eq('id', t.id);
+
+        if (!error) {
+          unassignedCount++;
+        } else {
+          console.error(`Error unassigning team ${t.teamName}:`, error);
+        }
+      }
+
+      setTeams(prev => prev.map(t => t.isFinalist ? { ...t, assignedJudge: 'Unassigned' } : t));
+      setJudgeSelections(prev => {
+        const next = { ...prev };
+        finalistTeamsList.forEach(t => {
+          next[t.id] = 'Unassigned';
+        });
+        return next;
+      });
+
+      alert(`✅ Successfully unassigned all ${unassignedCount} finalist teams!\n\nAll finalist teams now display as "Unassigned". You can re-assign them to judges anytime.`);
+    } catch (err) {
+      console.error("Unassign finalists error:", err);
+      alert("Error unassigning finalists: " + err.message);
+    } finally {
+      setIsUnassigningFinalists(false);
     }
   };
 
@@ -887,25 +704,7 @@ export default function AdminDashboardPage() {
     }
   };
 
-  // Export Time Slots Master Schedule Excel (.xlsx)
-  const handleExportScheduleExcel = () => {
-    try {
-      if (!teams || teams.length === 0) {
-        alert("No teams available to export yet!");
-        return;
-      }
-      const filename = exportTimeSlotScheduleExcel(teams, evaluations);
-      alert(`✅ Master Time Slot Schedule workbook generated!\n\nFile: ${filename}\n\nIncludes sheets for 9:30-11:30, 12:15-2:15, 2:30-4:15, and TBA.`);
-    } catch (err) {
-      console.error("Schedule export error:", err);
-      alert("Error exporting schedule: " + err.message);
-    }
-  };
 
-  // Print Master Time Slot Schedule (A4)
-  const handlePrintSchedule = () => {
-    printTimeSlotSchedule(teams, evaluations);
-  };
 
   // Export a single panel's dedicated Excel (.xlsx) file
   const handleExportSinglePanel = (panelId) => {
@@ -1230,12 +1029,6 @@ export default function AdminDashboardPage() {
   const unassignedJudgeCount = searchMatchedTeams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned').length;
   const assignedJudgeCount = searchMatchedTeams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned').length;
 
-  const tbaSlotCount = searchMatchedTeams.filter(t => t.timeSlot === 'TBA').length;
-  const slot1Count = searchMatchedTeams.filter(t => t.timeSlot === '09:30 AM - 11:30 AM').length;
-  const slot2Count = searchMatchedTeams.filter(t => t.timeSlot === '12:15 PM - 02:15 PM').length;
-  const slot3Count = searchMatchedTeams.filter(t => t.timeSlot === '02:30 PM - 04:15 PM').length;
-  const allocatedSlotCount = searchMatchedTeams.length - tbaSlotCount;
-
   return (
     <>
       <div className="scanlines"></div>
@@ -1252,7 +1045,7 @@ export default function AdminDashboardPage() {
               <input
                 id="admin-search-input"
                 type="text"
-                placeholder="Search Team ID, Name, Leader, Judge, Slot (9:30, 12:15, 2:30, TBA)..."
+                placeholder="Search Team ID, Name, Leader, Judge, Project Title..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 style={{
@@ -1544,6 +1337,26 @@ export default function AdminDashboardPage() {
                 >
                   ⭐ EXPORT FINALISTS (.XLSX)
                 </button>
+                <button
+                  type="button"
+                  onClick={handleUnassignAllFinalists}
+                  disabled={isUnassigningFinalists}
+                  title="Unassign all 49 qualified finalist teams from judges so you can re-allocate them"
+                  style={{
+                    background: 'rgba(255, 0, 85, 0.2)',
+                    color: '#ff3366',
+                    border: '1.5px solid #ff3366',
+                    borderRadius: '4px',
+                    padding: '5px 10px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    fontWeight: 'bold',
+                    cursor: isUnassigningFinalists ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 0 8px rgba(255, 51, 102, 0.3)'
+                  }}
+                >
+                  {isUnassigningFinalists ? '⏳ UNASSIGNING...' : '⚡ UNASSIGN 49 FINALISTS'}
+                </button>
               </div>
             </div>
           )}
@@ -1569,13 +1382,6 @@ export default function AdminDashboardPage() {
                 onClick={() => setActiveTab('teams-tab')}
               >
                 👥 TEAMS & JUDGES {scopeFilter === 'finalists' ? `(${searchMatchedTeams.length} FINALISTS)` : `(${searchMatchedTeams.length}/${teams.length})`}
-              </button>
-              <button
-                type="button"
-                className={`admin-control-btn admin-tab-btn schedule-tab-btn ${activeTab === 'schedule-tab' ? 'active' : ''}`}
-                onClick={() => setActiveTab('schedule-tab')}
-              >
-                📅 TIME SLOTS ({allocatedSlotCount}/{scopeTeams.length})
               </button>
               <button
                 type="button"
@@ -1643,22 +1449,6 @@ export default function AdminDashboardPage() {
                 title="Open printable student attendance sheets with signature lines and page-breaks for each lab room"
               >
                 🖨️ PRINT ATTENDANCE (A4)
-              </button>
-              <button
-                type="button"
-                className="admin-control-btn admin-export-btn btn-gold"
-                onClick={handleExportScheduleExcel}
-                title="Download dedicated Excel schedule workbook with sheets for each time slot"
-              >
-                📅 TIMETABLE (.XLSX)
-              </button>
-              <button
-                type="button"
-                className="admin-control-btn admin-export-btn btn-yellow-outline"
-                onClick={handlePrintSchedule}
-                title="Open printable master timetable arranged by time slots on A4 landscape"
-              >
-                🖨️ PRINT TIMETABLE (A4)
               </button>
               <button
                 type="button"
@@ -1765,9 +1555,7 @@ export default function AdminDashboardPage() {
             ? searchMatchedTeams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned')
             : searchMatchedTeams;
 
-          const displayedTeams = timeSlotFilter === 'all'
-            ? filteredByJudge
-            : filteredByJudge.filter(t => t.timeSlot === timeSlotFilter);
+          const displayedTeams = filteredByJudge;
 
           const isAllDisplayedSelected = displayedTeams.length > 0 && displayedTeams.every(t => selectedTeamIds.includes(t.id));
 
@@ -1781,33 +1569,27 @@ export default function AdminDashboardPage() {
                       <span className="pacman-bullet"></span> REGISTERED TEAMS & ALLOCATIONS
                     </h3>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.78rem', marginTop: '6px', margin: 0 }}>
-                      Assign Judge Panels and Presentation Time Slots (9:30-11:30, 12:15-2:15, 2:30-4:15, or TBA) manually for each team.
+                      Assign Judge Panels to teams and monitor live evaluations.
                     </p>
                   </div>
 
                   {/* Summary Metric Counters Bar */}
                   <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                     <div style={{ background: 'rgba(0,0,0,0.6)', border: '1px solid #444', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#fff' }}>
-                      TOTAL: <span style={{ color: '#00ffcc' }}>{teams.length}</span>
+                      TOTAL: <span style={{ color: '#00ffcc' }}>{scopeTeams.length}</span>
                     </div>
-                    <div style={{ background: 'rgba(255, 184, 82, 0.12)', border: '1px solid #ffb852', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#ffb852' }}>
-                      ⏳ TBA SLOTS: <span style={{ fontWeight: 'bold' }}>{tbaSlotCount}</span>
+                    <div style={{ background: 'rgba(255, 0, 85, 0.12)', border: '1px solid #ff0055', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#ff4d79' }}>
+                      ⚠️ UNASSIGNED: <span style={{ fontWeight: 'bold' }}>{unassignedJudgeCount}</span>
                     </div>
                     <div style={{ background: 'rgba(0, 255, 204, 0.12)', border: '1px solid #00ffcc', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#00ffcc' }}>
-                      ⏰ SLOT 1 (9:30): <span>{slot1Count}</span>
-                    </div>
-                    <div style={{ background: 'rgba(253, 255, 0, 0.12)', border: '1px solid #fdff00', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00' }}>
-                      ⏰ SLOT 2 (12:15): <span>{slot2Count}</span>
-                    </div>
-                    <div style={{ background: 'rgba(255, 102, 204, 0.12)', border: '1px solid #ff66cc', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#ff66cc' }}>
-                      ⏰ SLOT 3 (2:30): <span>{slot3Count}</span>
+                      ✅ ASSIGNED: <span>{assignedJudgeCount}</span>
                     </div>
                   </div>
                 </div>
 
                 {/* Filter Control Strips */}
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', marginBottom: '20px', background: 'rgba(0, 0, 0, 0.5)', padding: '14px', borderRadius: '8px', border: '1px solid #222' }}>
-                  {/* Row 1: Judge Assignment Filter */}
+                  {/* Judge Assignment Filter */}
                   <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
                     <span style={{ fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#888', minWidth: '120px' }}>
                       ⚖️ JUDGE FILTER:
@@ -1863,96 +1645,6 @@ export default function AdminDashboardPage() {
                       </button>
                     </div>
                   </div>
-
-                  {/* Row 2: Time Slot Filter */}
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <span style={{ fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#888', minWidth: '120px' }}>
-                      ⏰ TIME SLOT:
-                    </span>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                      <button
-                        type="button"
-                        onClick={() => setTimeSlotFilter('all')}
-                        style={{
-                          background: timeSlotFilter === 'all' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
-                          color: timeSlotFilter === 'all' ? '#000' : '#fff',
-                          border: '1px solid ' + (timeSlotFilter === 'all' ? '#00ffcc' : '#444'),
-                          borderRadius: '6px',
-                          padding: '6px 12px',
-                          fontFamily: 'Press Start 2P, monospace',
-                          fontSize: '0.58rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ALL SLOTS ({searchMatchedTeams.length})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTimeSlotFilter('TBA')}
-                        style={{
-                          background: timeSlotFilter === 'TBA' ? '#ffb852' : 'rgba(0,0,0,0.6)',
-                          color: timeSlotFilter === 'TBA' ? '#000' : '#ffb852',
-                          border: '1.5px solid ' + (timeSlotFilter === 'TBA' ? '#ffb852' : '#555'),
-                          borderRadius: '6px',
-                          padding: '6px 12px',
-                          fontFamily: 'Press Start 2P, monospace',
-                          fontSize: '0.58rem',
-                          cursor: 'pointer',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        ⏳ TBA / UNALLOCATED ({tbaSlotCount})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTimeSlotFilter('09:30 AM - 11:30 AM')}
-                        style={{
-                          background: timeSlotFilter === '09:30 AM - 11:30 AM' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
-                          color: timeSlotFilter === '09:30 AM - 11:30 AM' ? '#000' : '#00ffcc',
-                          border: '1px solid ' + (timeSlotFilter === '09:30 AM - 11:30 AM' ? '#00ffcc' : '#444'),
-                          borderRadius: '6px',
-                          padding: '6px 12px',
-                          fontFamily: 'Press Start 2P, monospace',
-                          fontSize: '0.58rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ⏰ 09:30 - 11:30 ({slot1Count})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTimeSlotFilter('12:15 PM - 02:15 PM')}
-                        style={{
-                          background: timeSlotFilter === '12:15 PM - 02:15 PM' ? '#fdff00' : 'rgba(0,0,0,0.6)',
-                          color: timeSlotFilter === '12:15 PM - 02:15 PM' ? '#000' : '#fdff00',
-                          border: '1px solid ' + (timeSlotFilter === '12:15 PM - 02:15 PM' ? '#fdff00' : '#444'),
-                          borderRadius: '6px',
-                          padding: '6px 12px',
-                          fontFamily: 'Press Start 2P, monospace',
-                          fontSize: '0.58rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ⏰ 12:15 - 02:15 ({slot2Count})
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setTimeSlotFilter('02:30 PM - 04:15 PM')}
-                        style={{
-                          background: timeSlotFilter === '02:30 PM - 04:15 PM' ? '#ff66cc' : 'rgba(0,0,0,0.6)',
-                          color: timeSlotFilter === '02:30 PM - 04:15 PM' ? '#000' : '#ff66cc',
-                          border: '1px solid ' + (timeSlotFilter === '02:30 PM - 04:15 PM' ? '#ff66cc' : '#444'),
-                          borderRadius: '6px',
-                          padding: '6px 12px',
-                          fontFamily: 'Press Start 2P, monospace',
-                          fontSize: '0.58rem',
-                          cursor: 'pointer'
-                        }}
-                      >
-                        ⏰ 02:30 - 04:15 ({slot3Count})
-                      </button>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Bulk Action Toolbar (When teams are selected) */}
@@ -1983,38 +1675,6 @@ export default function AdminDashboardPage() {
                       </button>
                     </div>
 
-                    {/* Bulk Slot Controls */}
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-                      <select
-                        className="retro-select"
-                        value={bulkSlotChoice}
-                        onChange={(e) => setBulkSlotChoice(e.target.value)}
-                        style={{ padding: '6px 10px', fontSize: '0.75rem', width: 'auto' }}
-                      >
-                        {TIME_SLOT_OPTIONS.map(opt => (
-                          <option key={opt.id} value={opt.value}>{opt.label}</option>
-                        ))}
-                      </select>
-                      <button
-                        type="button"
-                        onClick={handleBulkApplySlot}
-                        disabled={isSavingBulk}
-                        style={{
-                          background: '#00ffcc',
-                          color: '#000',
-                          border: 'none',
-                          borderRadius: '6px',
-                          padding: '8px 14px',
-                          fontFamily: 'Press Start 2P, monospace',
-                          fontSize: '0.6rem',
-                          cursor: 'pointer',
-                          fontWeight: 'bold'
-                        }}
-                      >
-                        {isSavingBulk ? 'SAVING...' : '⚡ ALLOCATE SLOT'}
-                      </button>
-                    </div>
-
                     {/* Bulk Judge Controls */}
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                       <select
@@ -2033,18 +1693,19 @@ export default function AdminDashboardPage() {
                         onClick={handleBulkApplyJudge}
                         disabled={isSavingBulk}
                         style={{
-                          background: '#fdff00',
-                          color: '#000',
+                          background: bulkJudgeChoice === 'Unassigned' ? '#ff3366' : '#fdff00',
+                          color: bulkJudgeChoice === 'Unassigned' ? '#fff' : '#000',
                           border: 'none',
                           borderRadius: '6px',
                           padding: '8px 14px',
                           fontFamily: 'Press Start 2P, monospace',
                           fontSize: '0.6rem',
-                          cursor: 'pointer',
-                          fontWeight: 'bold'
+                          cursor: isSavingBulk ? 'not-allowed' : 'pointer',
+                          fontWeight: 'bold',
+                          boxShadow: bulkJudgeChoice === 'Unassigned' ? '0 0 10px rgba(255, 51, 102, 0.4)' : '0 0 10px rgba(253, 255, 0, 0.3)'
                         }}
                       >
-                        {isSavingBulk ? 'SAVING...' : '⚡ ASSIGN JUDGE'}
+                        {isSavingBulk ? 'SAVING...' : bulkJudgeChoice === 'Unassigned' ? '⚡ UNASSIGN SELECTED' : '⚡ ASSIGN JUDGE'}
                       </button>
                     </div>
                   </div>
@@ -2101,12 +1762,11 @@ export default function AdminDashboardPage() {
                               style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
                             />
                           </th>
-                          <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
-                          <th style={{ width: '15%' }}>Team Name</th>
-                          <th style={{ width: '22%' }}>Leader & Members</th>
-                          <th style={{ width: '14%' }}>Project Title</th>
-                          <th style={{ width: '15%' }}>Assign Judge Panel</th>
-                          <th style={{ width: '13%' }}>Allocate Time Slot</th>
+                          <th style={{ width: '10%', textAlign: 'center' }}>Team ID</th>
+                          <th style={{ width: '18%' }}>Team Name</th>
+                          <th style={{ width: '26%' }}>Leader & Members</th>
+                          <th style={{ width: '18%' }}>Project Title</th>
+                          <th style={{ width: '16%' }}>Assign Judge Panel</th>
                           <th style={{ width: '8%', textAlign: 'center' }}>Action</th>
                         </tr>
                       </thead>
@@ -2119,8 +1779,7 @@ export default function AdminDashboardPage() {
                           const isCustomJudge = selectedJudgeVal === 'CUSTOM' || (!validJudgeIds.includes(selectedJudgeVal) && selectedJudgeVal !== 'Unassigned');
                           const isAssignedJudge = t.assignedJudge && t.assignedJudge !== 'Unassigned';
 
-                          const selectedSlotVal = timeSlotSelections[t.id] !== undefined ? timeSlotSelections[t.id] : t.timeSlot;
-                          const slotInfo = getTimeSlotInfo(t.timeSlot);
+
                           const isSaving = assigningTeamId === t.id;
                           const isSelected = selectedTeamIds.includes(t.id);
 
@@ -2190,20 +1849,6 @@ export default function AdminDashboardPage() {
                                       ⚠️ UNASSIGNED JUDGE
                                     </span>
                                   )}
-                                  {/* Slot status badge */}
-                                  <span style={{
-                                    fontSize: '0.55rem',
-                                    fontFamily: 'Press Start 2P, monospace',
-                                    color: slotInfo.badgeColor,
-                                    background: slotInfo.badgeBg,
-                                    border: `1px solid ${slotInfo.badgeBorder}`,
-                                    padding: '2px 6px',
-                                    borderRadius: '4px',
-                                    display: 'inline-block',
-                                    width: 'fit-content'
-                                  }}>
-                                    {t.timeSlot === 'TBA' ? '⏳ SLOT: TBA' : `⏰ ${t.timeSlot}`}
-                                  </span>
                                 </div>
                               </td>
 
@@ -2307,30 +1952,6 @@ export default function AdminDashboardPage() {
                                 )}
                               </td>
 
-                              {/* Allocate Time Slot Dropdown */}
-                              <td>
-                                <select
-                                  className="retro-select"
-                                  value={selectedSlotVal}
-                                  onChange={(e) => {
-                                    const val = e.target.value;
-                                    setTimeSlotSelections(prev => ({ ...prev, [t.id]: val }));
-                                  }}
-                                  style={{
-                                    padding: '6px 8px',
-                                    fontSize: '0.75rem',
-                                    borderColor: selectedSlotVal === 'TBA' ? '#ffb852' : '#00ffcc',
-                                    color: selectedSlotVal === 'TBA' ? '#ffb852' : '#00ffcc'
-                                  }}
-                                >
-                                  {TIME_SLOT_OPTIONS.map(opt => (
-                                    <option key={opt.id} value={opt.value}>
-                                      {opt.label}
-                                    </option>
-                                  ))}
-                                </select>
-                              </td>
-
                               {/* Action Save Button */}
                               <td style={{ textAlign: 'center' }}>
                                 <button
@@ -2339,7 +1960,7 @@ export default function AdminDashboardPage() {
                                   style={{ padding: '8px 12px', fontSize: '0.68rem', opacity: isSaving ? 0.6 : 1 }}
                                   disabled={isSaving}
                                   onClick={() => handleSaveTeam(t.id, t.teamName)}
-                                  title="Save Judge Panel and Time Slot for this team"
+                                  title="Save Judge Panel for this team"
                                 >
                                   {isSaving ? 'SAVING...' : '💾 SAVE'}
                                 </button>
@@ -2351,464 +1972,6 @@ export default function AdminDashboardPage() {
                     </table>
                   </div>
                 )}
-              </div>
-            </div>
-          );
-        })()}
-
-        {/* TAB 2: TIME SLOTS & MASTER PRESENTATION TIMETABLE */}
-        {activeTab === 'schedule-tab' && (() => {
-          const tbaTeams = searchMatchedTeams.filter(t => t.timeSlot === 'TBA');
-          const slot1Teams = searchMatchedTeams.filter(t => t.timeSlot === '09:30 AM - 11:30 AM');
-          const slot2Teams = searchMatchedTeams.filter(t => t.timeSlot === '12:15 PM - 02:15 PM');
-          const slot3Teams = searchMatchedTeams.filter(t => t.timeSlot === '02:30 PM - 04:15 PM');
-
-          const slotSections = [
-            {
-              id: 'SLOT_1',
-              title: 'SLOT 1: 09:30 AM — 11:30 AM (MORNING SESSION)',
-              slotVal: '09:30 AM - 11:30 AM',
-              color: '#00ffcc',
-              bg: 'rgba(0, 255, 204, 0.08)',
-              border: '2px solid #00ffcc',
-              teams: slot1Teams
-            },
-            {
-              id: 'SLOT_2',
-              title: 'SLOT 2: 12:15 PM — 02:15 PM (AFTERNOON SESSION)',
-              slotVal: '12:15 PM - 02:15 PM',
-              color: '#fdff00',
-              bg: 'rgba(253, 255, 0, 0.08)',
-              border: '2px solid #fdff00',
-              teams: slot2Teams
-            },
-            {
-              id: 'SLOT_3',
-              title: 'SLOT 3: 02:30 PM — 04:15 PM (LATE AFTERNOON SESSION)',
-              slotVal: '02:30 PM - 04:15 PM',
-              color: '#ff66cc',
-              bg: 'rgba(255, 102, 204, 0.08)',
-              border: '2px solid #ff66cc',
-              teams: slot3Teams
-            },
-            {
-              id: 'TBA',
-              title: '⏳ TBA: PENDING TIME SLOT ALLOCATION',
-              slotVal: 'TBA',
-              color: '#ffb852',
-              bg: 'rgba(255, 184, 82, 0.08)',
-              border: '2px dashed #ffb852',
-              teams: tbaTeams
-            }
-          ];
-
-          const displayedSections = scheduleViewSlot === 'all'
-            ? slotSections
-            : slotSections.filter(s => s.slotVal === scheduleViewSlot);
-
-          return (
-            <div className="admin-tab-content active">
-              <div className="form-section">
-                {/* Header Banner */}
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  flexWrap: 'wrap',
-                  gap: '16px',
-                  marginBottom: '24px',
-                  background: 'rgba(253, 255, 0, 0.06)',
-                  border: '2px solid rgba(253, 255, 0, 0.3)',
-                  borderRadius: '10px',
-                  padding: '18px 20px',
-                  boxShadow: '0 0 15px rgba(253, 255, 0, 0.1)'
-                }}>
-                  <div>
-                    <h3 className="section-title" style={{ margin: 0, color: '#fdff00', fontSize: '0.9rem' }}>
-                      <span className="pacman-bullet" style={{ background: '#fdff00' }}></span> 📅 PRESENTATION TIME SLOTS & TIMETABLE
-                    </h3>
-                    <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '6px', margin: 0 }}>
-                      Manage scheduled presentations across the 3 official hackathon slots (9:30-11:30, 12:15-2:15, 2:30-4:15) and allocate pending TBA teams.
-                    </p>
-                  </div>
-                  <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={handleAutoSplitAllPanels}
-                      disabled={isAutoSplitting}
-                      style={{
-                        background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
-                        border: '2px solid #00ffcc',
-                        color: '#000',
-                        padding: '10px 16px',
-                        fontSize: '0.62rem',
-                        fontFamily: 'Press Start 2P, monospace',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 0 12px rgba(0, 255, 204, 0.4)'
-                      }}
-                      title="Automatically balance all teams within their assigned judge panels into equal batches across Slot 1, Slot 2, and Slot 3 (4-4-4 split)"
-                    >
-                      {isAutoSplitting ? `⏳ ${autoSplitProgress || 'ALLOCATING...'}` : '⚡ AUTO-SPLIT ALL PANELS (4-4-4)'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportScheduleExcel}
-                      style={{
-                        background: 'linear-gradient(135deg, #b8860b, #e6b800)',
-                        border: '2px solid #fdff00',
-                        color: '#000',
-                        padding: '10px 16px',
-                        fontSize: '0.62rem',
-                        fontFamily: 'Press Start 2P, monospace',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px',
-                        fontWeight: 'bold'
-                      }}
-                      title="Download dedicated Excel workbook organized by time slots"
-                    >
-                      📥 EXPORT SCHEDULE (.XLSX)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handlePrintSchedule}
-                      style={{
-                        background: 'rgba(253, 255, 0, 0.15)',
-                        border: '2px solid #fdff00',
-                        color: '#fdff00',
-                        padding: '10px 16px',
-                        fontSize: '0.62rem',
-                        fontFamily: 'Press Start 2P, monospace',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                      title="Open printable master timetable on A4 landscape"
-                    >
-                      🖨️ PRINT TIMETABLE (A4)
-                    </button>
-                  </div>
-                </div>
-
-                {/* 4 Stat Metric Cards */}
-                <div style={{
-                  display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                  gap: '12px',
-                  marginBottom: '24px'
-                }}>
-                  <div
-                    onClick={() => setScheduleViewSlot(scheduleViewSlot === 'TBA' ? 'all' : 'TBA')}
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.7)',
-                      border: `2px solid ${scheduleViewSlot === 'TBA' ? '#ffb852' : 'rgba(255, 184, 82, 0.4)'}`,
-                      borderRadius: '8px',
-                      padding: '14px 16px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      boxShadow: scheduleViewSlot === 'TBA' ? '0 0 12px rgba(255, 184, 82, 0.4)' : 'none',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <div style={{ fontSize: '0.58rem', color: '#ffb852', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>⏳ TBA / UNALLOCATED</div>
-                    <div style={{ fontSize: '1.6rem', color: '#ffb852', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{tbaTeams.length} Teams</div>
-                    <div style={{ fontSize: '0.68rem', color: '#aaa', marginTop: '4px' }}>Click to filter</div>
-                  </div>
-
-                  <div
-                    onClick={() => setScheduleViewSlot(scheduleViewSlot === '09:30 AM - 11:30 AM' ? 'all' : '09:30 AM - 11:30 AM')}
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.7)',
-                      border: `2px solid ${scheduleViewSlot === '09:30 AM - 11:30 AM' ? '#00ffcc' : 'rgba(0, 255, 204, 0.4)'}`,
-                      borderRadius: '8px',
-                      padding: '14px 16px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      boxShadow: scheduleViewSlot === '09:30 AM - 11:30 AM' ? '0 0 12px rgba(0, 255, 204, 0.4)' : 'none',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <div style={{ fontSize: '0.58rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>⏰ SLOT 1 (9:30 - 11:30)</div>
-                    <div style={{ fontSize: '1.6rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{slot1Teams.length} Teams</div>
-                    <div style={{ fontSize: '0.68rem', color: '#aaa', marginTop: '4px' }}>Click to filter</div>
-                  </div>
-
-                  <div
-                    onClick={() => setScheduleViewSlot(scheduleViewSlot === '12:15 PM - 02:15 PM' ? 'all' : '12:15 PM - 02:15 PM')}
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.7)',
-                      border: `2px solid ${scheduleViewSlot === '12:15 PM - 02:15 PM' ? '#fdff00' : 'rgba(253, 255, 0, 0.4)'}`,
-                      borderRadius: '8px',
-                      padding: '14px 16px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      boxShadow: scheduleViewSlot === '12:15 PM - 02:15 PM' ? '0 0 12px rgba(253, 255, 0, 0.4)' : 'none',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <div style={{ fontSize: '0.58rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>⏰ SLOT 2 (12:15 - 2:15)</div>
-                    <div style={{ fontSize: '1.6rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{slot2Teams.length} Teams</div>
-                    <div style={{ fontSize: '0.68rem', color: '#aaa', marginTop: '4px' }}>Click to filter</div>
-                  </div>
-
-                  <div
-                    onClick={() => setScheduleViewSlot(scheduleViewSlot === '02:30 PM - 04:15 PM' ? 'all' : '02:30 PM - 04:15 PM')}
-                    style={{
-                      background: 'rgba(0, 0, 0, 0.7)',
-                      border: `2px solid ${scheduleViewSlot === '02:30 PM - 04:15 PM' ? '#ff66cc' : 'rgba(255, 102, 204, 0.4)'}`,
-                      borderRadius: '8px',
-                      padding: '14px 16px',
-                      textAlign: 'center',
-                      cursor: 'pointer',
-                      boxShadow: scheduleViewSlot === '02:30 PM - 04:15 PM' ? '0 0 12px rgba(255, 102, 204, 0.4)' : 'none',
-                      transition: 'all 0.2s ease'
-                    }}
-                  >
-                    <div style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace', marginBottom: '6px' }}>⏰ SLOT 3 (2:30 - 4:15)</div>
-                    <div style={{ fontSize: '1.6rem', color: '#ff66cc', fontWeight: 'bold', fontFamily: 'Outfit, sans-serif' }}>{slot3Teams.length} Teams</div>
-                    <div style={{ fontSize: '0.68rem', color: '#aaa', marginTop: '4px' }}>Click to filter</div>
-                  </div>
-                </div>
-
-                {/* Slot Filter Indicator */}
-                {scheduleViewSlot !== 'all' && (
-                  <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: 'rgba(255,255,255,0.06)', padding: '8px 14px', borderRadius: '6px' }}>
-                    <span style={{ fontSize: '0.65rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00' }}>
-                      🔎 VIEWING ONLY: {scheduleViewSlot}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setScheduleViewSlot('all')}
-                      style={{ background: '#ff0055', color: '#fff', border: 'none', borderRadius: '4px', padding: '4px 10px', fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', cursor: 'pointer' }}
-                    >
-                      ✕ SHOW ALL SLOTS
-                    </button>
-                  </div>
-                )}
-
-                {/* Four Slot Sections */}
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-                  {displayedSections.map(section => {
-                    const isTba = section.slotVal === 'TBA';
-
-                    return (
-                      <div
-                        key={section.id}
-                        style={{
-                          background: 'rgba(10, 10, 20, 0.95)',
-                          border: section.border,
-                          borderRadius: '10px',
-                          padding: '18px 20px',
-                          boxShadow: `0 0 15px ${section.bg}`
-                        }}
-                      >
-                        {/* Section Header */}
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '14px', borderBottom: '1px solid rgba(255, 255, 255, 0.1)', paddingBottom: '10px' }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                            <span style={{
-                              background: section.color,
-                              color: '#000',
-                              padding: '4px 10px',
-                              borderRadius: '4px',
-                              fontFamily: 'Press Start 2P, monospace',
-                              fontSize: '0.68rem',
-                              fontWeight: 'bold'
-                            }}>
-                              {section.id}
-                            </span>
-                            <span style={{ color: '#fff', fontSize: '0.95rem', fontWeight: 'bold' }}>
-                              {section.title}
-                            </span>
-                          </div>
-                          <span style={{
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            color: section.color,
-                            border: `1px solid ${section.color}`,
-                            padding: '4px 10px',
-                            borderRadius: '4px',
-                            fontFamily: 'Press Start 2P, monospace',
-                            fontSize: '0.62rem'
-                          }}>
-                            👥 {section.teams.length} {section.teams.length === 1 ? 'TEAM' : 'TEAMS'}
-                          </span>
-                        </div>
-
-                        {/* Section Body */}
-                        {section.teams.length === 0 ? (
-                          <div style={{
-                            padding: '20px',
-                            background: 'rgba(255, 255, 255, 0.02)',
-                            borderRadius: '6px',
-                            border: '1px dashed #444',
-                            color: '#777',
-                            fontSize: '0.72rem',
-                            textAlign: 'center',
-                            fontFamily: 'Press Start 2P, monospace'
-                          }}>
-                            {isTba ? '🎉 ALL TEAMS HAVE BEEN ALLOCATED A PRESENTATION TIME SLOT!' : `NO TEAMS ALLOCATED TO THIS TIME SLOT YET`}
-                          </div>
-                        ) : (
-                          <div className="table-responsive">
-                            <table className="eval-table admin-table" style={{ margin: 0 }}>
-                              <thead>
-                                <tr>
-                                  <th style={{ width: '4%', textAlign: 'center' }}>#</th>
-                                  <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
-                                  <th style={{ width: '18%' }}>Team Name</th>
-                                  <th style={{ width: '18%' }}>Judge Panel & Room</th>
-                                  <th style={{ width: '20%' }}>Leader Contact</th>
-                                  <th style={{ width: '15%' }}>Project Title</th>
-                                  <th style={{ width: '16%', textAlign: 'center' }}>
-                                    {isTba ? '⚡ One-Click Allocate Slot' : 'Reassign Slot'}
-                                  </th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {section.teams.map((t, idx) => {
-                                  const panelProfile = JUDGE_PROFILES[(t.assignedJudge || '').toUpperCase()];
-                                  const isAssignedJudge = t.assignedJudge && t.assignedJudge !== 'Unassigned';
-                                  const isSlotSaving = savingSlotTeamId === t.id;
-
-                                  return (
-                                    <tr key={t.id || idx}>
-                                      <td style={{ textAlign: 'center', fontWeight: 'bold' }}>{idx + 1}</td>
-                                      <td style={{ textAlign: 'center' }}>
-                                        <span style={{
-                                          display: 'inline-block',
-                                          background: 'rgba(253, 255, 0, 0.15)',
-                                          color: '#fdff00',
-                                          border: '1px solid #fdff00',
-                                          borderRadius: '4px',
-                                          padding: '3px 6px',
-                                          fontFamily: 'Press Start 2P, monospace',
-                                          fontSize: '0.62rem',
-                                          fontWeight: 'bold'
-                                        }}>
-                                          {t.teamIdNo && t.teamIdNo !== 'N/A' ? t.teamIdNo : 'N/A'}
-                                        </span>
-                                      </td>
-                                      <td>
-                                        <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{t.teamName}</strong>
-                                      </td>
-                                      <td>
-                                        {isAssignedJudge ? (
-                                          <div>
-                                            <div style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '0.82rem' }}>
-                                              🏛️ {panelProfile ? `${panelProfile.id} (${panelProfile.group})` : t.assignedJudge}
-                                            </div>
-                                            <div style={{ color: '#fdff00', fontSize: '0.72rem' }}>
-                                              📍 {panelProfile?.location || 'Assigned Room'}
-                                            </div>
-                                          </div>
-                                        ) : (
-                                          <span style={{ color: '#ff0055', fontSize: '0.68rem', fontFamily: 'Press Start 2P, monospace' }}>
-                                            ⚠️ UNASSIGNED JUDGE
-                                          </span>
-                                        )}
-                                      </td>
-                                      <td>
-                                        <div style={{ color: '#fff', fontSize: '0.8rem' }}>{t.leaderName}</div>
-                                        <div style={{ color: '#aaa', fontSize: '0.72rem' }}>📞 {t.leaderPhone || 'N/A'}</div>
-                                      </td>
-                                      <td>
-                                        <div style={{ color: '#ccc', fontSize: '0.78rem' }}>{t.projectTitle || 'Untitled'}</div>
-                                      </td>
-
-                                      {/* Slot Allocation Actions */}
-                                      <td style={{ textAlign: 'center' }}>
-                                        {isTba ? (
-                                          <div style={{ display: 'flex', gap: '4px', justifyContent: 'center', flexWrap: 'wrap' }}>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleQuickSlotChange(t.id, t.teamName, '09:30 AM - 11:30 AM')}
-                                              disabled={isSlotSaving}
-                                              style={{
-                                                background: 'rgba(0, 255, 204, 0.2)',
-                                                border: '1px solid #00ffcc',
-                                                color: '#00ffcc',
-                                                borderRadius: '4px',
-                                                padding: '4px 6px',
-                                                fontSize: '0.55rem',
-                                                fontFamily: 'Press Start 2P, monospace',
-                                                cursor: 'pointer'
-                                              }}
-                                              title="Allocate to 09:30 AM - 11:30 AM"
-                                            >
-                                              + 9:30
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleQuickSlotChange(t.id, t.teamName, '12:15 PM - 02:15 PM')}
-                                              disabled={isSlotSaving}
-                                              style={{
-                                                background: 'rgba(253, 255, 0, 0.2)',
-                                                border: '1px solid #fdff00',
-                                                color: '#fdff00',
-                                                borderRadius: '4px',
-                                                padding: '4px 6px',
-                                                fontSize: '0.55rem',
-                                                fontFamily: 'Press Start 2P, monospace',
-                                                cursor: 'pointer'
-                                              }}
-                                              title="Allocate to 12:15 PM - 02:15 PM"
-                                            >
-                                              + 12:15
-                                            </button>
-                                            <button
-                                              type="button"
-                                              onClick={() => handleQuickSlotChange(t.id, t.teamName, '02:30 PM - 04:15 PM')}
-                                              disabled={isSlotSaving}
-                                              style={{
-                                                background: 'rgba(255, 102, 204, 0.2)',
-                                                border: '1px solid #ff66cc',
-                                                color: '#ff66cc',
-                                                borderRadius: '4px',
-                                                padding: '4px 6px',
-                                                fontSize: '0.55rem',
-                                                fontFamily: 'Press Start 2P, monospace',
-                                                cursor: 'pointer'
-                                              }}
-                                              title="Allocate to 02:30 PM - 04:15 PM"
-                                            >
-                                              + 2:30
-                                            </button>
-                                          </div>
-                                        ) : (
-                                          <div style={{ display: 'flex', alignItems: 'center', gap: '4px', justifyContent: 'center' }}>
-                                            <select
-                                              className="retro-select"
-                                              value={t.timeSlot}
-                                              onChange={(e) => handleQuickSlotChange(t.id, t.teamName, e.target.value)}
-                                              disabled={isSlotSaving}
-                                              style={{ padding: '4px 6px', fontSize: '0.7rem', width: 'auto' }}
-                                            >
-                                              {TIME_SLOT_OPTIONS.map(opt => (
-                                                <option key={opt.id} value={opt.value}>{opt.shortLabel}</option>
-                                              ))}
-                                            </select>
-                                          </div>
-                                        )}
-                                      </td>
-                                    </tr>
-                                  );
-                                })}
-                              </tbody>
-                            </table>
-                          </div>
-                        )}
-                      </div>
-                    );
-                  })}
-                </div>
               </div>
             </div>
           );
@@ -3587,11 +2750,10 @@ export default function AdminDashboardPage() {
                         </th>
                         <th style={{ width: '5%', textAlign: 'center' }}>Rank</th>
                         <th style={{ width: '7%', textAlign: 'center' }}>Team ID</th>
-                        <th style={{ width: '13%' }}>Team Name</th>
-                        <th style={{ width: '14%' }}>Total Members</th>
-                        <th style={{ width: '9%', textAlign: 'center' }}>Project Type</th>
-                        <th style={{ width: '10%' }}>Time Slot</th>
-                        <th style={{ width: '11%' }}>Assigned Judge</th>
+                        <th style={{ width: '16%' }}>Team Name</th>
+                        <th style={{ width: '15%' }}>Total Members</th>
+                        <th style={{ width: '10%', textAlign: 'center' }}>Project Type</th>
+                        <th style={{ width: '15%' }}>Assigned Judge</th>
                         <th style={{ textAlign: 'center' }}>Arch (10)</th>
                         <th style={{ textAlign: 'center' }}>Scope (10)</th>
                         <th style={{ textAlign: 'center' }}>Avail (10)</th>
@@ -3604,7 +2766,7 @@ export default function AdminDashboardPage() {
                     <tbody>
                       {displayedLeaderboard.length === 0 ? (
                         <tr>
-                          <td colSpan="15" style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
+                          <td colSpan="14" style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
                             No evaluations found matching the selected filter or search query.
                           </td>
                         </tr>
@@ -3628,7 +2790,6 @@ export default function AdminDashboardPage() {
                             }
                           }
 
-                          const slotInfo = getTimeSlotInfo(item.timeSlot);
                           const typeInfo = getProjectTypeInfo(item.projectType);
                           const totalMembersCount = item.totalTeamSize || (1 + (item.members?.length || 0));
                           const hasMembers = item.members && item.members.length > 0;
@@ -3761,20 +2922,6 @@ export default function AdminDashboardPage() {
                                   <span>{typeInfo.label}</span>
                                 </span>
                               </td>
-                              <td>
-                                <span style={{
-                                  fontSize: '0.55rem',
-                                  fontFamily: 'Press Start 2P, monospace',
-                                  color: slotInfo.badgeColor,
-                                  background: slotInfo.badgeBg,
-                                  border: `1px solid ${slotInfo.badgeBorder}`,
-                                  padding: '2px 5px',
-                                  borderRadius: '3px',
-                                  display: 'inline-block'
-                                }}>
-                                  {item.timeSlot === 'TBA' ? 'TBA' : item.timeSlot}
-                                </span>
-                              </td>
                               <td>{item.judge}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c2}</td>
@@ -3867,33 +3014,10 @@ export default function AdminDashboardPage() {
                       <span className="pacman-bullet" style={{ background: '#00ff66' }}></span> 🏛️ JUDGES PANELS & ASSIGNED TEAMS DOSSIER
                     </h3>
                     <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', marginTop: '6px', margin: 0 }}>
-                      View all judging panels (JM001 - JM011), faculty evaluators, room venues, and allocated teams with presentation time slots.
+                      View all judging panels (JM001 - JM011), faculty evaluators, room venues, and allocated teams.
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={handleAutoSplitAllPanels}
-                      disabled={isAutoSplitting}
-                      style={{
-                        background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
-                        border: '2px solid #00ffcc',
-                        color: '#000',
-                        padding: '12px 18px',
-                        fontSize: '0.62rem',
-                        fontFamily: 'Press Start 2P, monospace',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        fontWeight: 'bold',
-                        boxShadow: '0 0 15px rgba(0, 255, 204, 0.4)'
-                      }}
-                      title="Automatically balance all teams within every judge panel into equal 4-4-4 batches for Slot 1, Slot 2, and Slot 3"
-                    >
-                      {isAutoSplitting ? `⏳ ${autoSplitProgress || 'ALLOCATING...'}` : '⚡ 1-CLICK AUTO-SPLIT (4-4-4)'}
-                    </button>
                     <button
                       type="button"
                       onClick={handleExportJudgesPanelsExcel}
@@ -3911,9 +3035,9 @@ export default function AdminDashboardPage() {
                         gap: '8px',
                         fontWeight: 'bold'
                       }}
-                      title="Download comprehensive Excel workbook with Master Timetable, Dedicated Time Slot sheets, Panels Summary, and all Panel Dossiers"
+                      title="Download comprehensive Excel workbook with Panels Summary and all Panel Dossiers"
                     >
-                      📥 MASTER PANELS & SLOTS (.XLSX)
+                      📥 MASTER PANELS (.XLSX)
                     </button>
                     <button
                       type="button"
@@ -3978,8 +3102,6 @@ export default function AdminDashboardPage() {
 
                     if (!matchesSearch) return null;
 
-                    const isPanelSplitting = autoSplittingPanelId === panel.id;
-
                     return (
                       <div key={panel.id} style={{
                         background: 'rgba(10, 10, 20, 0.95)',
@@ -4029,28 +3151,6 @@ export default function AdminDashboardPage() {
                           </div>
 
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                            <button
-                              type="button"
-                              onClick={() => handleAutoSplitSinglePanel(panel.id)}
-                              disabled={isPanelSplitting || isAutoSplitting || assignedList.length === 0}
-                              style={{
-                                background: 'rgba(0, 255, 204, 0.15)',
-                                border: '1.5px solid #00ffcc',
-                                color: '#00ffcc',
-                                borderRadius: '6px',
-                                padding: '6px 12px',
-                                fontFamily: 'Press Start 2P, monospace',
-                                fontSize: '0.58rem',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                fontWeight: 'bold'
-                              }}
-                              title="Auto-split this panel's teams equally (4-4-4) across the 3 time slots"
-                            >
-                              {isPanelSplitting ? '⏳ SPLITTING...' : '⚡ AUTO-SPLIT (4-4-4)'}
-                            </button>
                             <button
                               type="button"
                               onClick={() => handleExportSinglePanel(panel.id)}
@@ -4132,13 +3232,12 @@ export default function AdminDashboardPage() {
                             <table className="eval-table admin-table" style={{ margin: 0 }}>
                               <thead>
                                 <tr>
-                                  <th style={{ width: '9%', textAlign: 'center' }}>Team ID</th>
-                                  <th style={{ width: '16%' }}>Team Name</th>
-                                  <th style={{ width: '18%' }}>Time Slot</th>
-                                  <th style={{ width: '23%' }}>Leader & Members</th>
-                                  <th style={{ width: '18%' }}>Project & Tech</th>
+                                  <th style={{ width: '8%', textAlign: 'center' }}>Team ID</th>
+                                  <th style={{ width: '18%' }}>Team Name</th>
+                                  <th style={{ width: '30%' }}>Leader & Members</th>
+                                  <th style={{ width: '26%' }}>Project & Tech</th>
                                   <th style={{ width: '10%', textAlign: 'center' }}>Score (50)</th>
-                                  <th style={{ width: '6%', textAlign: 'center' }}>Status</th>
+                                  <th style={{ width: '8%', textAlign: 'center' }}>Status</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -4146,8 +3245,6 @@ export default function AdminDashboardPage() {
                                   const evalEntry = evaluations.find(e => (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase());
                                   const isScored = !!evalEntry;
                                   const score = evalEntry?.totalScore ?? '-';
-                                  const slotInfo = getTimeSlotInfo(t.timeSlot);
-                                  const isSlotSaving = savingSlotTeamId === t.id;
 
                                   return (
                                     <tr key={t.id || idx}>
@@ -4169,30 +3266,7 @@ export default function AdminDashboardPage() {
                                       <td className="criterion-name">
                                         <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{t.teamName}</strong>
                                       </td>
-                                      <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <select
-                                            className="retro-select"
-                                            value={t.timeSlot}
-                                            onChange={(e) => handleQuickSlotChange(t.id, t.teamName, e.target.value)}
-                                            disabled={isSlotSaving}
-                                            style={{
-                                              padding: '4px 6px',
-                                              fontSize: '0.68rem',
-                                              width: 'auto',
-                                              border: `1px solid ${slotInfo.badgeBorder}`,
-                                              color: slotInfo.badgeColor,
-                                              background: 'rgba(0, 0, 0, 0.8)'
-                                            }}
-                                            title="Click to instantly reassign time slot"
-                                          >
-                                            {TIME_SLOT_OPTIONS.map(opt => (
-                                              <option key={opt.id} value={opt.value}>{opt.shortLabel}</option>
-                                            ))}
-                                          </select>
-                                          {isSlotSaving && <span style={{ fontSize: '0.6rem', color: '#fdff00' }}>⏳</span>}
-                                        </div>
-                                      </td>
+
                                       <td>
                                         <div style={{ fontSize: '0.8rem', color: '#fdff00' }}>
                                           <strong>{t.leaderName}</strong> <span style={{ color: '#aaa', fontSize: '0.72rem' }}>({t.leaderId}){t.leaderBranch ? ` [${t.leaderBranch}]` : ''}</span>
@@ -4406,16 +3480,6 @@ export default function AdminDashboardPage() {
 
           const cleanModalQuery = zipModalSearch.trim().toLowerCase();
 
-          // Compute overall slot counts
-          let s1Total = 0, s2Total = 0, s3Total = 0, tbaTotal = 0;
-          teams.forEach(t => {
-            const slot = parseTimeSlotFromTeam(t);
-            if (slot === '09:30 AM - 11:30 AM') s1Total++;
-            else if (slot === '12:15 PM - 02:15 PM') s2Total++;
-            else if (slot === '02:30 PM - 04:15 PM') s3Total++;
-            else tbaTotal++;
-          });
-
           const totalAssignedTeams = teams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned').length;
 
           return (
@@ -4476,11 +3540,11 @@ export default function AdminDashboardPage() {
                         margin: 0,
                         letterSpacing: '-0.02em'
                       }}>
-                        ALL JUDGES PANELS & TIME SLOTS
+                        ALL JUDGES PANELS
                       </h2>
                     </div>
                     <p style={{ color: 'var(--text-muted, #a0a0c0)', fontSize: '0.82rem', margin: 0 }}>
-                      Complete assignment dossier of judging panels (JM001 - JM011), faculty evaluators, and allocated teams with presentation time slots.
+                      Complete assignment dossier of judging panels (JM001 - JM011), faculty evaluators, and allocated teams.
                     </p>
                   </div>
 
@@ -4508,24 +3572,6 @@ export default function AdminDashboardPage() {
                       title="Download separate individual .xlsx dossier sheets for every judge panel"
                     >
                       {isExportingZip ? '⏳ PACKAGING ZIP...' : '📦 DOWNLOAD (.ZIP)'}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportScheduleExcel}
-                      style={{
-                        background: 'linear-gradient(135deg, #b8860b, #e6b800)',
-                        border: '2px solid #fdff00',
-                        color: '#000',
-                        padding: '10px 14px',
-                        fontSize: '0.62rem',
-                        fontFamily: 'Press Start 2P, monospace',
-                        borderRadius: '8px',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                      }}
-                      title="Download master timetable workbook"
-                    >
-                      📅 TIMETABLE (.XLSX)
                     </button>
                     <button
                       type="button"
@@ -4567,7 +3613,7 @@ export default function AdminDashboardPage() {
                 {/* KPI Metrics Chips */}
                 <div style={{
                   display: 'grid',
-                  gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
                   gap: '10px',
                   padding: '12px 24px',
                   background: 'rgba(0, 0, 0, 0.4)',
@@ -4580,22 +3626,6 @@ export default function AdminDashboardPage() {
                   <div style={{ background: 'rgba(0, 255, 102, 0.15)', border: '1px solid #00ff66', borderRadius: '8px', padding: '8px 12px' }}>
                     <div style={{ fontSize: '0.58rem', color: '#00ff66', fontFamily: 'Press Start 2P, monospace' }}>👥 ASSIGNED TEAMS</div>
                     <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#fff', marginTop: '4px' }}>{totalAssignedTeams} TEAMS</div>
-                  </div>
-                  <div style={{ background: 'rgba(0, 255, 204, 0.12)', border: '1px solid #00ffcc', borderRadius: '8px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '0.58rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>⏰ SLOT 1 (9:30-11:30)</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#00ffcc', marginTop: '4px' }}>{s1Total} TEAMS</div>
-                  </div>
-                  <div style={{ background: 'rgba(253, 255, 0, 0.12)', border: '1px solid #fdff00', borderRadius: '8px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '0.58rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>⏰ SLOT 2 (12:15-2:15)</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#fdff00', marginTop: '4px' }}>{s2Total} TEAMS</div>
-                  </div>
-                  <div style={{ background: 'rgba(255, 102, 204, 0.12)', border: '1px solid #ff66cc', borderRadius: '8px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace' }}>⏰ SLOT 3 (2:30-4:15)</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#ff66cc', marginTop: '4px' }}>{s3Total} TEAMS</div>
-                  </div>
-                  <div style={{ background: 'rgba(255, 184, 82, 0.12)', border: '1px solid #ffb852', borderRadius: '8px', padding: '8px 12px' }}>
-                    <div style={{ fontSize: '0.58rem', color: '#ffb852', fontFamily: 'Press Start 2P, monospace' }}>⏳ TBA (UNALLOCATED)</div>
-                    <div style={{ fontSize: '1rem', fontWeight: 'bold', color: '#ffb852', marginTop: '4px' }}>{tbaTotal} TEAMS</div>
                   </div>
                 </div>
 
@@ -4613,26 +3643,11 @@ export default function AdminDashboardPage() {
                     <input
                       type="text"
                       className="retro-input"
-                      placeholder="🔍 Filter panels, judges, rooms, team ID, time slots..."
+                      placeholder="🔍 Filter panels, judges, rooms, team ID, leader..."
                       value={zipModalSearch}
                       onChange={(e) => setZipModalSearch(e.target.value)}
                       style={{ width: '100%', padding: '8px 12px', fontSize: '0.8rem' }}
                     />
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '0.62rem', color: 'var(--inky-cyan)', fontFamily: 'Press Start 2P, monospace' }}>SLOT:</span>
-                    <select
-                      className="retro-select"
-                      value={zipModalSlotFilter}
-                      onChange={(e) => setZipModalSlotFilter(e.target.value)}
-                      style={{ padding: '8px 12px', fontSize: '0.75rem' }}
-                    >
-                      <option value="all">⭐ All Time Slots</option>
-                      <option value="09:30 AM - 11:30 AM">⏰ Slot 1: 09:30 AM - 11:30 AM</option>
-                      <option value="12:15 PM - 02:15 PM">⏰ Slot 2: 12:15 PM - 02:15 PM</option>
-                      <option value="02:30 PM - 04:15 PM">⏰ Slot 3: 02:30 PM - 04:15 PM</option>
-                      <option value="TBA">⏳ TBA (Unallocated)</option>
-                    </select>
                   </div>
                   {zipModalSearch && (
                     <button
@@ -4656,11 +3671,7 @@ export default function AdminDashboardPage() {
                 }}>
                   {knownPanels.map(panel => {
                     const allAssigned = panelMap[panel.id.toUpperCase()].teams;
-                    
-                    // Filter by slot if selected
-                    const assignedList = zipModalSlotFilter === 'all'
-                      ? allAssigned
-                      : allAssigned.filter(t => parseTimeSlotFromTeam(t) === zipModalSlotFilter);
+                    const assignedList = panelMap[panel.id.toUpperCase()].teams;
 
                     const matchesSearch = !cleanModalQuery ||
                       panel.id.toLowerCase().includes(cleanModalQuery) ||
@@ -4670,29 +3681,18 @@ export default function AdminDashboardPage() {
                       assignedList.some(t =>
                         (t.teamName && t.teamName.toLowerCase().includes(cleanModalQuery)) ||
                         (t.teamIdNo && t.teamIdNo.toLowerCase().includes(cleanModalQuery)) ||
-                        (t.timeSlot && t.timeSlot.toLowerCase().includes(cleanModalQuery)) ||
                         (t.leaderName && t.leaderName.toLowerCase().includes(cleanModalQuery))
                       );
 
                     if (!matchesSearch) return null;
 
-                    // Per-panel slot counts
-                    let pS1 = 0, pS2 = 0, pS3 = 0, pTba = 0;
-                    allAssigned.forEach(t => {
-                      const slot = parseTimeSlotFromTeam(t);
-                      if (slot === '09:30 AM - 11:30 AM') pS1++;
-                      else if (slot === '12:15 PM - 02:15 PM') pS2++;
-                      else if (slot === '02:30 PM - 04:15 PM') pS3++;
-                      else pTba++;
-                    });
-
                     return (
                       <div key={panel.id} style={{
                         background: 'rgba(15, 15, 25, 0.95)',
-                        border: '2px solid ' + (allAssigned.length > 0 ? 'var(--maze-blue, #2121ff)' : '#333'),
+                        border: '2px solid ' + (assignedList.length > 0 ? 'var(--maze-blue, #2121ff)' : '#333'),
                         borderRadius: '10px',
                         padding: '16px 18px',
-                        boxShadow: allAssigned.length > 0 ? '0 0 12px rgba(33, 33, 255, 0.2)' : 'none'
+                        boxShadow: assignedList.length > 0 ? '0 0 12px rgba(33, 33, 255, 0.2)' : 'none'
                       }}>
                         {/* Panel Header */}
                         <div style={{
@@ -4731,32 +3731,16 @@ export default function AdminDashboardPage() {
                               📍 {panel.location}
                             </span>
                             <span style={{
-                              background: allAssigned.length > 0 ? 'rgba(33, 33, 255, 0.25)' : 'rgba(255, 255, 255, 0.05)',
-                              color: allAssigned.length > 0 ? '#99bbff' : '#888',
-                              border: '1px solid ' + (allAssigned.length > 0 ? '#2121ff' : '#444'),
+                              background: assignedList.length > 0 ? 'rgba(33, 33, 255, 0.25)' : 'rgba(255, 255, 255, 0.05)',
+                              color: assignedList.length > 0 ? '#99bbff' : '#888',
+                              border: '1px solid ' + (assignedList.length > 0 ? '#2121ff' : '#444'),
                               borderRadius: '6px',
                               padding: '3px 8px',
                               fontSize: '0.72rem',
                               fontFamily: 'Press Start 2P, monospace'
                             }}>
-                              👥 {allAssigned.length} TEAMS
+                              👥 {assignedList.length} TEAMS
                             </span>
-                            <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                              <span style={{ fontSize: '0.68rem', color: '#00ffcc', background: 'rgba(0, 255, 204, 0.1)', border: '1px solid rgba(0, 255, 204, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>
-                                S1: {pS1}
-                              </span>
-                              <span style={{ fontSize: '0.68rem', color: '#fdff00', background: 'rgba(253, 255, 0, 0.1)', border: '1px solid rgba(253, 255, 0, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>
-                                S2: {pS2}
-                              </span>
-                              <span style={{ fontSize: '0.68rem', color: '#ff66cc', background: 'rgba(255, 102, 204, 0.1)', border: '1px solid rgba(255, 102, 204, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>
-                                S3: {pS3}
-                              </span>
-                              {pTba > 0 && (
-                                <span style={{ fontSize: '0.68rem', color: '#ffb852', background: 'rgba(255, 184, 82, 0.1)', border: '1px solid rgba(255, 184, 82, 0.3)', padding: '2px 6px', borderRadius: '4px' }}>
-                                  TBA: {pTba}
-                                </span>
-                              )}
-                            </div>
                           </div>
 
                           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -4844,10 +3828,9 @@ export default function AdminDashboardPage() {
                               <thead>
                                 <tr>
                                   <th style={{ width: '8%', textAlign: 'center' }}>Team ID</th>
-                                  <th style={{ width: '18%' }}>Team Name</th>
-                                  <th style={{ width: '22%' }}>Allocated Time Slot</th>
-                                  <th style={{ width: '22%' }}>Leader & Members</th>
-                                  <th style={{ width: '18%' }}>Project & Tech</th>
+                                  <th style={{ width: '22%' }}>Team Name</th>
+                                  <th style={{ width: '32%' }}>Leader & Members</th>
+                                  <th style={{ width: '26%' }}>Project & Tech</th>
                                   <th style={{ width: '12%', textAlign: 'center' }}>Score (50)</th>
                                 </tr>
                               </thead>
@@ -4856,8 +3839,6 @@ export default function AdminDashboardPage() {
                                   const evalEntry = evaluations.find(e => (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase());
                                   const isScored = !!evalEntry;
                                   const score = evalEntry?.totalScore ?? '-';
-                                  const slotInfo = getTimeSlotInfo(t.timeSlot);
-                                  const isSlotSaving = savingSlotTeamId === t.id;
 
                                   return (
                                     <tr key={t.id || tIdx}>
@@ -4878,32 +3859,6 @@ export default function AdminDashboardPage() {
                                       </td>
                                       <td>
                                         <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{t.teamName}</strong>
-                                      </td>
-                                      <td>
-                                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                          <select
-                                            className="retro-select"
-                                            value={t.timeSlot}
-                                            onChange={(e) => handleQuickSlotChange(t.id, t.teamName, e.target.value)}
-                                            disabled={isSlotSaving}
-                                            style={{
-                                              padding: '4px 6px',
-                                              fontSize: '0.68rem',
-                                              color: slotInfo.badgeColor,
-                                              background: slotInfo.badgeBg,
-                                              border: `1.5px solid ${slotInfo.badgeBorder}`,
-                                              borderRadius: '4px',
-                                              fontWeight: 'bold'
-                                            }}
-                                          >
-                                            {TIME_SLOT_OPTIONS.map(opt => (
-                                              <option key={opt.id} value={opt.value} style={{ background: '#111', color: opt.badgeColor }}>
-                                                {opt.label}
-                                              </option>
-                                            ))}
-                                          </select>
-                                          {isSlotSaving && <span style={{ fontSize: '0.6rem', color: '#fdff00' }}>⏳</span>}
-                                        </div>
                                       </td>
                                       <td>
                                         <div style={{ fontSize: '0.78rem' }}>
