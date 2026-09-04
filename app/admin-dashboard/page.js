@@ -32,6 +32,13 @@ import {
   exportTop30Soft15HybAllHardExcel
 } from '@/lib/excelExport';
 import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord } from '@/lib/teamUtils';
+import {
+  FINAL_ROUND_TEAMS,
+  FINAL_ROUND_STATS,
+  isFinalRoundTeam,
+  getFinalRoundTeamInfo,
+  filterFinalRoundTeams
+} from '@/lib/finalRoundTeams';
 
 export default function AdminDashboardPage() {
   const router = useRouter();
@@ -43,6 +50,10 @@ export default function AdminDashboardPage() {
   });
   const [activeTab, setActiveTab] = useState('teams-tab'); // 'teams-tab', 'schedule-tab', 'scores-tab', 'panels-tab', 'whitelist-tab'
   
+  // Scope filter: 'finalists' (Default: Focus on 49 qualified finalist teams) vs 'all' (All 121 teams)
+  const [scopeFilter, setScopeFilter] = useState('finalists');
+  const [finalistTrackFilter, setFinalistTrackFilter] = useState('all'); // 'all', 'software', 'hybrid', 'hardware'
+
   // Filters for Tab 1 (Teams & Judges)
   const [teamsFilter, setTeamsFilter] = useState('all'); // 'unassigned', 'assigned', 'all'
   const [timeSlotFilter, setTimeSlotFilter] = useState('all'); // 'all', 'TBA', '09:30 AM - 11:30 AM', '12:15 PM - 02:15 PM', '02:30 PM - 04:15 PM'
@@ -161,6 +172,8 @@ export default function AdminDashboardPage() {
             });
           });
 
+          const finalistInfo = getFinalRoundTeamInfo({ teamName: st.team_name, teamIdNo: parsedTeamId, main_idea: st.main_idea });
+
           return {
             id: st.id,
             teamName: st.team_name,
@@ -177,10 +190,18 @@ export default function AdminDashboardPage() {
             timeSlot: parsedSlot,
             rawMainIdea: st.main_idea || '',
             members: parsedMembers,
-            totalTeamSize: 1 + parsedMembers.length
+            totalTeamSize: 1 + parsedMembers.length,
+            isFinalist: Boolean(finalistInfo),
+            finalistInfo: finalistInfo || null
           };
         });
         setTeams(formattedTeams);
+
+        // Pre-populate Round 3 Finalists selection with the 49 qualified finalist teams
+        const finalistIds = formattedTeams.filter(t => t.isFinalist).map(t => t.id);
+        if (finalistIds.length > 0) {
+          setSelectedRound3TeamIds(prev => prev.length === 0 ? finalistIds : prev);
+        }
 
         setJudgeSelections(prev => {
           const next = { ...prev };
@@ -1168,8 +1189,15 @@ export default function AdminDashboardPage() {
 
   const cleanQuery = searchQuery.trim().toLowerCase();
 
+  const finalistTeamsCount = teams.filter(t => t.isFinalist).length;
+
+  // Primary Scope: Finalists (Default 49 qualified teams) vs All Teams (121 teams archive)
+  const scopeTeams = scopeFilter === 'finalists'
+    ? teams.filter(t => t.isFinalist && (finalistTrackFilter === 'all' || (t.projectType || '').toLowerCase() === finalistTrackFilter.toLowerCase()))
+    : teams;
+
   // Global search filter
-  const searchMatchedTeams = teams.filter(t => {
+  const searchMatchedTeams = scopeTeams.filter(t => {
     if (!cleanQuery) return true;
 
     if (t.teamIdNo && t.teamIdNo.toLowerCase().includes(cleanQuery)) return true;
@@ -1306,10 +1334,219 @@ export default function AdminDashboardPage() {
         {/* Dashboard Title Header */}
         <div className="login-header text-left">
           <div className="badge-wrapper">
-            <span className="role-badge admin-badge">STAGE 3: ADMIN CONTROL PANEL</span>
+            <span className="role-badge admin-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
+              STAGE 3: FINAL ROUND MASTER CONTROL
+            </span>
           </div>
-          <h2>HACKATHON MASTER CONTROL</h2>
-          <p>Allocate presentation time slots (9:30-11:30, 12:15-2:15, 2:30-4:15, TBA), assign judge panels, and monitor live evaluations.</p>
+          <h2>HACKATHON FINAL ROUND CONTROL</h2>
+          <p>
+            {scopeFilter === 'finalists'
+              ? 'Focusing on the 49 Qualified Finalist Teams (30 Software • 15 Hybrid • 4 Hardware • 189 Participants). Allocate final round slots, panels, and scores.'
+              : 'Managing all 121 registered teams archive. Allocate presentation time slots, assign judge panels, and monitor evaluations.'}
+          </p>
+        </div>
+
+        {/* FINAL ROUND QUALIFIERS FOCUS BAR */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.12) 0%, rgba(0, 255, 204, 0.12) 100%)',
+          border: '2px solid #fdff00',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '24px',
+          boxShadow: '0 0 25px rgba(253, 255, 0, 0.25)',
+          display: 'flex',
+          flexDirection: 'column',
+          gap: '12px'
+        }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+              <span style={{ fontSize: '1.8rem' }}>🏆</span>
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                  <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.85rem', color: '#fdff00', letterSpacing: '1px' }}>
+                    STAGE 3: FINAL ROUND QUALIFIERS FOCUS
+                  </h3>
+                  <span style={{
+                    background: '#fdff00',
+                    color: '#000',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    fontWeight: 'bold'
+                  }}>
+                    49 TEAMS ADVANCED
+                  </span>
+                </div>
+                <p style={{ margin: '6px 0 0 0', color: '#ccc', fontSize: '0.78rem' }}>
+                  Portal is currently focused on the 49 qualified finalist teams (30 Software • 15 Hybrid • 4 Hardware • 189 Participants).
+                </p>
+              </div>
+            </div>
+
+            {/* Scope Toggle: Finalists vs All */}
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                onClick={() => { setScopeFilter('finalists'); setFinalistTrackFilter('all'); }}
+                style={{
+                  background: scopeFilter === 'finalists' ? '#fdff00' : 'rgba(0,0,0,0.6)',
+                  color: scopeFilter === 'finalists' ? '#000' : '#888',
+                  border: '2px solid #fdff00',
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.62rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: scopeFilter === 'finalists' ? '0 0 14px rgba(253, 255, 0, 0.4)' : 'none'
+                }}
+              >
+                🏆 49 FINALISTS (ACTIVE)
+              </button>
+              <button
+                type="button"
+                onClick={() => setScopeFilter('all')}
+                style={{
+                  background: scopeFilter === 'all' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                  color: scopeFilter === 'all' ? '#000' : '#888',
+                  border: '2px solid #00ffcc',
+                  padding: '8px 14px',
+                  borderRadius: '6px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.62rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: scopeFilter === 'all' ? '0 0 14px rgba(0, 255, 204, 0.4)' : 'none'
+                }}
+              >
+                📁 ALL 121 TEAMS ARCHIVE
+              </button>
+            </div>
+          </div>
+
+          {/* Quick Track Filter Pills when Finalists Scope is Active */}
+          {scopeFilter === 'finalists' && (
+            <div style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              flexWrap: 'wrap',
+              borderTop: '1px dashed rgba(253, 255, 0, 0.3)',
+              paddingTop: '10px'
+            }}>
+              <span style={{ fontSize: '0.58rem', fontFamily: 'Press Start 2P, monospace', color: '#888' }}>
+                FILTER TRACK:
+              </span>
+              <button
+                type="button"
+                onClick={() => setFinalistTrackFilter('all')}
+                style={{
+                  background: finalistTrackFilter === 'all' ? 'rgba(253, 255, 0, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                  color: finalistTrackFilter === 'all' ? '#fdff00' : '#aaa',
+                  border: finalistTrackFilter === 'all' ? '1.5px solid #fdff00' : '1px solid #444',
+                  borderRadius: '4px',
+                  padding: '5px 10px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.55rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                ALL 49 FINALISTS
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinalistTrackFilter('software')}
+                style={{
+                  background: finalistTrackFilter === 'software' ? 'rgba(0, 255, 204, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                  color: finalistTrackFilter === 'software' ? '#00ffcc' : '#aaa',
+                  border: finalistTrackFilter === 'software' ? '1.5px solid #00ffcc' : '1px solid #444',
+                  borderRadius: '4px',
+                  padding: '5px 10px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.55rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                💻 SOFTWARE (30)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinalistTrackFilter('hybrid')}
+                style={{
+                  background: finalistTrackFilter === 'hybrid' ? 'rgba(255, 102, 204, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                  color: finalistTrackFilter === 'hybrid' ? '#ff66cc' : '#aaa',
+                  border: finalistTrackFilter === 'hybrid' ? '1.5px solid #ff66cc' : '1px solid #444',
+                  borderRadius: '4px',
+                  padding: '5px 10px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.55rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                ⚡ HYBRID (15)
+              </button>
+              <button
+                type="button"
+                onClick={() => setFinalistTrackFilter('hardware')}
+                style={{
+                  background: finalistTrackFilter === 'hardware' ? 'rgba(255, 184, 82, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                  color: finalistTrackFilter === 'hardware' ? '#ffb852' : '#aaa',
+                  border: finalistTrackFilter === 'hardware' ? '1.5px solid #ffb852' : '1px solid #444',
+                  borderRadius: '4px',
+                  padding: '5px 10px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.55rem',
+                  cursor: 'pointer',
+                  fontWeight: 'bold'
+                }}
+              >
+                ⚙️ HARDWARE (4)
+              </button>
+
+              <div style={{ marginLeft: 'auto', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={handleExportSpecialLeaderboardCSV}
+                  style={{
+                    background: '#00ffcc',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '5px 10px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 8px rgba(0, 255, 204, 0.3)'
+                  }}
+                >
+                  📊 EXPORT FINALISTS CSV
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportSpecialLeaderboardExcel}
+                  style={{
+                    background: '#fdff00',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '5px 10px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 8px rgba(253, 255, 0, 0.3)'
+                  }}
+                >
+                  ⭐ EXPORT FINALISTS (.XLSX)
+                </button>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Admin Master Control Frame */}
@@ -1331,21 +1568,21 @@ export default function AdminDashboardPage() {
                 className={`admin-control-btn admin-tab-btn ${activeTab === 'teams-tab' ? 'active' : ''}`}
                 onClick={() => setActiveTab('teams-tab')}
               >
-                👥 TEAMS & JUDGES {cleanQuery ? `(${searchMatchedTeams.length})` : `(${teams.length})`}
+                👥 TEAMS & JUDGES {scopeFilter === 'finalists' ? `(${searchMatchedTeams.length} FINALISTS)` : `(${searchMatchedTeams.length}/${teams.length})`}
               </button>
               <button
                 type="button"
                 className={`admin-control-btn admin-tab-btn schedule-tab-btn ${activeTab === 'schedule-tab' ? 'active' : ''}`}
                 onClick={() => setActiveTab('schedule-tab')}
               >
-                📅 TIME SLOTS ({allocatedSlotCount}/{teams.length})
+                📅 TIME SLOTS ({allocatedSlotCount}/{scopeTeams.length})
               </button>
               <button
                 type="button"
                 className={`admin-control-btn admin-tab-btn eval-highlight ${activeTab === 'scores-tab' ? 'active' : ''}`}
                 onClick={() => setActiveTab('scores-tab')}
               >
-                ⭐ LEADERBOARD
+                ⭐ FINAL ROUND LEADERBOARD
               </button>
               <button
                 type="button"
@@ -1922,7 +2159,26 @@ export default function AdminDashboardPage() {
 
                               {/* Team Name */}
                               <td className="criterion-name">
-                                <strong style={{ color: '#fff', fontSize: '0.95rem' }}>{t.teamName}</strong>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                  <strong style={{ color: '#fff', fontSize: '0.95rem' }}>{t.teamName}</strong>
+                                  {t.isFinalist && (
+                                    <span style={{
+                                      background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                                      color: '#000',
+                                      borderRadius: '4px',
+                                      padding: '2px 6px',
+                                      fontSize: '0.55rem',
+                                      fontFamily: 'Press Start 2P, monospace',
+                                      fontWeight: 'bold',
+                                      boxShadow: '0 0 8px rgba(253, 255, 0, 0.4)',
+                                      display: 'inline-flex',
+                                      alignItems: 'center',
+                                      gap: '4px'
+                                    }}>
+                                      🏆 FINALIST: {t.finalistInfo?.track} {t.finalistInfo?.rank}
+                                    </span>
+                                  )}
+                                </div>
                                 <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                   {/* Judge status badge */}
                                   {isAssignedJudge ? (
@@ -2560,7 +2816,10 @@ export default function AdminDashboardPage() {
 
         {/* TAB 3: LIVE EVALUATION LEADERBOARD */}
         {activeTab === 'scores-tab' && (() => {
-          const leaderboardData = teams.map(t => {
+          const sourceTeams = scopeFilter === 'finalists'
+            ? teams.filter(t => t.isFinalist && (finalistTrackFilter === 'all' || (t.projectType || '').toLowerCase() === finalistTrackFilter.toLowerCase()))
+            : teams;
+          const leaderboardData = sourceTeams.map(t => {
             const evalEntry = evaluations.find(e => (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase());
             let isScored = false;
             let score = 0;
@@ -3412,6 +3671,21 @@ export default function AdminDashboardPage() {
                               <td className="criterion-name">
                                 <span style={{ fontWeight: 'bold', color: '#fff' }}>{item.teamName}</span>
                                 {index === 0 && item.isScored && <span style={{ marginLeft: '6px', fontSize: '0.75rem' }}>👑</span>}
+                                {item.isFinalist && (
+                                  <span style={{
+                                    background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                                    color: '#000',
+                                    borderRadius: '3px',
+                                    padding: '2px 5px',
+                                    fontSize: '0.52rem',
+                                    fontFamily: 'Press Start 2P, monospace',
+                                    fontWeight: 'bold',
+                                    marginLeft: '6px',
+                                    boxShadow: '0 0 6px rgba(253, 255, 0, 0.4)'
+                                  }}>
+                                    🏆 {item.finalistInfo?.track} {item.finalistInfo?.rank}
+                                  </span>
+                                )}
                                 {isRound3Selected && (
                                   <span style={{
                                     background: '#00ffcc',
@@ -3544,7 +3818,9 @@ export default function AdminDashboardPage() {
           const customPanelsMap = {};
           const unassignedTeams = [];
 
-          teams.forEach(t => {
+          const panelTeams = scopeFilter === 'finalists' ? teams.filter(t => t.isFinalist) : teams;
+
+          panelTeams.forEach(t => {
             const rawJudge = (t.assignedJudge || '').trim();
             const upperJudge = rawJudge.toUpperCase();
 

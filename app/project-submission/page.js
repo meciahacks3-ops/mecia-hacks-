@@ -6,6 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { findRegisteredTeam } from '@/lib/teamUtils';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
+import { isFinalRoundTeam, getFinalRoundTeamInfo } from '@/lib/finalRoundTeams';
 
 export default function ProjectSubmissionPage() {
   const router = useRouter();
@@ -570,6 +571,77 @@ export default function ProjectSubmissionPage() {
                 </button>
               </div>
             </div>
+
+            {/* STAGE 3: FINAL ROUND QUALIFICATION STATUS */}
+            {(() => {
+              const finalistInfo = getFinalRoundTeamInfo({ teamName, teamIdNo });
+              const isFinalist = Boolean(finalistInfo);
+
+              if (isFinalist) {
+                return (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.15) 0%, rgba(0, 255, 204, 0.2) 100%)',
+                    border: '2px solid #fdff00',
+                    boxShadow: '0 0 25px rgba(253, 255, 0, 0.4)',
+                    borderRadius: '14px',
+                    padding: '24px 20px',
+                    marginBottom: '28px'
+                  }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '14px', marginBottom: '12px' }}>
+                      <span style={{ fontSize: '2.2rem' }}>🎉</span>
+                      <div>
+                        <span className="role-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
+                          🏆 FINAL ROUND QUALIFIER (STAGE 3)
+                        </span>
+                        <h3 style={{ color: '#fdff00', fontFamily: 'Press Start 2P, monospace', fontSize: '1rem', margin: '8px 0 4px 0', textShadow: '0 0 10px rgba(253, 255, 0, 0.5)' }}>
+                          CONGRATULATIONS! YOUR TEAM HAS ADVANCED TO THE FINAL ROUND!
+                        </h3>
+                      </div>
+                    </div>
+                    <p style={{ color: '#fff', fontSize: '0.86rem', lineHeight: '1.6', margin: '0 0 16px 0' }}>
+                      Your team <strong style={{ color: '#00ffcc' }}>{teamName}</strong> has officially qualified as one of the <strong>49 Finalist Teams</strong> for the Final Round of Mecia Hack 3.0! Please ensure your entire team reports to your allocated judge panel and venue during your presentation time slot.
+                    </p>
+                    <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
+                      <div style={{ background: 'rgba(0,0,0,0.6)', border: '1.5px solid #00ffcc', padding: '10px 14px', borderRadius: '8px' }}>
+                        <span style={{ fontSize: '0.6rem', color: '#aaa', fontFamily: 'Press Start 2P, monospace' }}>FINALIST TRACK:</span>
+                        <div style={{ color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', marginTop: '4px' }}>
+                          {finalistInfo?.track} Track
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(0,0,0,0.6)', border: '1.5px solid #fdff00', padding: '10px 14px', borderRadius: '8px' }}>
+                        <span style={{ fontSize: '0.6rem', color: '#aaa', fontFamily: 'Press Start 2P, monospace' }}>QUALIFIER RANK:</span>
+                        <div style={{ color: '#fdff00', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', marginTop: '4px' }}>
+                          {finalistInfo?.rank}
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(0,0,0,0.6)', border: '1.5px solid #ff66cc', padding: '10px 14px', borderRadius: '8px' }}>
+                        <span style={{ fontSize: '0.6rem', color: '#aaa', fontFamily: 'Press Start 2P, monospace' }}>ROUND 2 SCORE:</span>
+                        <div style={{ color: '#ff66cc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', marginTop: '4px' }}>
+                          {finalistInfo?.score} / 50
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                );
+              }
+
+              return (
+                <div style={{
+                  background: 'rgba(33, 33, 255, 0.1)',
+                  border: '1.5px solid rgba(33, 33, 255, 0.4)',
+                  borderRadius: '12px',
+                  padding: '18px 20px',
+                  marginBottom: '28px'
+                }}>
+                  <span style={{ background: '#2121ff', color: '#fff', fontSize: '0.6rem', fontFamily: 'Press Start 2P, monospace', padding: '4px 10px', borderRadius: '4px', display: 'inline-block' }}>
+                    🏁 ROUND 2 COMPLETED
+                  </span>
+                  <p style={{ color: '#ccc', fontSize: '0.84rem', marginTop: '10px', lineHeight: '1.5', margin: '10px 0 0 0' }}>
+                    Thank you for participating and presenting in Round 2 of Mecia Hack 3.0! The 49 finalist teams have been selected for the Final Round. We deeply appreciate your participation, and digital certificates of participation will be awarded to all teams.
+                  </p>
+                </div>
+              );
+            })()}
 
             {/* ROUND 2: ALLOCATED JUDGE PANEL & LAB VENUE LOCATION */}
             <div style={{

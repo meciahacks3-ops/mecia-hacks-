@@ -7,6 +7,7 @@ import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { parseEvaluationRecord } from '@/lib/teamUtils';
+import { isFinalRoundTeam, getFinalRoundTeamInfo } from '@/lib/finalRoundTeams';
 
 export default function JudgeDashboardPage() {
   const router = useRouter();
@@ -15,6 +16,7 @@ export default function JudgeDashboardPage() {
   const [evaluations, setEvaluations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showRubrics, setShowRubrics] = useState(false);
+  const [finalistsOnlyFilter, setFinalistsOnlyFilter] = useState(true);
 
   useEffect(() => {
     const savedJudgeEmail = sessionStorage.getItem('judgeEmail');
@@ -46,6 +48,7 @@ export default function JudgeDashboardPage() {
           }
 
           const parsedSlot = parseTimeSlotFromTeam(st);
+          const finalistInfo = getFinalRoundTeamInfo({ teamName: st.team_name, teamIdNo: parsedTeamId, main_idea: st.main_idea });
 
           return {
             id: st.id,
@@ -54,7 +57,9 @@ export default function JudgeDashboardPage() {
             projectTitle: st.project_title || 'N/A',
             projectDesc: cleanDesc || st.main_idea || 'No description provided.',
             assignedJudge: st.assigned_judge,
-            timeSlot: parsedSlot
+            timeSlot: parsedSlot,
+            isFinalist: Boolean(finalistInfo),
+            finalistInfo: finalistInfo || null
           };
         });
         setTeams(formattedTeams);
@@ -98,6 +103,12 @@ export default function JudgeDashboardPage() {
     if (aSlot !== bSlot) return aSlot - bSlot;
     return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
   });
+
+  const finalistAssignedTeams = assignedTeams.filter(t => t.isFinalist);
+
+  const displayedAssignedTeams = (finalistsOnlyFilter && finalistAssignedTeams.length > 0)
+    ? finalistAssignedTeams
+    : assignedTeams;
 
   const judgeProfile = getJudgeProfile(judgeEmail);
 
@@ -173,48 +184,190 @@ export default function JudgeDashboardPage() {
 
         <RubricsModal isOpen={showRubrics} onClose={() => setShowRubrics(false)} />
 
+        {/* STAGE 3: FINAL ROUND ACTIVE BANNER */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.12) 0%, rgba(0, 255, 204, 0.12) 100%)',
+          border: '2px solid #fdff00',
+          borderRadius: '12px',
+          padding: '16px 20px',
+          marginBottom: '28px',
+          boxShadow: '0 0 20px rgba(253, 255, 0, 0.25)',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: '14px'
+        }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <span style={{ fontSize: '1.6rem' }}>🏆</span>
+              <div>
+                <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', color: '#fdff00', letterSpacing: '1px' }}>
+                  STAGE 3: FINAL ROUND EVALUATIONS ACTIVE
+                </h3>
+                <p style={{ margin: '4px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
+                  Evaluating the 49 qualified finalist teams. Your panel has <strong style={{ color: '#00ffcc' }}>{finalistAssignedTeams.length} Finalist {finalistAssignedTeams.length === 1 ? 'Team' : 'Teams'}</strong> to evaluate.
+                </p>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              onClick={() => setFinalistsOnlyFilter(true)}
+              style={{
+                background: finalistsOnlyFilter ? '#fdff00' : 'rgba(0,0,0,0.6)',
+                color: finalistsOnlyFilter ? '#000' : '#888',
+                border: '1.5px solid #fdff00',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.58rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                boxShadow: finalistsOnlyFilter ? '0 0 10px rgba(253, 255, 0, 0.4)' : 'none'
+              }}
+            >
+              🏆 FINALISTS ONLY ({finalistAssignedTeams.length})
+            </button>
+            <button
+              type="button"
+              onClick={() => setFinalistsOnlyFilter(false)}
+              style={{
+                background: !finalistsOnlyFilter ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                color: !finalistsOnlyFilter ? '#000' : '#888',
+                border: '1.5px solid #00ffcc',
+                padding: '8px 12px',
+                borderRadius: '6px',
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.58rem',
+                fontWeight: 'bold',
+                cursor: 'pointer',
+                boxShadow: !finalistsOnlyFilter ? '0 0 10px rgba(0, 255, 204, 0.4)' : 'none'
+              }}
+            >
+              ALL ASSIGNED ({assignedTeams.length})
+            </button>
+          </div>
+        </div>
+
         {/* Dashboard Title Header */}
         <div className="login-header text-left">
           <div className="badge-wrapper">
-            <span className="role-badge eval-badge">STAGE 2: JUDGE EVALUATION PANEL</span>
+            <span className="role-badge eval-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
+              STAGE 3: FINAL ROUND EVALUATION PANEL
+            </span>
           </div>
-          <h2>ASSIGNED HACKATHON TEAMS ({assignedTeams.length})</h2>
-          <p>Review team submissions, check allocated presentation slots, and assign scores for panel: <strong>{judgeEmail}</strong>.</p>
+          <h2>ASSIGNED FINAL ROUND TEAMS ({displayedAssignedTeams.length})</h2>
+          <p>
+            {finalistsOnlyFilter
+              ? `Review Final Round qualified submissions, check presentation slots, and assign scores for panel: ${judgeEmail}.`
+              : `Viewing all assigned teams (including Round 2 archive) for panel: ${judgeEmail}.`}
+          </p>
         </div>
 
         {/* Assigned Teams List Section */}
         <div className="form-section">
-          <h3 className="section-title"><span className="pacman-bullet"></span> HACKATHON TEAMS (CLICK NAME TO EVALUATE)</h3>
+          <h3 className="section-title"><span className="pacman-bullet"></span> FINAL ROUND TEAMS (CLICK NAME TO EVALUATE)</h3>
 
           <div className="teams-list">
-            {assignedTeams.length === 0 ? (
+            {displayedAssignedTeams.length === 0 ? (
               <div style={{ textAlign: 'center', padding: '36px 16px', background: 'rgba(0, 0, 0, 0.5)', borderRadius: '10px', border: '1.5px dashed rgba(0, 255, 255, 0.3)' }}>
-                <p style={{ fontSize: '1rem', color: 'var(--pacman-yellow)', marginBottom: '8px', fontWeight: '700' }}>⚠️ NO TEAMS ASSIGNED YET</p>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No hackathon teams have been assigned to judge panel <strong>{judgeEmail}</strong> yet by the Admin.</p>
+                <p style={{ fontSize: '1rem', color: 'var(--pacman-yellow)', marginBottom: '8px', fontWeight: '700' }}>⚠️ NO TEAMS FOUND</p>
+                <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>No teams found for judge panel <strong>{judgeEmail}</strong> under the current filter.</p>
+                {finalistsOnlyFilter && (
+                  <button
+                    type="button"
+                    onClick={() => setFinalistsOnlyFilter(false)}
+                    style={{
+                      marginTop: '12px',
+                      background: '#00ffcc',
+                      color: '#000',
+                      border: 'none',
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.6rem',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    VIEW ALL ASSIGNED TEAMS ({assignedTeams.length})
+                  </button>
+                )}
               </div>
             ) : (
-              assignedTeams.map(t => {
+              displayedAssignedTeams.map(t => {
                 const evalEntry = evaluations.find(e => (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase());
                 const isScored = Boolean(evalEntry);
                 const scoreVal = evalEntry ? evalEntry.totalScore : 0;
                 const slotInfo = getTimeSlotInfo(t.timeSlot);
 
                 return (
-                  <div key={t.id || t.teamName} className="team-card">
+                  <div key={t.id || t.teamName} className="team-card" style={t.isFinalist ? { border: '1.5px solid rgba(253, 255, 0, 0.4)', boxShadow: '0 0 15px rgba(253, 255, 0, 0.15)' } : {}}>
                     <div className="team-card-header">
                       <div>
-                        <a
-                          href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
-                          className="team-name-link"
-                          title={`Click to evaluate ${t.teamName}`}
-                        >
-                          <span className="team-name">{t.teamName}</span>
-                        </a>
-                        {isScored ? (
-                          <span className="status-pill status-completed">SCORED ({scoreVal}/50)</span>
-                        ) : (
-                          <span className="status-pill status-pending">PENDING EVALUATION</span>
-                        )}
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          <a
+                            href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
+                            className="team-name-link"
+                            title={`Click to evaluate ${t.teamName}`}
+                          >
+                            <span className="team-name">{t.teamName}</span>
+                          </a>
+
+                          {t.isFinalist ? (
+                            <span style={{
+                              background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                              color: '#000',
+                              borderRadius: '4px',
+                              padding: '3px 8px',
+                              fontSize: '0.55rem',
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontWeight: 'bold',
+                              boxShadow: '0 0 8px rgba(253, 255, 0, 0.4)',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '4px'
+                            }}>
+                              🏆 FINALIST: {t.finalistInfo?.track} {t.finalistInfo?.rank}
+                            </span>
+                          ) : (
+                            <span style={{
+                              background: 'rgba(255, 255, 255, 0.08)',
+                              color: '#888',
+                              borderRadius: '4px',
+                              padding: '2px 6px',
+                              fontSize: '0.52rem',
+                              fontFamily: 'Press Start 2P, monospace'
+                            }}>
+                              ROUND 2 ONLY
+                            </span>
+                          )}
+                        </div>
+
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
+                          {isScored ? (
+                            <span className="status-pill status-completed">SCORED ({scoreVal}/50)</span>
+                          ) : (
+                            <span className="status-pill status-pending">PENDING EVALUATION</span>
+                          )}
+
+                          {t.isFinalist && t.finalistInfo?.score && (
+                            <span style={{
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.55rem',
+                              color: '#fdff00',
+                              background: 'rgba(253, 255, 0, 0.12)',
+                              border: '1px solid rgba(253, 255, 0, 0.4)',
+                              padding: '3px 8px',
+                              borderRadius: '4px'
+                            }}>
+                              ⭐ R2 SCORE: {t.finalistInfo.score}/50
+                            </span>
+                          )}
+                        </div>
 
                         <div style={{ marginTop: '8px' }}>
                           <span style={{

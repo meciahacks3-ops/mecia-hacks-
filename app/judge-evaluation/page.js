@@ -7,6 +7,7 @@ import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { parseEvaluationRecord } from '@/lib/teamUtils';
+import { isFinalRoundTeam, getFinalRoundTeamInfo } from '@/lib/finalRoundTeams';
 
 function JudgeEvaluationContent() {
   const router = useRouter();
@@ -256,11 +257,69 @@ function JudgeEvaluationContent() {
         />
 
         {/* Team Banner Header */}
-        <div className="login-header text-left team-banner-section">
-          <div className="badge-wrapper">
-            <span className="role-badge eval-badge">STAGE 2: RUBRIC EVALUATION</span>
-          </div>
-          <h2>EVALUATING: <span className="highlight-title">{teamName}</span></h2>
+        {(() => {
+          const finalistInfo = getFinalRoundTeamInfo({ teamName, teamIdNo });
+          const isFinalist = Boolean(finalistInfo);
+
+          return (
+            <div className="login-header text-left team-banner-section">
+              <div className="badge-wrapper">
+                <span className="role-badge eval-badge" style={isFinalist ? { background: '#fdff00', color: '#000', fontWeight: 'bold' } : {}}>
+                  {isFinalist ? 'STAGE 3: FINAL ROUND EVALUATION' : 'STAGE 2: RUBRIC EVALUATION'}
+                </span>
+              </div>
+              <h2>EVALUATING: <span className="highlight-title">{teamName}</span></h2>
+
+              {isFinalist ? (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.15) 0%, rgba(0, 255, 204, 0.15) 100%)',
+                  border: '2px solid #fdff00',
+                  borderRadius: '10px',
+                  padding: '14px 18px',
+                  marginTop: '14px',
+                  boxShadow: '0 0 15px rgba(253, 255, 0, 0.3)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                    <span style={{ fontSize: '1.6rem' }}>🏆</span>
+                    <div>
+                      <div style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.72rem', color: '#fdff00', fontWeight: 'bold' }}>
+                        OFFICIAL FINAL ROUND QUALIFIER
+                      </div>
+                      <div style={{ color: '#ccc', fontSize: '0.74rem', marginTop: '4px' }}>
+                        Track: <strong style={{ color: '#00ffcc' }}>{finalistInfo.track} Track</strong> • Qualifier Rank: <strong style={{ color: '#fdff00' }}>{finalistInfo.rank}</strong> • Round 2 Score: <strong style={{ color: '#ff66cc' }}>{finalistInfo.score}/50</strong>
+                      </div>
+                    </div>
+                  </div>
+                  <span style={{
+                    background: '#fdff00',
+                    color: '#000',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.58rem',
+                    padding: '5px 10px',
+                    borderRadius: '4px',
+                    fontWeight: 'bold'
+                  }}>
+                    FINALIST TEAM
+                  </span>
+                </div>
+              ) : (
+                <div style={{
+                  background: 'rgba(255, 77, 77, 0.1)',
+                  border: '1.5px dashed #ff4d4d',
+                  borderRadius: '8px',
+                  padding: '10px 14px',
+                  marginTop: '12px',
+                  color: '#ff8888',
+                  fontSize: '0.78rem'
+                }}>
+                  ⚠️ Notice: This team is not listed in the 49 Final Round Qualifiers. Final round evaluations are intended for the 49 qualified finalist teams.
+                </div>
+              )}
 
           <div style={{
             marginTop: '14px',
@@ -307,6 +366,8 @@ function JudgeEvaluationContent() {
             )}
           </div>
         </div>
+      );
+    })()}
 
         {/* Evaluation Marksheet Form */}
         <form onSubmit={handleSubmit}>

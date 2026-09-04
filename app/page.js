@@ -282,17 +282,38 @@ export default function LoginPage() {
 
         <div className="login-header">
           <div className="badge-wrapper">
-            <span className="role-badge" id="role-badge">
-              {role === 'student' && 'STAGE 1: STUDENT DASHBOARD (VIEW ALLOCATIONS)'}
-              {role === 'judge' && 'STAGE 2: JUDGE'}
-              {role === 'admin' && 'STAGE 3: ADMIN'}
+            <span className="role-badge" id="role-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
+              {role === 'student' && 'STAGE 3: STUDENT DASHBOARD (FINAL ROUND)'}
+              {role === 'judge' && 'STAGE 3: JUDGE EVALUATION (FINAL ROUND)'}
+              {role === 'admin' && 'STAGE 3: ADMIN CONTROL (FINAL ROUND)'}
             </span>
           </div>
           <h2>Mecia Hack 3.0</h2>
           <p>
-            {role === 'student' && 'Sign in with your registered Google account to view your Round 2 Judge Panel, Venue & Time Slot.'}
-            {role === 'judge' && 'Evaluate hackathon submissions and score projects.'}
-            {role === 'admin' && 'Manage events, teams, and administrative settings.'}
+            {role === 'student' && 'Sign in with your registered Google account to view your Final Round qualification status, Judge Panel & Time Slot.'}
+            {role === 'judge' && 'Evaluate Final Round hackathon submissions and score finalist projects.'}
+            {role === 'admin' && 'Manage Final Round events, qualified teams, and administrative settings.'}
+          </p>
+        </div>
+
+        {/* STAGE 3 FINAL ROUND ANNOUNCEMENT */}
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.15) 0%, rgba(0, 255, 204, 0.15) 100%)',
+          border: '1.5px solid #fdff00',
+          borderRadius: '10px',
+          padding: '12px 16px',
+          marginBottom: '20px',
+          textAlign: 'center',
+          boxShadow: '0 0 15px rgba(253, 255, 0, 0.25)'
+        }}>
+          <div style={{ color: '#fdff00', fontFamily: 'Press Start 2P, monospace', fontSize: '0.68rem', letterSpacing: '0.5px' }}>
+            🏆 FINAL ROUND IS NOW LIVE!
+          </div>
+          <div style={{ color: '#00ffcc', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', marginTop: '6px' }}>
+            49 TEAMS QUALIFIED • 30 SOFT • 15 HYB • 4 HARD
+          </div>
+          <p style={{ margin: '6px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
+            Students: Sign in to check your Final Round qualification status and presentation slot.
           </p>
         </div>
 
