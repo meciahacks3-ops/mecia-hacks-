@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
-import { parseEvaluationRecord } from '@/lib/teamUtils';
+import { parseEvaluationRecord, formatPhaseFeedback, parsePhaseFeedback } from '@/lib/teamUtils';
 import { isFinalRoundTeam, getFinalRoundTeamInfo, getTeamLabLocation } from '@/lib/finalRoundTeams';
 
 function JudgeEvaluationContent() {
@@ -29,6 +29,9 @@ function JudgeEvaluationContent() {
   const [c4, setC4] = useState(0); // Execution Feasibility & Timeline (Max 10)
   const [c5, setC5] = useState(0); // Implementation Details (Max 10)
   const [remarks, setRemarks] = useState('');
+  const [phase1Remarks, setPhase1Remarks] = useState('');
+  const [phase2Remarks, setPhase2Remarks] = useState('');
+  const [activeFeedbackTab, setActiveFeedbackTab] = useState('all'); // 'all', 'phase1', 'phase2'
   const [isLocked, setIsLocked] = useState(false); // Closed editing feature for evaluated teams
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [internalFeedbackList, setInternalFeedbackList] = useState([]);
@@ -123,6 +126,8 @@ function JudgeEvaluationContent() {
             setC5(parsed.c5);
             const rawRemarks = parsed.remarks || '';
             setRemarks(rawRemarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim());
+            setPhase1Remarks(parsed.phase1Feedback || '');
+            setPhase2Remarks(parsed.phase2Feedback || '');
           }
         }
 
@@ -161,8 +166,8 @@ function JudgeEvaluationContent() {
       return;
     }
 
-    if (isFinalRoundJudge && !remarks.trim()) {
-      alert("⚠️ Feedback Required: Please enter your feedback and recommendations for this team before submitting.");
+    if (isFinalRoundJudge && !phase1Remarks.trim() && !phase2Remarks.trim() && !remarks.trim()) {
+      alert("⚠️ Feedback Required: Please enter your feedback for Phase 1 or Phase 2 before submitting.");
       return;
     }
 
@@ -178,6 +183,12 @@ function JudgeEvaluationContent() {
 
       let evalPayload;
       if (isFinalRoundJudge) {
+        const p1 = phase1Remarks.trim();
+        const p2 = phase2Remarks.trim();
+        const formattedFeedback = (p1 || p2)
+          ? formatPhaseFeedback(p1, p2)
+          : remarks.trim();
+
         evalPayload = {
           team_name: teamName,
           judge_email: cleanJudge,
@@ -186,7 +197,7 @@ function JudgeEvaluationContent() {
           c3_feasibility: 0,
           c4_presentation: 0,
           total_score: 0,
-          remarks: remarks.trim(),
+          remarks: formattedFeedback,
           updated_at: new Date()
         };
       } else {
@@ -458,7 +469,7 @@ function JudgeEvaluationContent() {
                 border: '1.5px solid #00ffcc',
                 borderRadius: '8px',
                 padding: '16px 20px',
-                marginBottom: '22px',
+                marginBottom: '20px',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
@@ -468,56 +479,191 @@ function JudgeEvaluationContent() {
               }}>
                 <div>
                   <h3 className="section-title" style={{ margin: 0, color: '#00ffcc', fontSize: '0.88rem' }}>
-                    <span className="pacman-bullet"></span> 💬 FINAL ROUND TEAM FEEDBACK
+                    <span className="pacman-bullet"></span> 💬 INTERNAL JURY: TWO-PHASE TEAM FEEDBACK
                   </h3>
                   <p style={{ color: '#ccc', fontSize: '0.78rem', marginTop: '6px', margin: 0, lineHeight: '1.5' }}>
-                    Logged in as Final Round Judge <strong>{judgeEmail.toUpperCase()}</strong>. Final Round evaluation is strictly qualitative feedback &amp; mentorship guidance. Numeric marks are disabled.
+                    Logged in as Internal Jury <strong>{judgeEmail.toUpperCase()}</strong>. Record qualitative mentorship critique and observations for <strong>Phase 1</strong>, <strong>Phase 2</strong>, or both.
                   </p>
                 </div>
-                <span style={{
-                  background: 'rgba(0, 255, 204, 0.2)',
-                  color: '#00ffcc',
-                  border: '1px solid #00ffcc',
-                  padding: '6px 12px',
-                  borderRadius: '4px',
-                  fontFamily: 'Press Start 2P, monospace',
-                  fontSize: '0.62rem',
-                  fontWeight: 'bold'
-                }}>
-                  ✍️ FEEDBACK ONLY
-                </span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <span style={{
+                    background: phase1Remarks.trim() ? 'rgba(0, 255, 204, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                    color: phase1Remarks.trim() ? '#00ffcc' : '#888',
+                    border: `1px solid ${phase1Remarks.trim() ? '#00ffcc' : '#555'}`,
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.58rem',
+                    fontWeight: 'bold'
+                  }}>
+                    {phase1Remarks.trim() ? '✅ PHASE 1 DONE' : '⏳ PHASE 1 PENDING'}
+                  </span>
+                  <span style={{
+                    background: phase2Remarks.trim() ? 'rgba(255, 102, 204, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                    color: phase2Remarks.trim() ? '#ff66cc' : '#888',
+                    border: `1px solid ${phase2Remarks.trim() ? '#ff66cc' : '#555'}`,
+                    padding: '6px 10px',
+                    borderRadius: '4px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.58rem',
+                    fontWeight: 'bold'
+                  }}>
+                    {phase2Remarks.trim() ? '✅ PHASE 2 DONE' : '⏳ PHASE 2 PENDING'}
+                  </span>
+                </div>
               </div>
 
-              <div className="form-group">
-                <label htmlFor="judge-remarks" style={{ color: '#00ffcc', fontSize: '0.88rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span>💬 Expert Judge Feedback &amp; Recommendations</span>
-                  <span style={{ color: '#fdff00', fontSize: '0.68rem', fontFamily: 'Press Start 2P, monospace' }}>*REQUIRED</span>
-                </label>
-                <p style={{ color: '#888', fontSize: '0.75rem', marginTop: '4px', marginBottom: '10px' }}>
-                  Provide constructive observations covering project innovation, architectural strengths, execution feasibility, questions asked during presentation, and key recommendations.
-                </p>
-                <textarea
-                  id="judge-remarks"
-                  rows="10"
-                  placeholder="Enter your detailed feedback, technical observations, critique, and mentorship recommendations for this finalist team..."
-                  value={remarks}
-                  required
-                  onChange={(e) => setRemarks(e.target.value)}
+              {/* Tab navigation for Phases */}
+              <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <button
+                  type="button"
+                  onClick={() => setActiveFeedbackTab('all')}
                   style={{
-                    width: '100%',
-                    padding: '16px',
-                    fontSize: '0.94rem',
-                    lineHeight: '1.6',
-                    borderRadius: '8px',
-                    background: 'rgba(0, 0, 0, 0.85)',
-                    border: '1.5px solid rgba(0, 255, 204, 0.4)',
-                    color: '#ffffff',
-                    fontFamily: 'inherit',
-                    resize: 'vertical',
-                    minHeight: '220px'
+                    background: activeFeedbackTab === 'all' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                    color: activeFeedbackTab === 'all' ? '#000' : '#888',
+                    border: '1.5px solid #00ffcc',
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.6rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: activeFeedbackTab === 'all' ? '0 0 10px rgba(0, 255, 204, 0.4)' : 'none'
                   }}
-                ></textarea>
+                >
+                  📋 ALL PHASES (1 &amp; 2)
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveFeedbackTab('phase1')}
+                  style={{
+                    background: activeFeedbackTab === 'phase1' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                    color: activeFeedbackTab === 'phase1' ? '#000' : '#888',
+                    border: '1.5px solid #00ffcc',
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.6rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: activeFeedbackTab === 'phase1' ? '0 0 10px rgba(0, 255, 204, 0.4)' : 'none'
+                  }}
+                >
+                  ⚡ PHASE 1 ONLY
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveFeedbackTab('phase2')}
+                  style={{
+                    background: activeFeedbackTab === 'phase2' ? '#ff66cc' : 'rgba(0,0,0,0.6)',
+                    color: activeFeedbackTab === 'phase2' ? '#000' : '#888',
+                    border: '1.5px solid #ff66cc',
+                    padding: '8px 14px',
+                    borderRadius: '6px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.6rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: activeFeedbackTab === 'phase2' ? '0 0 10px rgba(255, 102, 204, 0.4)' : 'none'
+                  }}
+                >
+                  🚀 PHASE 2 ONLY
+                </button>
               </div>
+
+              {/* PHASE 1 FEEDBACK BOX */}
+              {(activeFeedbackTab === 'all' || activeFeedbackTab === 'phase1') && (
+                <div className="form-group" style={{
+                  background: 'rgba(0, 255, 204, 0.04)',
+                  border: '1.5px solid rgba(0, 255, 204, 0.35)',
+                  borderRadius: '8px',
+                  padding: '16px 18px',
+                  marginBottom: '20px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                    <label htmlFor="phase1-remarks" style={{ color: '#00ffcc', fontSize: '0.88rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                      <span>⚡ PHASE 1: Initial Architecture &amp; Prototype Feedback</span>
+                    </label>
+                    <span style={{
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.55rem',
+                      color: phase1Remarks.trim() ? '#00ffcc' : '#fdff00'
+                    }}>
+                      {phase1Remarks.trim() ? '✅ PHASE 1 ENTERED' : '⚠️ PHASE 1 EMPTY'}
+                    </span>
+                  </div>
+                  <p style={{ color: '#aaa', fontSize: '0.74rem', marginTop: '2px', marginBottom: '10px' }}>
+                    Initial review observations: idea validation, architectural strengths, proposed tech stack, initial prototype progress, and roadblocks discussed.
+                  </p>
+                  <textarea
+                    id="phase1-remarks"
+                    rows="6"
+                    placeholder="Enter Phase 1 mentor observations, initial technical critique, architectural guidance, and recommendations..."
+                    value={phase1Remarks}
+                    onChange={(e) => setPhase1Remarks(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      fontSize: '0.92rem',
+                      lineHeight: '1.6',
+                      borderRadius: '8px',
+                      background: 'rgba(0, 0, 0, 0.85)',
+                      border: '1.5px solid rgba(0, 255, 204, 0.4)',
+                      color: '#ffffff',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      minHeight: '140px'
+                    }}
+                  ></textarea>
+                </div>
+              )}
+
+              {/* PHASE 2 FEEDBACK BOX */}
+              {(activeFeedbackTab === 'all' || activeFeedbackTab === 'phase2') && (
+                <div className="form-group" style={{
+                  background: 'rgba(255, 102, 204, 0.04)',
+                  border: '1.5px solid rgba(255, 102, 204, 0.35)',
+                  borderRadius: '8px',
+                  padding: '16px 18px',
+                  marginBottom: '20px'
+                }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                    <label htmlFor="phase2-remarks" style={{ color: '#ff66cc', fontSize: '0.88rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                      <span>🚀 PHASE 2: Mid-Hackathon / Final Sprint Feedback</span>
+                    </label>
+                    <span style={{
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.55rem',
+                      color: phase2Remarks.trim() ? '#ff66cc' : '#fdff00'
+                    }}>
+                      {phase2Remarks.trim() ? '✅ PHASE 2 ENTERED' : '⚠️ PHASE 2 EMPTY'}
+                    </span>
+                  </div>
+                  <p style={{ color: '#aaa', fontSize: '0.74rem', marginTop: '2px', marginBottom: '10px' }}>
+                    Second review observations: implementation progress made since Phase 1, demo readiness, UI/hardware completeness, and final guidance.
+                  </p>
+                  <textarea
+                    id="phase2-remarks"
+                    rows="6"
+                    placeholder="Enter Phase 2 mentor observations, review of progress made after Phase 1, demo readiness, and final guidance..."
+                    value={phase2Remarks}
+                    onChange={(e) => setPhase2Remarks(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '14px',
+                      fontSize: '0.92rem',
+                      lineHeight: '1.6',
+                      borderRadius: '8px',
+                      background: 'rgba(0, 0, 0, 0.85)',
+                      border: '1.5px solid rgba(255, 102, 204, 0.4)',
+                      color: '#ffffff',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      minHeight: '140px'
+                    }}
+                  ></textarea>
+                </div>
+              )}
 
               <button
                 type="submit"
@@ -529,12 +675,12 @@ function JudgeEvaluationContent() {
                   fontWeight: 'bold',
                   fontSize: '0.75rem',
                   padding: '16px',
-                  marginTop: '16px',
+                  marginTop: '8px',
                   boxShadow: '0 0 15px rgba(0, 255, 204, 0.4)',
                   cursor: isSubmitting ? 'not-allowed' : 'pointer'
                 }}
               >
-                <span className="pacman-icon"></span> {isSubmitting ? 'SAVING FEEDBACK...' : '💬 SUBMIT TEAM FEEDBACK'}
+                <span className="pacman-icon"></span> {isSubmitting ? 'SAVING FEEDBACK...' : '💬 SUBMIT INTERNAL JURY FEEDBACK (PHASE 1 & 2)'}
               </button>
             </div>
           ) : (
@@ -597,19 +743,54 @@ function JudgeEvaluationContent() {
                                 </span>
                               )}
                             </div>
-                            <p style={{
-                              color: '#ffffff',
-                              fontSize: '0.9rem',
-                              lineHeight: '1.6',
-                              whiteSpace: 'pre-wrap',
-                              margin: 0,
-                              background: 'rgba(255, 255, 255, 0.04)',
-                              padding: '10px 14px',
-                              borderRadius: '4px',
-                              border: '1px solid rgba(255, 255, 255, 0.08)'
-                            }}>
-                              {fb.remarks}
-                            </p>
+                            {fb.hasPhase1 || fb.hasPhase2 ? (
+                              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                                {fb.phase1Feedback && (
+                                  <div style={{
+                                    background: 'rgba(0, 255, 204, 0.05)',
+                                    borderLeft: '3px solid #00ffcc',
+                                    padding: '8px 12px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    <div style={{ color: '#00ffcc', fontSize: '0.68rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '4px' }}>
+                                      ⚡ PHASE 1 FEEDBACK:
+                                    </div>
+                                    <p style={{ color: '#ffffff', fontSize: '0.88rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                      {fb.phase1Feedback}
+                                    </p>
+                                  </div>
+                                )}
+                                {fb.phase2Feedback && (
+                                  <div style={{
+                                    background: 'rgba(255, 102, 204, 0.05)',
+                                    borderLeft: '3px solid #ff66cc',
+                                    padding: '8px 12px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    <div style={{ color: '#ff66cc', fontSize: '0.68rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '4px' }}>
+                                      🚀 PHASE 2 FEEDBACK:
+                                    </div>
+                                    <p style={{ color: '#ffffff', fontSize: '0.88rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                      {fb.phase2Feedback}
+                                    </p>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              <p style={{
+                                color: '#ffffff',
+                                fontSize: '0.9rem',
+                                lineHeight: '1.6',
+                                whiteSpace: 'pre-wrap',
+                                margin: 0,
+                                background: 'rgba(255, 255, 255, 0.04)',
+                                padding: '10px 14px',
+                                borderRadius: '4px',
+                                border: '1px solid rgba(255, 255, 255, 0.08)'
+                              }}>
+                                {fb.remarks}
+                              </p>
+                            )}
                           </div>
                         );
                       })}
@@ -897,14 +1078,33 @@ function JudgeEvaluationContent() {
             {isFinalRoundJudge ? (
               <>
                 <h2 className="victory-title" style={{ color: '#00ffcc' }}>FEEDBACK SUBMITTED!</h2>
-                <p className="victory-subtitle">EXPERT FEEDBACK RECORDED FOR {teamName.toUpperCase()}</p>
-                <div className="score-box" style={{ background: 'rgba(0, 255, 204, 0.08)', borderColor: '#00ffcc', padding: '16px' }}>
-                  <div style={{ color: '#00ffcc', fontSize: '0.65rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '8px' }}>
-                    SUBMITTED FEEDBACK PREVIEW:
-                  </div>
-                  <div style={{ color: '#fff', fontSize: '0.84rem', fontStyle: 'italic', lineHeight: '1.5', maxHeight: '120px', overflowY: 'auto' }}>
-                    &ldquo;{remarks}&rdquo;
-                  </div>
+                <p className="victory-subtitle">INTERNAL JURY FEEDBACK RECORDED FOR {teamName.toUpperCase()}</p>
+                <div className="score-box" style={{ background: 'rgba(0, 255, 204, 0.08)', borderColor: '#00ffcc', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {phase1Remarks.trim() && (
+                    <div style={{ textAlign: 'left', borderBottom: phase2Remarks.trim() ? '1px dashed rgba(0, 255, 204, 0.3)' : 'none', paddingBottom: phase2Remarks.trim() ? '8px' : '0' }}>
+                      <div style={{ color: '#00ffcc', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '4px' }}>
+                        ⚡ PHASE 1 FEEDBACK:
+                      </div>
+                      <div style={{ color: '#fff', fontSize: '0.82rem', fontStyle: 'italic', lineHeight: '1.5', maxHeight: '100px', overflowY: 'auto' }}>
+                        &ldquo;{phase1Remarks.trim()}&rdquo;
+                      </div>
+                    </div>
+                  )}
+                  {phase2Remarks.trim() && (
+                    <div style={{ textAlign: 'left' }}>
+                      <div style={{ color: '#ff66cc', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '4px' }}>
+                        🚀 PHASE 2 FEEDBACK:
+                      </div>
+                      <div style={{ color: '#fff', fontSize: '0.82rem', fontStyle: 'italic', lineHeight: '1.5', maxHeight: '100px', overflowY: 'auto' }}>
+                        &ldquo;{phase2Remarks.trim()}&rdquo;
+                      </div>
+                    </div>
+                  )}
+                  {!phase1Remarks.trim() && !phase2Remarks.trim() && remarks.trim() && (
+                    <div style={{ color: '#fff', fontSize: '0.84rem', fontStyle: 'italic', lineHeight: '1.5' }}>
+                      &ldquo;{remarks}&rdquo;
+                    </div>
+                  )}
                 </div>
               </>
             ) : (

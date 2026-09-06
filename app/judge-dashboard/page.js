@@ -383,7 +383,19 @@ export default function JudgeDashboardPage() {
 
                         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginTop: '6px' }}>
                           {isFinalRoundJudge ? (
-                            hasFeedback ? (
+                            evalEntry?.hasPhase1 && evalEntry?.hasPhase2 ? (
+                              <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc' }}>
+                                ✅ BOTH PHASES SUBMITTED
+                              </span>
+                            ) : evalEntry?.hasPhase1 ? (
+                              <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.12)', color: '#00ffcc', border: '1px solid rgba(0, 255, 204, 0.6)' }}>
+                                ⚡ PHASE 1 DONE • P2 PENDING
+                              </span>
+                            ) : evalEntry?.hasPhase2 ? (
+                              <span className="status-pill status-completed" style={{ background: 'rgba(255, 102, 204, 0.12)', color: '#ff66cc', border: '1px solid rgba(255, 102, 204, 0.6)' }}>
+                                🚀 PHASE 2 DONE • P1 PENDING
+                              </span>
+                            ) : hasFeedback ? (
                               <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc' }}>
                                 💬 FEEDBACK SUBMITTED
                               </span>
@@ -473,7 +485,13 @@ export default function JudgeDashboardPage() {
                           }}
                           title={hasFeedback ? `View or edit feedback for ${t.teamName}` : `Add feedback for ${t.teamName}`}
                         >
-                          {hasFeedback ? '💬 VIEW / EDIT FEEDBACK' : '✍️ ADD FEEDBACK'}
+                          {evalEntry?.hasPhase1 && evalEntry?.hasPhase2
+                            ? '💬 VIEW / EDIT PHASES'
+                            : evalEntry?.hasPhase1
+                            ? '🚀 ADD PHASE 2 FEEDBACK'
+                            : evalEntry?.hasPhase2
+                            ? '⚡ ADD PHASE 1 FEEDBACK'
+                            : '✍️ ADD FEEDBACK'}
                         </a>
                       ) : isExternalRound3Judge ? (
                         <a
@@ -542,18 +560,43 @@ export default function JudgeDashboardPage() {
                         <div style={{
                           marginTop: '12px',
                           padding: '12px 14px',
-                          background: 'rgba(0, 255, 204, 0.08)',
+                          background: 'rgba(0, 255, 204, 0.06)',
                           border: '1px solid rgba(0, 255, 204, 0.35)',
                           borderRadius: '6px'
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '6px' }}>
-                            <span style={{ fontSize: '0.74rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
-                              💬 SUBMITTED FEEDBACK:
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
+                            <span style={{ fontSize: '0.68rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                              💬 YOUR SUBMITTED MENTOR FEEDBACK
                             </span>
                           </div>
-                          <p style={{ color: '#ffffff', fontSize: '0.86rem', whiteSpace: 'pre-wrap', lineHeight: '1.5', margin: 0 }}>
-                            {evalEntry.remarks}
-                          </p>
+                          {evalEntry.hasPhase1 || evalEntry.hasPhase2 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {evalEntry.phase1Feedback && (
+                                <div style={{ background: 'rgba(0, 0, 0, 0.6)', borderLeft: '3px solid #00ffcc', padding: '8px 12px', borderRadius: '4px' }}>
+                                  <div style={{ color: '#00ffcc', fontSize: '0.64rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '4px' }}>
+                                    ⚡ PHASE 1 FEEDBACK:
+                                  </div>
+                                  <p style={{ color: '#ffffff', fontSize: '0.84rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                    {evalEntry.phase1Feedback}
+                                  </p>
+                                </div>
+                              )}
+                              {evalEntry.phase2Feedback && (
+                                <div style={{ background: 'rgba(0, 0, 0, 0.6)', borderLeft: '3px solid #ff66cc', padding: '8px 12px', borderRadius: '4px' }}>
+                                  <div style={{ color: '#ff66cc', fontSize: '0.64rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '4px' }}>
+                                    🚀 PHASE 2 FEEDBACK:
+                                  </div>
+                                  <p style={{ color: '#ffffff', fontSize: '0.84rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                    {evalEntry.phase2Feedback}
+                                  </p>
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <p style={{ color: '#ffffff', fontSize: '0.86rem', whiteSpace: 'pre-wrap', lineHeight: '1.5', margin: 0 }}>
+                              {evalEntry.remarks}
+                            </p>
+                          )}
                         </div>
                       )}
 
@@ -599,12 +642,37 @@ export default function JudgeDashboardPage() {
                                     padding: '8px 12px',
                                     borderRadius: '4px'
                                   }}>
-                                    <div style={{ color: '#00ffcc', fontSize: '0.74rem', fontWeight: 'bold', marginBottom: '4px' }}>
+                                    <div style={{ color: '#00ffcc', fontSize: '0.74rem', fontWeight: 'bold', marginBottom: '6px' }}>
                                       👨‍🏫 Mentor Panel: <span style={{ color: '#fdff00' }}>{fb.judgeEmail}</span> {mentorProf?.group ? `(${mentorProf.group})` : ''} • {mentorNames}
                                     </div>
-                                    <p style={{ color: '#ffffff', fontSize: '0.86rem', whiteSpace: 'pre-wrap', lineHeight: '1.5', margin: 0 }}>
-                                      {fb.remarks}
-                                    </p>
+                                    {fb.hasPhase1 || fb.hasPhase2 ? (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                        {fb.phase1Feedback && (
+                                          <div style={{ background: 'rgba(0, 255, 204, 0.05)', borderLeft: '3px solid #00ffcc', padding: '6px 10px', borderRadius: '4px' }}>
+                                            <div style={{ color: '#00ffcc', fontSize: '0.62rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '2px' }}>
+                                              ⚡ PHASE 1:
+                                            </div>
+                                            <p style={{ color: '#ffffff', fontSize: '0.82rem', lineHeight: '1.4', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                              {fb.phase1Feedback}
+                                            </p>
+                                          </div>
+                                        )}
+                                        {fb.phase2Feedback && (
+                                          <div style={{ background: 'rgba(255, 102, 204, 0.05)', borderLeft: '3px solid #ff66cc', padding: '6px 10px', borderRadius: '4px' }}>
+                                            <div style={{ color: '#ff66cc', fontSize: '0.62rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '2px' }}>
+                                              🚀 PHASE 2:
+                                            </div>
+                                            <p style={{ color: '#ffffff', fontSize: '0.82rem', lineHeight: '1.4', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                              {fb.phase2Feedback}
+                                            </p>
+                                          </div>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <p style={{ color: '#ffffff', fontSize: '0.86rem', whiteSpace: 'pre-wrap', lineHeight: '1.5', margin: 0 }}>
+                                        {fb.remarks}
+                                      </p>
+                                    )}
                                   </div>
                                 );
                               })}
