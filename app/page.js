@@ -200,7 +200,7 @@ export default function LoginPage() {
     const validInternalIds = [...FINAL_ROUND_JUDGE_IDS, ...ROUND_2_JUDGE_IDS];
     if (!validInternalIds.includes(cleanId)) {
       setIsLoggingIn(false);
-      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Internal Judge ID (MM001 to MM010).`);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Internal Judge ID.`);
       return;
     }
 
@@ -229,7 +229,7 @@ export default function LoginPage() {
     }, 400);
   };
 
-  // External Jury Login Handler (FM001 - FM007)
+  // External Jury Login Handler
   const handleExternalJudgeLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -248,7 +248,7 @@ export default function LoginPage() {
 
     if (!EXTERNAL_ROUND_3_JUDGE_IDS.includes(cleanId)) {
       setIsLoggingIn(false);
-      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized External Jury ID (FM001 to FM007).`);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized External Jury ID.`);
       return;
     }
 
@@ -343,8 +343,8 @@ export default function LoginPage() {
           <div className="badge-wrapper">
             <span className="role-badge" id="role-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
               {role === 'student' && 'STAGE 3: STUDENT DASHBOARD (FINAL ROUND)'}
-              {role === 'internal-judge' && 'INTERNAL JUDGES (MM001 - MM010)'}
-              {role === 'external-judge' && 'EXTERNAL JURY (FM001 - FM007)'}
+              {role === 'internal-judge' && 'INTERNAL JUDGES'}
+              {role === 'external-judge' && 'EXTERNAL JURY'}
               {role === 'admin' && 'STAGE 3: ADMIN CONTROL (FINAL ROUND)'}
             </span>
           </div>
@@ -495,7 +495,7 @@ export default function LoginPage() {
               marginBottom: '18px',
               textAlign: 'center'
             }}>
-              👨‍🏫 INTERNAL JUDGES ACCESS: MM001 - MM010
+              👨‍🏫 AUTHORIZED INTERNAL JUDGES ACCESS
             </div>
 
             <div className="form-group">
@@ -503,7 +503,7 @@ export default function LoginPage() {
               <input
                 type="text"
                 id="internal-judge-id"
-                placeholder="e.g. MM001 - MM010"
+                placeholder="Enter Internal Judge ID"
                 required
                 value={internalJudgeId}
                 onChange={(e) => setInternalJudgeId(e.target.value.toUpperCase())}
@@ -531,7 +531,7 @@ export default function LoginPage() {
           </form>
         )}
 
-        {/* 3. External Jury Login Form (FM001 - FM007) */}
+        {/* 3. External Jury Login Form */}
         {role === 'external-judge' && (
           <form className="login-form active" onSubmit={handleExternalJudgeLogin}>
             <div style={{
@@ -546,7 +546,7 @@ export default function LoginPage() {
               marginBottom: '18px',
               textAlign: 'center'
             }}>
-              🌟 EXTERNAL JURY ACCESS: FM001 - FM007
+              🌟 AUTHORIZED EXTERNAL JURY ACCESS
             </div>
 
             <div className="form-group">
@@ -554,7 +554,7 @@ export default function LoginPage() {
               <input
                 type="text"
                 id="external-judge-id"
-                placeholder="e.g. FM001 - FM007"
+                placeholder="Enter External Jury ID"
                 required
                 value={externalJudgeId}
                 onChange={(e) => setExternalJudgeId(e.target.value.toUpperCase())}
