@@ -207,12 +207,49 @@ export default function AdminDashboardPage() {
 
       // 2. Fetch Evaluations
       const { data: supaEvals } = await supabase.from('evaluations').select('*');
+      let combinedEvals = [];
       if (supaEvals && supaEvals.length > 0) {
-        const formattedEvals = supaEvals.map(parseEvaluationRecord).filter(Boolean);
-        setEvaluations(formattedEvals);
-      } else {
-        setEvaluations([]);
+        combinedEvals = supaEvals.map(parseEvaluationRecord).filter(Boolean);
       }
+
+      // Also fetch from external_evaluations if available
+      try {
+        const { data: extEvals } = await supabase.from('external_evaluations').select('*');
+        if (extEvals && extEvals.length > 0) {
+          extEvals.forEach(ee => {
+            const formatted = {
+              id: ee.id,
+              teamName: ee.team_name,
+              teamIdNo: ee.team_id_no,
+              judgeEmail: (ee.judge_email || '').trim().toUpperCase(),
+              judgeName: ee.judge_name,
+              judgeGroup: ee.judge_group,
+              c1: Number(ee.c1_innovation) || 0,
+              c2: Number(ee.c2_execution) || 0,
+              c3: Number(ee.c3_feasibility) || 0,
+              c4: Number(ee.c4_presentation) || 0,
+              c5: Number(ee.c5_implementation) || 0,
+              totalScore: Number(ee.total_score) || 0,
+              remarks: ee.remarks || '',
+              updatedAt: ee.updated_at
+            };
+
+            const existingIdx = combinedEvals.findIndex(ce =>
+              (ce.teamName || '').trim().toLowerCase() === (formatted.teamName || '').trim().toLowerCase() &&
+              (ce.judgeEmail || '').trim().toUpperCase() === formatted.judgeEmail
+            );
+            if (existingIdx >= 0) {
+              combinedEvals[existingIdx] = { ...combinedEvals[existingIdx], ...formatted };
+            } else {
+              combinedEvals.push(formatted);
+            }
+          });
+        }
+      } catch (extErr) {
+        console.warn("Admin external_evaluations query notice:", extErr);
+      }
+
+      setEvaluations(combinedEvals);
     } catch (e) {
       console.warn("Supabase admin fetch error:", e);
     }

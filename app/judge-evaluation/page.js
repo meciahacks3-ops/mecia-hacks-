@@ -131,6 +131,29 @@ function JudgeEvaluationContent() {
           }
         }
 
+        // Also check external_evaluations dedicated table for external jury (FM001-FM007)
+        if (isExternal) {
+          try {
+            const { data: extEval } = await supabase
+              .from('external_evaluations')
+              .select('*')
+              .ilike('team_name', name)
+              .ilike('judge_email', currentJudge)
+              .maybeSingle();
+
+            if (extEval) {
+              setC1(extEval.c1_innovation ?? 0);
+              setC2(extEval.c2_execution ?? 0);
+              setC3(extEval.c3_feasibility ?? 0);
+              setC4(extEval.c4_presentation ?? 0);
+              setC5(extEval.c5_implementation ?? 0);
+              setRemarks(extEval.remarks || '');
+            }
+          } catch (extReadErr) {
+            console.warn("external_evaluations read notice:", extReadErr);
+          }
+        }
+
         // Extract all internal mentor feedback (MM001-MM010 or JM...)
         const mentorFeedback = allTeamEvals
           .map(parseEvaluationRecord)
@@ -244,6 +267,56 @@ function JudgeEvaluationContent() {
         alert("Database Notice: " + evalErr.message);
         setIsSubmitting(false);
         return;
+      }
+
+      // If External Jury (FM001-FM007), also save directly to dedicated external_evaluations table
+      if (isExternalRound3Judge) {
+        try {
+          const numC1 = parseInt(c1) || 0;
+          const numC2 = parseInt(c2) || 0;
+          const numC3 = parseInt(c3) || 0;
+          const numC4 = parseInt(c4) || 0;
+          const numC5 = parseInt(c5) || 0;
+          const cleanRemarks = remarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim();
+          const calculatedTotal = numC1 + numC2 + numC3 + numC4 + numC5;
+          const totalNum = totalScore === 'INVALID' ? 0 : calculatedTotal;
+
+          const externalPayload = {
+            team_name: teamName,
+            team_id_no: teamIdNo || null,
+            judge_email: cleanJudge,
+            judge_name: judgeProfile?.namesText || cleanJudge,
+            judge_group: judgeProfile?.group || null,
+            c1_innovation: numC1,
+            c2_execution: numC2,
+            c3_feasibility: numC3,
+            c4_presentation: numC4,
+            c5_implementation: numC5,
+            total_score: totalNum,
+            remarks: cleanRemarks,
+            updated_at: new Date()
+          };
+
+          const { data: existingExt } = await supabase
+            .from('external_evaluations')
+            .select('id')
+            .ilike('team_name', teamName)
+            .ilike('judge_email', cleanJudge)
+            .maybeSingle();
+
+          if (existingExt && existingExt.id) {
+            await supabase
+              .from('external_evaluations')
+              .update(externalPayload)
+              .eq('id', existingExt.id);
+          } else {
+            await supabase
+              .from('external_evaluations')
+              .insert([externalPayload]);
+          }
+        } catch (extTableErr) {
+          console.warn("Notice: external_evaluations write attempt:", extTableErr);
+        }
       }
 
       setShowModal(true);
