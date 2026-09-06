@@ -7,7 +7,7 @@ import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { parseEvaluationRecord } from '@/lib/teamUtils';
-import { isFinalRoundTeam, getFinalRoundTeamInfo } from '@/lib/finalRoundTeams';
+import { isFinalRoundTeam, getFinalRoundTeamInfo, getTeamLabLocation } from '@/lib/finalRoundTeams';
 
 export default function JudgeDashboardPage() {
   const router = useRouter();
@@ -49,6 +49,7 @@ export default function JudgeDashboardPage() {
 
           const parsedSlot = parseTimeSlotFromTeam(st);
           const finalistInfo = getFinalRoundTeamInfo({ teamName: st.team_name, teamIdNo: parsedTeamId, main_idea: st.main_idea });
+          const labLocation = getTeamLabLocation({ teamName: st.team_name, teamIdNo: parsedTeamId, main_idea: st.main_idea });
 
           return {
             id: st.id,
@@ -59,7 +60,8 @@ export default function JudgeDashboardPage() {
             assignedJudge: st.assigned_judge,
             timeSlot: parsedSlot,
             isFinalist: Boolean(finalistInfo),
-            finalistInfo: finalistInfo || null
+            finalistInfo: finalistInfo || null,
+            labLocation: labLocation || finalistInfo?.labLocation || null
           };
         });
         setTeams(formattedTeams);
@@ -110,7 +112,10 @@ export default function JudgeDashboardPage() {
     ? finalistAssignedTeams
     : assignedTeams;
 
-  const isFinalRoundJudge = (judgeEmail || '').trim().toUpperCase().startsWith('MM');
+  const cleanJudgeUpper = (judgeEmail || '').trim().toUpperCase();
+  const isMentorJudge = cleanJudgeUpper.startsWith('MM');
+  const isExternalRound3Judge = cleanJudgeUpper.startsWith('FM');
+  const isFinalRoundJudge = isMentorJudge;
   const judgeProfile = getJudgeProfile(judgeEmail);
 
   return (
@@ -206,11 +211,13 @@ export default function JudgeDashboardPage() {
               <span style={{ fontSize: '1.6rem' }}>🏆</span>
               <div>
                 <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', color: '#fdff00', letterSpacing: '1px' }}>
-                  {isFinalRoundJudge ? 'STAGE 3: FINAL ROUND FEEDBACK PANEL' : 'STAGE 3: FINAL ROUND EVALUATIONS ACTIVE'}
+                  {isMentorJudge ? 'STAGE 3: FINAL ROUND FEEDBACK PANEL' : isExternalRound3Judge ? 'ROUND 3: GRAND FINALE JURY PANEL' : 'STAGE 3: FINAL ROUND EVALUATIONS ACTIVE'}
                 </h3>
                 <p style={{ margin: '4px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
-                  {isFinalRoundJudge
+                  {isMentorJudge
                     ? `Reviewing the 49 qualified finalist teams. Provide feedback for your ${finalistAssignedTeams.length} assigned finalist ${finalistAssignedTeams.length === 1 ? 'team' : 'teams'}.`
+                    : isExternalRound3Judge
+                    ? `Round 3 Grand Finale evaluation. Evaluate and score your ${finalistAssignedTeams.length} assigned finalist ${finalistAssignedTeams.length === 1 ? 'team' : 'teams'} across all 5 evaluation criteria.`
                     : `Evaluating the 49 qualified finalist teams. Your panel has ${finalistAssignedTeams.length} Finalist ${finalistAssignedTeams.length === 1 ? 'Team' : 'Teams'} to evaluate.`}
                 </p>
               </div>
@@ -261,13 +268,15 @@ export default function JudgeDashboardPage() {
         <div className="login-header text-left">
           <div className="badge-wrapper">
             <span className="role-badge eval-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
-              {isFinalRoundJudge ? 'STAGE 3: FINAL ROUND FEEDBACK PANEL' : 'STAGE 3: FINAL ROUND EVALUATION PANEL'}
+              {isMentorJudge ? 'STAGE 3: FINAL ROUND FEEDBACK PANEL' : isExternalRound3Judge ? 'ROUND 3: EXTERNAL JURY PANEL' : 'STAGE 3: FINAL ROUND EVALUATION PANEL'}
             </span>
           </div>
-          <h2>{isFinalRoundJudge ? 'ASSIGNED FINALIST TEAMS FOR FEEDBACK' : 'ASSIGNED FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})</h2>
+          <h2>{isMentorJudge ? 'ASSIGNED FINALIST TEAMS FOR FEEDBACK' : isExternalRound3Judge ? 'ROUND 3: ASSIGNED FINALIST TEAMS' : 'ASSIGNED FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})</h2>
           <p>
-            {isFinalRoundJudge
+            {isMentorJudge
               ? `Provide constructive qualitative feedback and recommendations for assigned finalist teams (Panel: ${judgeEmail.toUpperCase()}). Marks are disabled.`
+              : isExternalRound3Judge
+              ? `Evaluate assigned finalist teams (Panel: ${judgeEmail.toUpperCase()}) across all 5 official evaluation rubrics.`
               : (finalistsOnlyFilter
                   ? `Review Final Round qualified submissions and assign scores for panel: ${judgeEmail}.`
                   : `Viewing all assigned teams (including Round 2 archive) for panel: ${judgeEmail}.`)}
@@ -311,8 +320,8 @@ export default function JudgeDashboardPage() {
                 const evalEntry = evaluations.find(e => {
                   const nameMatch = (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
                   if (!nameMatch) return false;
-                  if (isFinalRoundJudge) {
-                    return (e.judgeEmail || '').trim().toUpperCase() === (judgeEmail || '').trim().toUpperCase();
+                  if (isMentorJudge || isExternalRound3Judge) {
+                    return (e.judgeEmail || '').trim().toUpperCase() === cleanJudgeUpper;
                   }
                   return true;
                 });
@@ -320,6 +329,14 @@ export default function JudgeDashboardPage() {
                 const isScored = isFinalRoundJudge ? hasFeedback : Boolean(evalEntry);
                 const scoreVal = evalEntry ? evalEntry.totalScore : 0;
                 const slotInfo = getTimeSlotInfo(t.timeSlot);
+
+                const internalMentorFeedback = evaluations.filter(e => {
+                  const nameMatch = (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
+                  if (!nameMatch) return false;
+                  const jEmail = (e.judgeEmail || '').trim().toUpperCase();
+                  const isInternal = jEmail.startsWith('MM') || jEmail.startsWith('JM');
+                  return isInternal && e.remarks && e.remarks.trim();
+                });
 
                 return (
                   <div key={t.id || t.teamName} className="team-card" style={t.isFinalist ? { border: '1.5px solid rgba(253, 255, 0, 0.4)', boxShadow: '0 0 15px rgba(253, 255, 0, 0.15)' } : {}}>
@@ -398,6 +415,28 @@ export default function JudgeDashboardPage() {
                           )}
                         </div>
 
+                        {t.labLocation && (
+                          <div style={{ marginTop: '8px' }}>
+                            <span style={{
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.62rem',
+                              color: '#000',
+                              background: '#00ffcc',
+                              border: '1.5px solid #00ffcc',
+                              padding: '5px 10px',
+                              borderRadius: '6px',
+                              display: 'inline-flex',
+                              alignItems: 'center',
+                              gap: '6px',
+                              boxShadow: '0 0 10px rgba(0, 255, 204, 0.4)',
+                              fontWeight: 'bold',
+                              letterSpacing: '0.5px'
+                            }}>
+                              📍 LAB VENUE: {t.labLocation}
+                            </span>
+                          </div>
+                        )}
+
                         {!isFinalRoundJudge && (
                           <div style={{ marginTop: '8px' }}>
                             <span style={{
@@ -436,6 +475,26 @@ export default function JudgeDashboardPage() {
                         >
                           {hasFeedback ? '💬 VIEW / EDIT FEEDBACK' : '✍️ ADD FEEDBACK'}
                         </a>
+                      ) : isExternalRound3Judge ? (
+                        <a
+                          href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
+                          className="eval-btn"
+                          style={isScored ? {
+                            background: 'rgba(0, 255, 204, 0.15)',
+                            color: '#00ffcc',
+                            border: '1.5px solid #00ffcc',
+                            fontWeight: 'bold'
+                          } : {
+                            background: 'linear-gradient(135deg, #fdff00, #ffb800)',
+                            color: '#000',
+                            border: 'none',
+                            fontWeight: 'bold',
+                            boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
+                          }}
+                          title={isScored ? `Review or edit evaluation marks for ${t.teamName}` : `Evaluate ${t.teamName}`}
+                        >
+                          {isScored ? `✏️ EDIT MARKS (${scoreVal}/50)` : '⭐ EVALUATE TEAM'}
+                        </a>
                       ) : (
                         <a
                           href={`/judge-evaluation?team=${encodeURIComponent(t.teamName)}`}
@@ -453,6 +512,18 @@ export default function JudgeDashboardPage() {
                     </div>
 
                     <div className="team-card-body">
+                      {t.labLocation && (
+                        <div className="info-block" style={{
+                          background: 'rgba(0, 255, 204, 0.08)',
+                          borderLeft: '4px solid #00ffcc',
+                          padding: '8px 12px',
+                          borderRadius: '4px',
+                          marginBottom: '8px'
+                        }}>
+                          <span className="info-label" style={{ color: '#00ffcc', fontWeight: 'bold' }}>📍 Lab Allocation:</span>
+                          <span className="info-val" style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.92rem' }}>{t.labLocation}</span>
+                        </div>
+                      )}
                       <div className="info-block">
                         <span className="info-label">🆔 Team ID:</span>
                         <span className="info-val" style={{ color: '#fdff00', fontWeight: 'bold' }}>{t.teamIdNo || 'N/A'}</span>
@@ -466,6 +537,7 @@ export default function JudgeDashboardPage() {
                         <span className="info-val" style={{ whiteSpace: 'pre-wrap', lineHeight: '1.5' }}>{t.projectDesc}</span>
                       </div>
 
+                      {/* Mentor Judge view of their own feedback */}
                       {isFinalRoundJudge && hasFeedback && (
                         <div style={{
                           marginTop: '12px',
@@ -482,6 +554,91 @@ export default function JudgeDashboardPage() {
                           <p style={{ color: '#ffffff', fontSize: '0.86rem', whiteSpace: 'pre-wrap', lineHeight: '1.5', margin: 0 }}>
                             {evalEntry.remarks}
                           </p>
+                        </div>
+                      )}
+
+                      {/* External Judge view of Internal Mentor Feedback */}
+                      {isExternalRound3Judge && (
+                        <div style={{
+                          marginTop: '14px',
+                          padding: '12px 16px',
+                          background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.08) 0%, rgba(0, 255, 204, 0.06) 100%)',
+                          border: '1.5px solid #fdff00',
+                          borderRadius: '8px',
+                          boxShadow: '0 0 12px rgba(253, 255, 0, 0.15)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                              <span style={{ fontSize: '0.9rem' }}>📝</span>
+                              <span style={{ fontSize: '0.68rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                INTERNAL MENTOR FEEDBACK
+                              </span>
+                            </div>
+                            <span style={{
+                              background: internalMentorFeedback.length > 0 ? '#fdff00' : 'rgba(255, 255, 255, 0.1)',
+                              color: internalMentorFeedback.length > 0 ? '#000' : '#888',
+                              fontSize: '0.55rem',
+                              fontFamily: 'Press Start 2P, monospace',
+                              padding: '3px 8px',
+                              borderRadius: '4px',
+                              fontWeight: 'bold'
+                            }}>
+                              {internalMentorFeedback.length} REVIEW{internalMentorFeedback.length === 1 ? '' : 'S'}
+                            </span>
+                          </div>
+
+                          {internalMentorFeedback.length > 0 ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                              {internalMentorFeedback.map((fb, idx) => {
+                                const mentorProf = getJudgeProfile(fb.judgeEmail);
+                                const mentorNames = mentorProf ? mentorProf.namesText : fb.judgeEmail;
+                                return (
+                                  <div key={idx} style={{
+                                    background: 'rgba(0, 0, 0, 0.7)',
+                                    borderLeft: '3px solid #00ffcc',
+                                    padding: '8px 12px',
+                                    borderRadius: '4px'
+                                  }}>
+                                    <div style={{ color: '#00ffcc', fontSize: '0.74rem', fontWeight: 'bold', marginBottom: '4px' }}>
+                                      👨‍🏫 Mentor Panel: <span style={{ color: '#fdff00' }}>{fb.judgeEmail}</span> {mentorProf?.group ? `(${mentorProf.group})` : ''} • {mentorNames}
+                                    </div>
+                                    <p style={{ color: '#ffffff', fontSize: '0.86rem', whiteSpace: 'pre-wrap', lineHeight: '1.5', margin: 0 }}>
+                                      {fb.remarks}
+                                    </p>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          ) : (
+                            <p style={{ color: '#aaa', fontSize: '0.78rem', fontStyle: 'italic', margin: 0 }}>
+                              ⏳ Internal mentor feedback has not yet been submitted for this team.
+                            </p>
+                          )}
+                        </div>
+                      )}
+
+                      {/* External Judge view of their own scored evaluation */}
+                      {isExternalRound3Judge && evalEntry && (
+                        <div style={{
+                          marginTop: '10px',
+                          padding: '10px 14px',
+                          background: 'rgba(0, 255, 204, 0.08)',
+                          border: '1px solid rgba(0, 255, 204, 0.4)',
+                          borderRadius: '6px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '4px' }}>
+                            <span style={{ fontSize: '0.7rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                              ⭐ YOUR EVALUATION SCORE:
+                            </span>
+                            <span style={{ fontSize: '0.78rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                              {evalEntry.totalScore}/50 MARKS
+                            </span>
+                          </div>
+                          {evalEntry.remarks && (
+                            <p style={{ color: '#ddd', fontSize: '0.82rem', margin: '6px 0 0 0', fontStyle: 'italic' }}>
+                              &ldquo;{evalEntry.remarks}&rdquo;
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>

@@ -3,19 +3,21 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
-import { FINAL_ROUND_JUDGE_IDS, ROUND_2_JUDGE_IDS } from '@/lib/judgeProfiles';
+import { EXTERNAL_ROUND_3_JUDGE_IDS, FINAL_ROUND_JUDGE_IDS, ROUND_2_JUDGE_IDS } from '@/lib/judgeProfiles';
 
 export default function LoginPage() {
   const router = useRouter();
-  const [role, setRole] = useState('student'); // 'student', 'judge', 'admin'
+  const [role, setRole] = useState('student'); // 'student', 'internal-judge', 'external-judge', 'admin'
   const [themeMode, setThemeMode] = useState('arcade');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
   // Login form state
   const [studentId, setStudentId] = useState('');
   const [projectType, setProjectType] = useState('hardware');
-  const [judgeId, setJudgeId] = useState('');
-  const [judgePass, setJudgePass] = useState('');
+  const [internalJudgeId, setInternalJudgeId] = useState('');
+  const [internalJudgePass, setInternalJudgePass] = useState('');
+  const [externalJudgeId, setExternalJudgeId] = useState('');
+  const [externalJudgePass, setExternalJudgePass] = useState('');
   const [adminUser, setAdminUser] = useState('');
   const [adminPass, setAdminPass] = useState('');
   const [adminKey, setAdminKey] = useState('');
@@ -25,11 +27,6 @@ export default function LoginPage() {
 
   const COMMON_ADMIN_PASS = 'MeciaHacks2026!';
   const COMMON_JUDGE_PASS = 'Judge@Mecia2026!';
-
-  const VALID_JUDGE_IDS = [
-    ...FINAL_ROUND_JUDGE_IDS, // MM001 to MM010
-    ...ROUND_2_JUDGE_IDS       // JM001 to JM011
-  ];
 
   const ALLOWED_ADMIN_EMAILS = {
     '24ce58@svitvasad.ac.in': { name: 'Manav Patel', pass: COMMON_ADMIN_PASS },
@@ -90,7 +87,7 @@ export default function LoginPage() {
         const targetRole = sessionStorage.getItem('targetRole') || 'student';
 
         // Judge and Admin portals strictly require their respective ID/credentials
-        if (targetRole === 'judge' || targetRole === 'admin') {
+        if (targetRole === 'judge' || targetRole === 'internal-judge' || targetRole === 'external-judge' || targetRole === 'admin') {
           await supabase.auth.signOut();
           sessionStorage.clear();
           setAuthError(`⛔ ACCESS DENIED: Google OAuth is not permitted for the ${targetRole.toUpperCase()} portal. Please use official credentials.`);
@@ -111,7 +108,7 @@ export default function LoginPage() {
         const targetRole = sessionStorage.getItem('targetRole') || 'student';
 
         // Judge and Admin portals strictly require their respective ID/credentials
-        if (targetRole === 'judge' || targetRole === 'admin') {
+        if (targetRole === 'judge' || targetRole === 'internal-judge' || targetRole === 'external-judge' || targetRole === 'admin') {
           await supabase.auth.signOut();
           sessionStorage.clear();
           setAuthError(`⛔ ACCESS DENIED: Google OAuth is not permitted for the ${targetRole.toUpperCase()} portal.`);
@@ -142,6 +139,7 @@ export default function LoginPage() {
   const handleRoleSelect = (selectedRole) => {
     setRole(selectedRole);
     sessionStorage.setItem('targetRole', selectedRole);
+    setAuthError('');
   };
 
   const handleGoogleOAuth = async () => {
@@ -183,23 +181,31 @@ export default function LoginPage() {
     }, 400);
   };
 
-  const handleJudgeLogin = async (e) => {
+  // Internal Judges Login Handler (MM001 - MM010)
+  const handleInternalJudgeLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
     setIsLoggingIn(true);
-    sessionStorage.setItem('targetRole', 'judge');
+    sessionStorage.setItem('targetRole', 'internal-judge');
 
-    const cleanId = (judgeId || '').trim().toUpperCase();
-    if (!VALID_JUDGE_IDS.includes(cleanId)) {
+    const cleanId = (internalJudgeId || '').trim().toUpperCase();
+
+    // Check if user accidentally entered an External Jury ID
+    if (EXTERNAL_ROUND_3_JUDGE_IDS.includes(cleanId)) {
       setIsLoggingIn(false);
-      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Judge ID. Access is strictly restricted.`);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is an External Jury ID. Please switch to the "External Jury" tab.`);
       return;
     }
 
-    const enteredPass = judgePass.trim();
-    // Support ID with '!' at the end (e.g. MM001! or mm001!) as requested for final round
-    const isIdPasswordMatch = (enteredPass === `${cleanId}!`) || (enteredPass.toLowerCase() === `${cleanId.toLowerCase()}!`);
+    const validInternalIds = [...FINAL_ROUND_JUDGE_IDS, ...ROUND_2_JUDGE_IDS];
+    if (!validInternalIds.includes(cleanId)) {
+      setIsLoggingIn(false);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Internal Judge ID (MM001 to MM010).`);
+      return;
+    }
 
+    const enteredPass = internalJudgePass.trim();
+    const isIdPasswordMatch = (enteredPass === `${cleanId}!`) || (enteredPass.toLowerCase() === `${cleanId.toLowerCase()}!`);
     const isPassValid = isIdPasswordMatch ||
                         enteredPass === COMMON_JUDGE_PASS || 
                         enteredPass.toLowerCase() === 'judge@mecia2026' || 
@@ -209,13 +215,61 @@ export default function LoginPage() {
 
     if (!isPassValid) {
       setIsLoggingIn(false);
-      setAuthError('⛔ ACCESS DENIED: Incorrect Judge Password.');
+      setAuthError('⛔ ACCESS DENIED: Incorrect Internal Judge Password.');
       return;
     }
 
     sessionStorage.setItem('judgeEmail', cleanId);
     sessionStorage.setItem('judgeId', cleanId);
-    await recordLoginToSupabase(cleanId, `JUDGE (${cleanId})`);
+    await recordLoginToSupabase(cleanId, `INTERNAL JUDGE (${cleanId})`);
+
+    setTimeout(() => {
+      setIsLoggingIn(false);
+      router.push('/judge-dashboard');
+    }, 400);
+  };
+
+  // External Jury Login Handler (FM001 - FM007)
+  const handleExternalJudgeLogin = async (e) => {
+    e.preventDefault();
+    setAuthError('');
+    setIsLoggingIn(true);
+    sessionStorage.setItem('targetRole', 'external-judge');
+
+    const cleanId = (externalJudgeId || '').trim().toUpperCase();
+
+    // Check if user accidentally entered an Internal Judge ID
+    const validInternalIds = [...FINAL_ROUND_JUDGE_IDS, ...ROUND_2_JUDGE_IDS];
+    if (validInternalIds.includes(cleanId)) {
+      setIsLoggingIn(false);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is an Internal Judge ID. Please switch to the "Internal Judges" tab.`);
+      return;
+    }
+
+    if (!EXTERNAL_ROUND_3_JUDGE_IDS.includes(cleanId)) {
+      setIsLoggingIn(false);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized External Jury ID (FM001 to FM007).`);
+      return;
+    }
+
+    const enteredPass = externalJudgePass.trim();
+    const isIdPasswordMatch = (enteredPass === `${cleanId}!`) || (enteredPass.toLowerCase() === `${cleanId.toLowerCase()}!`);
+    const isPassValid = isIdPasswordMatch ||
+                        enteredPass === COMMON_JUDGE_PASS || 
+                        enteredPass.toLowerCase() === 'judge@mecia2026' || 
+                        enteredPass.toLowerCase() === 'meciajudge2026!' || 
+                        enteredPass === 'MeciaHacks2026!' ||
+                        enteredPass.toLowerCase() === 'judge2026!';
+
+    if (!isPassValid) {
+      setIsLoggingIn(false);
+      setAuthError('⛔ ACCESS DENIED: Incorrect External Jury Password.');
+      return;
+    }
+
+    sessionStorage.setItem('judgeEmail', cleanId);
+    sessionStorage.setItem('judgeId', cleanId);
+    await recordLoginToSupabase(cleanId, `EXTERNAL JURY (${cleanId})`);
 
     setTimeout(() => {
       setIsLoggingIn(false);
@@ -289,14 +343,16 @@ export default function LoginPage() {
           <div className="badge-wrapper">
             <span className="role-badge" id="role-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
               {role === 'student' && 'STAGE 3: STUDENT DASHBOARD (FINAL ROUND)'}
-              {role === 'judge' && 'STAGE 3: JUDGE EVALUATION (FINAL ROUND)'}
+              {role === 'internal-judge' && 'INTERNAL JUDGES (MM001 - MM010)'}
+              {role === 'external-judge' && 'EXTERNAL JURY (FM001 - FM007)'}
               {role === 'admin' && 'STAGE 3: ADMIN CONTROL (FINAL ROUND)'}
             </span>
           </div>
           <h2>Mecia Hack 3.0</h2>
           <p>
             {role === 'student' && 'Sign in with your registered Google account to view your Final Round qualification status, Judge Panel & Time Slot.'}
-            {role === 'judge' && 'Evaluate Final Round hackathon submissions and score finalist projects.'}
+            {role === 'internal-judge' && 'Internal Judges: Review finalist teams and submit qualitative guidance & feedback.'}
+            {role === 'external-judge' && 'External Jury: Evaluate finalist presentations and submit official rubric marks.'}
             {role === 'admin' && 'Manage Final Round events, qualified teams, and administrative settings.'}
           </p>
         </div>
@@ -358,10 +414,17 @@ export default function LoginPage() {
           </button>
           <button
             type="button"
-            className={`tab-btn judge-tab ${role === 'judge' ? 'active' : ''}`}
-            onClick={() => handleRoleSelect('judge')}
+            className={`tab-btn internal-judge-tab ${role === 'internal-judge' ? 'active' : ''}`}
+            onClick={() => handleRoleSelect('internal-judge')}
           >
-            <span className="tab-ghost cyan-ghost"></span> Judge
+            <span className="tab-ghost cyan-ghost"></span> Internal Judges
+          </button>
+          <button
+            type="button"
+            className={`tab-btn external-judge-tab ${role === 'external-judge' ? 'active' : ''}`}
+            onClick={() => handleRoleSelect('external-judge')}
+          >
+            <span className="tab-ghost yellow-ghost"></span> External Jury
           </button>
           <button
             type="button"
@@ -417,9 +480,9 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* 2. Judge Login Form (Strictly Judge ID + Password) */}
-        {role === 'judge' && (
-          <form className="login-form active" onSubmit={handleJudgeLogin}>
+        {/* 2. Internal Mentor Login Form (MM001 - MM010) */}
+        {role === 'internal-judge' && (
+          <form className="login-form active" onSubmit={handleInternalJudgeLogin}>
             <div style={{
               background: 'rgba(0, 255, 204, 0.08)',
               border: '1px dashed rgba(0, 255, 204, 0.5)',
@@ -432,30 +495,30 @@ export default function LoginPage() {
               marginBottom: '18px',
               textAlign: 'center'
             }}>
-              ⚖️ AUTHORIZED JUDGE ACCESS: USER ID & PASSWORD REQUIRED
+              👨‍🏫 INTERNAL JUDGES ACCESS: MM001 - MM010
             </div>
 
             <div className="form-group">
-              <label htmlFor="judge-id">Judge User ID</label>
+              <label htmlFor="internal-judge-id">Internal Judge ID</label>
               <input
                 type="text"
-                id="judge-id"
+                id="internal-judge-id"
                 placeholder="e.g. MM001 - MM010"
                 required
-                value={judgeId}
-                onChange={(e) => setJudgeId(e.target.value.toUpperCase())}
+                value={internalJudgeId}
+                onChange={(e) => setInternalJudgeId(e.target.value.toUpperCase())}
                 style={{ letterSpacing: '2px', fontWeight: 'bold' }}
               />
             </div>
             <div className="form-group">
-              <label htmlFor="judge-pass">Judge Password</label>
+              <label htmlFor="internal-judge-pass">Judge Password</label>
               <input
                 type="password"
-                id="judge-pass"
+                id="internal-judge-pass"
                 placeholder="••••••••"
                 required
-                value={judgePass}
-                onChange={(e) => setJudgePass(e.target.value)}
+                value={internalJudgePass}
+                onChange={(e) => setInternalJudgePass(e.target.value)}
               />
             </div>
             <button
@@ -463,7 +526,64 @@ export default function LoginPage() {
               className="submit-btn"
               disabled={isLoggingIn}
             >
-              <span className="pacman-icon"></span> LOGIN AS JUDGE
+              <span className="pacman-icon"></span> LOGIN AS INTERNAL JUDGE
+            </button>
+          </form>
+        )}
+
+        {/* 3. External Jury Login Form (FM001 - FM007) */}
+        {role === 'external-judge' && (
+          <form className="login-form active" onSubmit={handleExternalJudgeLogin}>
+            <div style={{
+              background: 'rgba(253, 255, 0, 0.08)',
+              border: '1px dashed rgba(253, 255, 0, 0.5)',
+              padding: '10px 14px',
+              borderRadius: '8px',
+              color: '#fdff00',
+              fontSize: '0.62rem',
+              fontFamily: 'Press Start 2P, monospace',
+              lineHeight: '1.6',
+              marginBottom: '18px',
+              textAlign: 'center'
+            }}>
+              🌟 EXTERNAL JURY ACCESS: FM001 - FM007
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="external-judge-id">External Jury ID</label>
+              <input
+                type="text"
+                id="external-judge-id"
+                placeholder="e.g. FM001 - FM007"
+                required
+                value={externalJudgeId}
+                onChange={(e) => setExternalJudgeId(e.target.value.toUpperCase())}
+                style={{ letterSpacing: '2px', fontWeight: 'bold' }}
+              />
+            </div>
+            <div className="form-group">
+              <label htmlFor="external-judge-pass">Jury Password</label>
+              <input
+                type="password"
+                id="external-judge-pass"
+                placeholder="••••••••"
+                required
+                value={externalJudgePass}
+                onChange={(e) => setExternalJudgePass(e.target.value)}
+              />
+            </div>
+            <button
+              type="submit"
+              className="submit-btn"
+              disabled={isLoggingIn}
+              style={{
+                background: 'linear-gradient(135deg, #fdff00, #ffb800)',
+                color: '#000',
+                fontWeight: 'bold',
+                boxShadow: '0 0 15px rgba(253, 255, 0, 0.4)'
+              }}
+            >
+              <span className="pacman-icon"></span> LOGIN AS EXTERNAL JURY
             </button>
           </form>
         )}

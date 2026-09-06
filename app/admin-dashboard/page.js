@@ -1684,6 +1684,11 @@ export default function AdminDashboardPage() {
                         style={{ padding: '6px 10px', fontSize: '0.75rem', width: 'auto' }}
                       >
                         <option value="Unassigned">⚠️ Unassigned</option>
+                        <optgroup label="🌟 Round 3 External Judges (FM001 - FM007)">
+                          {Object.values(JUDGE_PROFILES).filter(p => p.id.startsWith('FM')).map(p => (
+                            <option key={p.id} value={p.id}>{p.id} ({p.group}) - {p.namesText}</option>
+                          ))}
+                        </optgroup>
                         <optgroup label="⭐ Final Round Judges (MM001 - MM010)">
                           {Object.values(JUDGE_PROFILES).filter(p => p.id.startsWith('MM')).map(p => (
                             <option key={p.id} value={p.id}>{p.id} ({p.group})</option>
@@ -1856,6 +1861,11 @@ export default function AdminDashboardPage() {
                                       ⚠️ UNASSIGNED JUDGE
                                     </span>
                                   )}
+                                  {t.finalistInfo?.labLocation && (
+                                    <span style={{ fontSize: '0.62rem', color: '#fdff00', fontWeight: 'bold' }}>
+                                      📍 {t.finalistInfo.labLocation}
+                                    </span>
+                                  )}
                                 </div>
                               </td>
 
@@ -1929,6 +1939,13 @@ export default function AdminDashboardPage() {
                                   style={{ padding: '6px 8px', fontSize: '0.75rem' }}
                                 >
                                   <option value="Unassigned">⚠️ Unassigned</option>
+                                  <optgroup label="🌟 Round 3 External Judges (FM001 - FM007)">
+                                    {judgeProfilesList.filter(p => p.id.startsWith('FM')).map(p => (
+                                      <option key={p.id} value={p.id}>
+                                        {p.id} • {p.group}
+                                      </option>
+                                    ))}
+                                  </optgroup>
                                   <optgroup label="⭐ Final Round Judges (MM001 - MM010)">
                                     {judgeProfilesList.filter(p => p.id.startsWith('MM')).map(p => (
                                       <option key={p.id} value={p.id}>
@@ -2881,6 +2898,11 @@ export default function AdminDashboardPage() {
                                     {item.projectTitle}
                                   </div>
                                 )}
+                                {item.finalistInfo?.labLocation && (
+                                  <div style={{ fontSize: '0.68rem', color: '#fdff00', marginTop: '3px', fontWeight: 'bold' }}>
+                                    📍 {item.finalistInfo.labLocation}
+                                  </div>
+                                )}
                               </td>
                               {/* Total Team Members (including Team Leader) */}
                               <td>
@@ -3256,12 +3278,13 @@ export default function AdminDashboardPage() {
                                 </tr>
                               </thead>
                                 <tbody>
-                                 {assignedList.map((t, idx) => {
+                                 {assignedList.map((t, tIdx) => {
                                    const isPanelMM = (panel.id || '').toUpperCase().startsWith('MM');
+                                   const isPanelFM = (panel.id || '').toUpperCase().startsWith('FM');
                                    const evalEntry = evaluations.find(e => {
                                      const nameMatch = (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase();
                                      if (!nameMatch) return false;
-                                     if (isPanelMM) {
+                                     if (isPanelMM || isPanelFM) {
                                        return (e.judgeEmail || '').toUpperCase() === (panel.id || '').toUpperCase();
                                      }
                                      return true;
@@ -3868,10 +3891,11 @@ export default function AdminDashboardPage() {
                               <tbody>
                                 {assignedList.map((t, tIdx) => {
                                   const isPanelMM = (panel.id || '').toUpperCase().startsWith('MM');
+                                  const isPanelFM = (panel.id || '').toUpperCase().startsWith('FM');
                                   const evalEntry = evaluations.find(e => {
                                     const nameMatch = (e.teamName || '').toLowerCase() === (t.teamName || '').toLowerCase();
                                     if (!nameMatch) return false;
-                                    if (isPanelMM) {
+                                    if (isPanelMM || isPanelFM) {
                                       return (e.judgeEmail || '').toUpperCase() === (panel.id || '').toUpperCase();
                                     }
                                     return true;

@@ -290,7 +290,8 @@ body::before {
   border-radius: 10px;
   padding: 4px;
   margin-bottom: 24px;
-  gap: 4px;
+  gap: 6px;
+  flex-wrap: wrap;
 }
 
 .tab-btn {
@@ -321,6 +322,7 @@ body::before {
 .red-ghost { background: var(--blinky-red); }
 .cyan-ghost { background: var(--inky-cyan); }
 .pink-ghost { background: var(--pinky-pink); }
+.yellow-ghost { background: var(--pacman-yellow, #fdff00); }
 
 .tab-btn:hover {
   color: #fff;
@@ -339,10 +341,18 @@ body::before {
   box-shadow: 0 0 12px rgba(255, 0, 0, 0.6);
 }
 
+.internal-judge-tab.active,
 .judge-tab.active {
   background: #008080;
   color: #fff;
   box-shadow: 0 0 12px rgba(0, 255, 255, 0.6);
+}
+
+.external-judge-tab.active {
+  background: linear-gradient(135deg, #fdff00, #e6b800);
+  color: #000;
+  box-shadow: 0 0 14px rgba(253, 255, 0, 0.7);
+  font-weight: 900;
 }
 
 .admin-tab.active {

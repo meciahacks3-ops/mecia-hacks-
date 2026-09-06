@@ -7,7 +7,7 @@ import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { parseEvaluationRecord } from '@/lib/teamUtils';
-import { isFinalRoundTeam, getFinalRoundTeamInfo } from '@/lib/finalRoundTeams';
+import { isFinalRoundTeam, getFinalRoundTeamInfo, getTeamLabLocation } from '@/lib/finalRoundTeams';
 
 function JudgeEvaluationContent() {
   const router = useRouter();
@@ -17,6 +17,7 @@ function JudgeEvaluationContent() {
   const [judgeEmail, setJudgeEmail] = useState('judge@eval.org');
   const [teamName, setTeamName] = useState(teamParam || 'Select Team');
   const [teamIdNo, setTeamIdNo] = useState('');
+  const [labLocation, setLabLocation] = useState('');
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [timeSlot, setTimeSlot] = useState('TBA');
@@ -30,12 +31,16 @@ function JudgeEvaluationContent() {
   const [remarks, setRemarks] = useState('');
   const [isLocked, setIsLocked] = useState(false); // Closed editing feature for evaluated teams
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [internalFeedbackList, setInternalFeedbackList] = useState([]);
 
   const [showModal, setShowModal] = useState(false);
   const [showRubrics, setShowRubrics] = useState(false);
   const [selectedRubricCategory, setSelectedRubricCategory] = useState(null);
 
-  const isFinalRoundJudge = (judgeEmail || '').trim().toUpperCase().startsWith('MM');
+  const cleanJudgeUpper = (judgeEmail || '').trim().toUpperCase();
+  const isMentorJudge = cleanJudgeUpper.startsWith('MM');
+  const isExternalRound3Judge = cleanJudgeUpper.startsWith('FM');
+  const isFinalRoundJudge = isMentorJudge;
 
   const isInvalid = (val) => {
     if (val === '' || val === null || val === undefined) return false;
@@ -55,12 +60,18 @@ function JudgeEvaluationContent() {
 
     if (teamParam) {
       setTeamName(teamParam);
+      const initialLoc = getTeamLabLocation({ teamName: teamParam });
+      if (initialLoc) setLabLocation(initialLoc);
       loadExistingMarks(teamParam);
     }
   }, [teamParam]);
 
   const loadExistingMarks = async (name) => {
     try {
+      // Pre-populate lab location
+      const fallbackLoc = getTeamLabLocation({ teamName: name });
+      if (fallbackLoc) setLabLocation(fallbackLoc);
+
       // 1. Fetch team metadata (only team ID, title, description - personal details hidden)
       const { data: teamData } = await supabase
         .from('teams')
@@ -81,38 +92,56 @@ function JudgeEvaluationContent() {
         }
 
         const parsedSlot = parseTimeSlotFromTeam(teamData);
+        const resolvedLoc = getTeamLabLocation({ teamName: name, teamIdNo: parsedTeamId, main_idea: teamData.main_idea });
+        if (resolvedLoc) setLabLocation(resolvedLoc);
+
         setTimeSlot(parsedSlot);
         setTeamIdNo(parsedTeamId || 'N/A');
         setProjectTitle(teamData.project_title || 'N/A');
         setProjectDesc(cleanDesc || teamData.main_idea || 'No description provided.');
       }
 
-      // 2. Fetch marks / feedback
-      const currentJudge = sessionStorage.getItem('judgeEmail') || judgeEmail;
-      const isFinal = (currentJudge || '').trim().toUpperCase().startsWith('MM');
+      // 2. Fetch marks / feedback for this team
+      const currentJudge = (sessionStorage.getItem('judgeEmail') || judgeEmail || '').trim().toUpperCase();
+      const isMentor = currentJudge.startsWith('MM');
+      const isExternal = currentJudge.startsWith('FM');
 
-      let evalQuery = supabase.from('evaluations').select('*').ilike('team_name', name);
-      if (isFinal) {
-        evalQuery = evalQuery.ilike('judge_email', currentJudge.trim());
-      }
-      const { data, error } = await evalQuery.maybeSingle();
+      const { data: allTeamEvals } = await supabase
+        .from('evaluations')
+        .select('*')
+        .ilike('team_name', name);
 
-      if (data && !error) {
-        const parsed = parseEvaluationRecord(data);
-        if (parsed) {
-          setC1(parsed.c1);
-          setC2(parsed.c2);
-          setC3(parsed.c3);
-          setC4(parsed.c4);
-          setC5(parsed.c5);
-          const rawRemarks = parsed.remarks || '';
-          setRemarks(rawRemarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim());
-          if (!isFinal) {
-            setIsLocked(true); // Locked for marks in Round 2
+      if (allTeamEvals && allTeamEvals.length > 0) {
+        const myEval = allTeamEvals.find(e => (e.judge_email || '').trim().toUpperCase() === currentJudge);
+        if (myEval) {
+          const parsed = parseEvaluationRecord(myEval);
+          if (parsed) {
+            setC1(parsed.c1);
+            setC2(parsed.c2);
+            setC3(parsed.c3);
+            setC4(parsed.c4);
+            setC5(parsed.c5);
+            const rawRemarks = parsed.remarks || '';
+            setRemarks(rawRemarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim());
           }
         }
+
+        // Extract all internal mentor feedback (MM001-MM010 or JM...)
+        const mentorFeedback = allTeamEvals
+          .map(parseEvaluationRecord)
+          .filter(e => {
+            if (!e || !e.remarks || !e.remarks.trim()) return false;
+            const jEmail = (e.judgeEmail || '').trim().toUpperCase();
+            return jEmail.startsWith('MM') || jEmail.startsWith('JM');
+          });
+        setInternalFeedbackList(mentorFeedback);
+
+        // Only lock for legacy Round 2 JM judges, never lock for internal MM or external FM judges
+        const isLegacyR2 = !isMentor && !isExternal;
+        setIsLocked(isLegacyR2 && Boolean(myEval));
       } else {
         setIsLocked(false);
+        setInternalFeedbackList([]);
       }
     } catch (e) {
       console.warn("Supabase fetch marks warning:", e);
@@ -370,6 +399,21 @@ function JudgeEvaluationContent() {
                 <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>🆔 TEAM ID: </span>
                 <span style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.92rem' }}>{teamIdNo || 'N/A'}</span>
               </div>
+              {labLocation && (
+                <div style={{
+                  background: 'rgba(0, 255, 204, 0.15)',
+                  border: '1.5px solid #00ffcc',
+                  padding: '5px 12px',
+                  borderRadius: '6px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '8px',
+                  boxShadow: '0 0 10px rgba(0, 255, 204, 0.25)'
+                }}>
+                  <span style={{ color: '#00ffcc', fontSize: '0.8rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>📍 LAB VENUE:</span>
+                  <span style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.9rem' }}>{labLocation}</span>
+                </div>
+              )}
               {!isFinalRoundJudge && (
                 <div>
                   <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>⏰ TIME SLOT: </span>
@@ -495,6 +539,97 @@ function JudgeEvaluationContent() {
             </div>
           ) : (
             <>
+              {/* INTERNAL MENTOR FEEDBACK (Visible to External Judges) */}
+              {(isExternalRound3Judge || internalFeedbackList.length > 0) && (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.1) 0%, rgba(0, 255, 204, 0.08) 100%)',
+                  border: '2px solid #fdff00',
+                  borderRadius: '10px',
+                  padding: '16px 20px',
+                  marginBottom: '24px',
+                  boxShadow: '0 0 20px rgba(253, 255, 0, 0.2)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '1.5rem' }}>📋</span>
+                      <div>
+                        <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.74rem', color: '#fdff00', letterSpacing: '0.5px' }}>
+                          INTERNAL MENTOR FEEDBACK &amp; OBSERVATIONS
+                        </h3>
+                        <p style={{ margin: '4px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
+                          Review qualitative observations, critique, and guidance provided by internal mentors.
+                        </p>
+                      </div>
+                    </div>
+                    <span style={{
+                      background: internalFeedbackList.length > 0 ? '#fdff00' : 'rgba(255, 255, 255, 0.1)',
+                      color: internalFeedbackList.length > 0 ? '#000' : '#888',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.58rem',
+                      padding: '5px 10px',
+                      borderRadius: '4px',
+                      fontWeight: 'bold'
+                    }}>
+                      {internalFeedbackList.length} MENTOR REVIEW{internalFeedbackList.length === 1 ? '' : 'S'}
+                    </span>
+                  </div>
+
+                  {internalFeedbackList.length > 0 ? (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                      {internalFeedbackList.map((fb, idx) => {
+                        const mentorProf = getJudgeProfile(fb.judgeEmail);
+                        const mentorNames = mentorProf ? mentorProf.namesText : fb.judgeEmail;
+                        return (
+                          <div key={idx} style={{
+                            background: 'rgba(0, 0, 0, 0.75)',
+                            borderLeft: '4px solid #fdff00',
+                            borderRadius: '6px',
+                            padding: '14px 18px',
+                            boxShadow: '0 2px 8px rgba(0, 0, 0, 0.4)'
+                          }}>
+                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
+                              <div style={{ color: '#00ffcc', fontWeight: 'bold', fontSize: '0.84rem' }}>
+                                👨‍🏫 Mentor Panel: <span style={{ color: '#fdff00' }}>{fb.judgeEmail}</span> {mentorProf?.group ? `(${mentorProf.group})` : ''} • {mentorNames}
+                              </div>
+                              {fb.updatedAt && (
+                                <span style={{ color: '#888', fontSize: '0.7rem' }}>
+                                  {new Date(fb.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                </span>
+                              )}
+                            </div>
+                            <p style={{
+                              color: '#ffffff',
+                              fontSize: '0.9rem',
+                              lineHeight: '1.6',
+                              whiteSpace: 'pre-wrap',
+                              margin: 0,
+                              background: 'rgba(255, 255, 255, 0.04)',
+                              padding: '10px 14px',
+                              borderRadius: '4px',
+                              border: '1px solid rgba(255, 255, 255, 0.08)'
+                            }}>
+                              {fb.remarks}
+                            </p>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  ) : (
+                    <div style={{
+                      background: 'rgba(0, 0, 0, 0.5)',
+                      border: '1px dashed rgba(253, 255, 0, 0.3)',
+                      borderRadius: '6px',
+                      padding: '12px 16px',
+                      color: '#aaa',
+                      fontSize: '0.8rem',
+                      fontStyle: 'italic'
+                    }}>
+                      ⏳ No internal mentor feedback has been recorded for this team yet.
+                    </div>
+                  )}
+                </div>
+              )}
+
               <div className="form-section">
                 <h3 className="section-title"><span className="pacman-bullet"></span> EVALUATION CRITERIA MARKSHEET (MAX 50 MARKS)</h3>
 
