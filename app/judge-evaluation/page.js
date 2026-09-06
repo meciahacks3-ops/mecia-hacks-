@@ -154,14 +154,76 @@ function JudgeEvaluationContent() {
           }
         }
 
+        // Also check internal_evaluations dedicated table for internal mentors (MM001-MM010)
+        if (isMentor) {
+          try {
+            const { data: intEval } = await supabase
+              .from('internal_evaluations')
+              .select('*')
+              .ilike('team_name', name)
+              .ilike('judge_email', currentJudge)
+              .maybeSingle();
+
+            if (intEval) {
+              if (intEval.phase1_feedback) setPhase1Remarks(intEval.phase1_feedback);
+              if (intEval.phase2_feedback) setPhase2Remarks(intEval.phase2_feedback);
+              if (intEval.remarks) setRemarks(intEval.remarks);
+            }
+          } catch (intReadErr) {
+            console.warn("internal_evaluations read notice:", intReadErr);
+          }
+        }
+
         // Extract all internal mentor feedback (MM001-MM010 or JM...)
-        const mentorFeedback = allTeamEvals
+        let mentorFeedback = allTeamEvals
           .map(parseEvaluationRecord)
           .filter(e => {
             if (!e || !e.remarks || !e.remarks.trim()) return false;
             const jEmail = (e.judgeEmail || '').trim().toUpperCase();
             return jEmail.startsWith('MM') || jEmail.startsWith('JM');
           });
+
+        // Also query dedicated internal_evaluations table for mentor feedback
+        try {
+          const { data: intEvalsTable } = await supabase
+            .from('internal_evaluations')
+            .select('*')
+            .ilike('team_name', name);
+
+          if (intEvalsTable && intEvalsTable.length > 0) {
+            intEvalsTable.forEach(ie => {
+              const p1 = ie.phase1_feedback || '';
+              const p2 = ie.phase2_feedback || '';
+              const formattedRemarks = ie.remarks || (p1 || p2 ? formatPhaseFeedback(p1, p2) : '');
+              const item = {
+                id: ie.id,
+                teamName: ie.team_name,
+                judgeEmail: (ie.judge_email || '').trim().toUpperCase(),
+                judgeName: ie.judge_name,
+                judgeGroup: ie.judge_group,
+                phase1Feedback: p1,
+                phase2Feedback: p2,
+                hasPhase1: Boolean(p1 && p1.trim()),
+                hasPhase2: Boolean(p2 && p2.trim()),
+                hasPhases: Boolean((p1 && p1.trim()) || (p2 && p2.trim())),
+                remarks: formattedRemarks,
+                updatedAt: ie.updated_at
+              };
+
+              const existingIdx = mentorFeedback.findIndex(
+                mf => (mf.judgeEmail || '').trim().toUpperCase() === item.judgeEmail
+              );
+              if (existingIdx >= 0) {
+                mentorFeedback[existingIdx] = { ...mentorFeedback[existingIdx], ...item };
+              } else if (item.remarks && item.remarks.trim()) {
+                mentorFeedback.push(item);
+              }
+            });
+          }
+        } catch (intFetchErr) {
+          console.warn("internal_evaluations fetch notice:", intFetchErr);
+        }
+
         setInternalFeedbackList(mentorFeedback);
 
         // Only lock for legacy Round 2 JM judges, never lock for internal MM or external FM judges
@@ -316,6 +378,52 @@ function JudgeEvaluationContent() {
           }
         } catch (extTableErr) {
           console.warn("Notice: external_evaluations write attempt:", extTableErr);
+        }
+      }
+
+      // If Internal Mentor / Jury (MM001-MM010), also save directly to dedicated internal_evaluations table
+      if (isFinalRoundJudge) {
+        try {
+          const p1 = phase1Remarks.trim();
+          const p2 = phase2Remarks.trim();
+          const formattedFeedback = (p1 || p2) ? formatPhaseFeedback(p1, p2) : remarks.trim();
+
+          const internalPayload = {
+            team_name: teamName,
+            team_id_no: teamIdNo || null,
+            judge_email: cleanJudge,
+            judge_name: judgeProfile?.namesText || cleanJudge,
+            judge_group: judgeProfile?.group || null,
+            phase1_feedback: p1,
+            phase2_feedback: p2,
+            remarks: formattedFeedback,
+            c1_innovation: 0,
+            c2_execution: 0,
+            c3_feasibility: 0,
+            c4_presentation: 0,
+            total_score: 0,
+            updated_at: new Date()
+          };
+
+          const { data: existingInt } = await supabase
+            .from('internal_evaluations')
+            .select('id')
+            .ilike('team_name', teamName)
+            .ilike('judge_email', cleanJudge)
+            .maybeSingle();
+
+          if (existingInt && existingInt.id) {
+            await supabase
+              .from('internal_evaluations')
+              .update(internalPayload)
+              .eq('id', existingInt.id);
+          } else {
+            await supabase
+              .from('internal_evaluations')
+              .insert([internalPayload]);
+          }
+        } catch (intTableErr) {
+          console.warn("Notice: internal_evaluations write attempt:", intTableErr);
         }
       }
 

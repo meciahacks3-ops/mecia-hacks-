@@ -116,6 +116,50 @@ export default function JudgeDashboardPage() {
         console.warn("external_evaluations query notice (table may not exist yet):", extQueryErr);
       }
 
+      // 4. Also fetch from dedicated internal_evaluations table if available
+      try {
+        const { data: intEvals } = await supabase.from('internal_evaluations').select('*');
+        if (intEvals && intEvals.length > 0) {
+          intEvals.forEach(ie => {
+            const p1 = ie.phase1_feedback || '';
+            const p2 = ie.phase2_feedback || '';
+            const formatted = {
+              id: ie.id,
+              teamName: ie.team_name,
+              teamIdNo: ie.team_id_no,
+              judgeEmail: (ie.judge_email || '').trim().toUpperCase(),
+              judgeName: ie.judge_name,
+              judgeGroup: ie.judge_group,
+              c1: 0,
+              c2: 0,
+              c3: 0,
+              c4: 0,
+              c5: 0,
+              totalScore: 0,
+              remarks: ie.remarks || (p1 || p2 ? formatPhaseFeedback(p1, p2) : ''),
+              phase1Feedback: p1,
+              phase2Feedback: p2,
+              hasPhase1: Boolean(p1 && p1.trim()),
+              hasPhase2: Boolean(p2 && p2.trim()),
+              hasPhases: Boolean((p1 && p1.trim()) || (p2 && p2.trim())),
+              updatedAt: ie.updated_at
+            };
+
+            const existingIdx = combinedEvals.findIndex(ce =>
+              (ce.teamName || '').trim().toLowerCase() === (formatted.teamName || '').trim().toLowerCase() &&
+              (ce.judgeEmail || '').trim().toUpperCase() === formatted.judgeEmail
+            );
+            if (existingIdx >= 0) {
+              combinedEvals[existingIdx] = { ...combinedEvals[existingIdx], ...formatted };
+            } else {
+              combinedEvals.push(formatted);
+            }
+          });
+        }
+      } catch (intQueryErr) {
+        console.warn("internal_evaluations query notice (table may not exist yet):", intQueryErr);
+      }
+
       setEvaluations(combinedEvals);
     } catch (e) {
       console.warn("Supabase fetch error on judge dashboard:", e);
