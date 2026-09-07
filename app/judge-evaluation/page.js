@@ -489,7 +489,7 @@ function JudgeEvaluationContent() {
               </div>
               {judgeProfile ? (
                 <div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginBottom: '6px', marginTop: '4px' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
                     {judgeProfile.names.map((name, idx) => (
                       <div key={idx} style={{ color: '#ffffff', fontSize: '0.82rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
                         <span style={{ color: '#00ffcc', fontSize: '0.65rem' }}>▸</span>
@@ -497,11 +497,6 @@ function JudgeEvaluationContent() {
                       </div>
                     ))}
                   </div>
-                  {judgeProfile.location && (
-                    <div style={{ color: '#fdff00', fontSize: '0.68rem', fontWeight: '600', borderTop: '1px dashed rgba(255, 255, 255, 0.15)', paddingTop: '4px' }}>
-                      📍 {judgeProfile.location}
-                    </div>
-                  )}
                 </div>
               ) : (
                 <div style={{ color: '#fff', fontSize: '0.8rem', fontWeight: '600' }}>
