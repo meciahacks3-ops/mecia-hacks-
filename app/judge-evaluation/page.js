@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
-import { parseEvaluationRecord, formatPhaseFeedback, parsePhaseFeedback } from '@/lib/teamUtils';
+import { parseEvaluationRecord, formatPhaseFeedback, parsePhaseFeedback, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
 import { isFinalRoundTeam, getFinalRoundTeamInfo, getTeamLabLocation } from '@/lib/finalRoundTeams';
 
 function JudgeEvaluationContent() {
@@ -255,9 +255,18 @@ function JudgeEvaluationContent() {
       return;
     }
 
-    if (isFinalRoundJudge && !phase1Remarks.trim() && !phase2Remarks.trim() && !remarks.trim()) {
-      alert("⚠️ Feedback Required: Please enter your feedback for Phase 1 or Phase 2 before submitting.");
-      return;
+    if (isFinalRoundJudge) {
+      if (IS_PHASE_2_LOCKED) {
+        if (!phase1Remarks.trim() && !remarks.trim()) {
+          alert("⚠️ Phase 1 Feedback Required: Please enter your Phase 1 observations before submitting. (Phase 2 feedback is currently locked by administration).");
+          return;
+        }
+      } else {
+        if (!phase1Remarks.trim() && !phase2Remarks.trim() && !remarks.trim()) {
+          alert("⚠️ Feedback Required: Please enter your feedback for Phase 1 or Phase 2 before submitting.");
+          return;
+        }
+      }
     }
 
     setIsSubmitting(true);
@@ -712,7 +721,7 @@ function JudgeEvaluationContent() {
                     <span className="pacman-bullet"></span> 💬 INTERNAL JURY: TWO-PHASE TEAM FEEDBACK
                   </h3>
                   <p style={{ color: '#ccc', fontSize: '0.78rem', marginTop: '6px', margin: 0, lineHeight: '1.5' }}>
-                    Logged in as Internal Jury <strong>{judgeEmail.toUpperCase()}</strong>. Record qualitative mentorship critique and observations for <strong>Phase 1</strong>, <strong>Phase 2</strong>, or both.
+                    Logged in as Internal Jury <strong>{judgeEmail.toUpperCase()}</strong>. Record qualitative mentorship critique and observations for <strong>Phase 1</strong>. {IS_PHASE_2_LOCKED ? <span style={{ color: '#ff6688', fontWeight: 'bold' }}>Phase 2 feedback is currently locked by administration.</span> : 'Phase 2 feedback is active.'}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -728,18 +737,36 @@ function JudgeEvaluationContent() {
                   }}>
                     {phase1Remarks.trim() ? '✅ PHASE 1 DONE' : '⏳ PHASE 1 PENDING'}
                   </span>
-                  <span style={{
-                    background: phase2Remarks.trim() ? 'rgba(255, 102, 204, 0.2)' : 'rgba(255, 255, 255, 0.08)',
-                    color: phase2Remarks.trim() ? '#ff66cc' : '#888',
-                    border: `1px solid ${phase2Remarks.trim() ? '#ff66cc' : '#555'}`,
-                    padding: '6px 10px',
-                    borderRadius: '4px',
-                    fontFamily: 'Press Start 2P, monospace',
-                    fontSize: '0.58rem',
-                    fontWeight: 'bold'
-                  }}>
-                    {phase2Remarks.trim() ? '✅ PHASE 2 DONE' : '⏳ PHASE 2 PENDING'}
-                  </span>
+                  {IS_PHASE_2_LOCKED ? (
+                    <span style={{
+                      background: 'rgba(255, 51, 102, 0.15)',
+                      color: '#ff6688',
+                      border: '1.5px solid #ff3366',
+                      padding: '6px 10px',
+                      borderRadius: '4px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.58rem',
+                      fontWeight: 'bold',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px'
+                    }}>
+                      🔒 PHASE 2 LOCKED
+                    </span>
+                  ) : (
+                    <span style={{
+                      background: phase2Remarks.trim() ? 'rgba(255, 102, 204, 0.2)' : 'rgba(255, 255, 255, 0.08)',
+                      color: phase2Remarks.trim() ? '#ff66cc' : '#888',
+                      border: `1px solid ${phase2Remarks.trim() ? '#ff66cc' : '#555'}`,
+                      padding: '6px 10px',
+                      borderRadius: '4px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.58rem',
+                      fontWeight: 'bold'
+                    }}>
+                      {phase2Remarks.trim() ? '✅ PHASE 2 DONE' : '⏳ PHASE 2 PENDING'}
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -761,7 +788,7 @@ function JudgeEvaluationContent() {
                     boxShadow: activeFeedbackTab === 'all' ? '0 0 10px rgba(0, 255, 204, 0.4)' : 'none'
                   }}
                 >
-                  📋 ALL PHASES (1 &amp; 2)
+                  📋 ALL PHASES {IS_PHASE_2_LOCKED ? '(P1 ACTIVE • P2 LOCKED 🔒)' : '(1 & 2)'}
                 </button>
                 <button
                   type="button"
@@ -779,25 +806,25 @@ function JudgeEvaluationContent() {
                     boxShadow: activeFeedbackTab === 'phase1' ? '0 0 10px rgba(0, 255, 204, 0.4)' : 'none'
                   }}
                 >
-                  ⚡ PHASE 1 ONLY
+                  ⚡ PHASE 1 (ACTIVE)
                 </button>
                 <button
                   type="button"
                   onClick={() => setActiveFeedbackTab('phase2')}
                   style={{
-                    background: activeFeedbackTab === 'phase2' ? '#ff66cc' : 'rgba(0,0,0,0.6)',
-                    color: activeFeedbackTab === 'phase2' ? '#000' : '#888',
-                    border: '1.5px solid #ff66cc',
+                    background: activeFeedbackTab === 'phase2' ? (IS_PHASE_2_LOCKED ? 'rgba(255, 51, 102, 0.25)' : '#ff66cc') : 'rgba(0,0,0,0.6)',
+                    color: activeFeedbackTab === 'phase2' ? (IS_PHASE_2_LOCKED ? '#ff6688' : '#000') : '#888',
+                    border: `1.5px solid ${activeFeedbackTab === 'phase2' ? (IS_PHASE_2_LOCKED ? '#ff3366' : '#ff66cc') : (IS_PHASE_2_LOCKED ? 'rgba(255, 51, 102, 0.4)' : '#555')}`,
                     padding: '8px 14px',
                     borderRadius: '6px',
                     fontFamily: 'Press Start 2P, monospace',
                     fontSize: '0.6rem',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    boxShadow: activeFeedbackTab === 'phase2' ? '0 0 10px rgba(255, 102, 204, 0.4)' : 'none'
+                    boxShadow: activeFeedbackTab === 'phase2' ? '0 0 10px rgba(255, 51, 102, 0.3)' : 'none'
                   }}
                 >
-                  🚀 PHASE 2 ONLY
+                  🔒 PHASE 2 (LOCKED)
                 </button>
               </div>
 
@@ -812,7 +839,7 @@ function JudgeEvaluationContent() {
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
                     <label htmlFor="phase1-remarks" style={{ color: '#00ffcc', fontSize: '0.88rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                      <span>⚡ PHASE 1: Initial Architecture &amp; Prototype Feedback</span>
+                      <span>⚡ PHASE 1: Initial Architecture &amp; Prototype Feedback (ACTIVE)</span>
                     </label>
                     <span style={{
                       fontFamily: 'Press Start 2P, monospace',
@@ -848,48 +875,80 @@ function JudgeEvaluationContent() {
                 </div>
               )}
 
-              {/* PHASE 2 FEEDBACK BOX */}
+              {/* PHASE 2 FEEDBACK BOX (LOCKED) */}
               {(activeFeedbackTab === 'all' || activeFeedbackTab === 'phase2') && (
                 <div className="form-group" style={{
-                  background: 'rgba(255, 102, 204, 0.04)',
-                  border: '1.5px solid rgba(255, 102, 204, 0.35)',
+                  background: IS_PHASE_2_LOCKED ? 'rgba(255, 51, 102, 0.04)' : 'rgba(255, 102, 204, 0.04)',
+                  border: IS_PHASE_2_LOCKED ? '1.5px dashed rgba(255, 51, 102, 0.45)' : '1.5px solid rgba(255, 102, 204, 0.35)',
                   borderRadius: '8px',
                   padding: '16px 18px',
-                  marginBottom: '20px'
+                  marginBottom: '20px',
+                  position: 'relative'
                 }}>
+                  {IS_PHASE_2_LOCKED && (
+                    <div style={{
+                      background: 'linear-gradient(135deg, rgba(255, 51, 102, 0.15) 0%, rgba(20, 10, 15, 0.95) 100%)',
+                      border: '1.5px solid #ff3366',
+                      borderRadius: '6px',
+                      padding: '12px 16px',
+                      marginBottom: '14px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '12px',
+                      boxShadow: '0 0 12px rgba(255, 51, 102, 0.2)'
+                    }}>
+                      <span style={{ fontSize: '1.4rem' }}>🔒</span>
+                      <div style={{ fontSize: '0.78rem', color: '#ffccd5', lineHeight: '1.4' }}>
+                        <div style={{ color: '#ff6688', fontFamily: 'Press Start 2P, monospace', fontSize: '0.62rem', marginBottom: '4px' }}>
+                          PHASE 2 FEEDBACK IS CURRENTLY LOCKED
+                        </div>
+                        <div>
+                          Phase 2 critique will unlock during the final sprint / demo evaluation round. Currently, only Phase 1 feedback is accepted and saved.
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                    <label htmlFor="phase2-remarks" style={{ color: '#ff66cc', fontSize: '0.88rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
-                      <span>🚀 PHASE 2: Mid-Hackathon / Final Sprint Feedback</span>
+                    <label htmlFor="phase2-remarks" style={{ color: IS_PHASE_2_LOCKED ? '#ff6688' : '#ff66cc', fontSize: '0.88rem', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '8px', margin: 0 }}>
+                      <span>{IS_PHASE_2_LOCKED ? '🔒' : '🚀'} PHASE 2: Mid-Hackathon / Final Sprint Feedback {IS_PHASE_2_LOCKED && '(LOCKED)'}</span>
                     </label>
                     <span style={{
                       fontFamily: 'Press Start 2P, monospace',
                       fontSize: '0.55rem',
-                      color: phase2Remarks.trim() ? '#ff66cc' : '#fdff00'
+                      color: IS_PHASE_2_LOCKED ? '#ff6688' : (phase2Remarks.trim() ? '#ff66cc' : '#fdff00')
                     }}>
-                      {phase2Remarks.trim() ? '✅ PHASE 2 ENTERED' : '⚠️ PHASE 2 EMPTY'}
+                      {IS_PHASE_2_LOCKED ? '🔒 LOCKED BY ADMIN' : (phase2Remarks.trim() ? '✅ PHASE 2 ENTERED' : '⚠️ PHASE 2 EMPTY')}
                     </span>
                   </div>
-                  <p style={{ color: '#aaa', fontSize: '0.74rem', marginTop: '2px', marginBottom: '10px' }}>
+                  <p style={{ color: '#888', fontSize: '0.74rem', marginTop: '2px', marginBottom: '10px' }}>
                     Second review observations: implementation progress made since Phase 1, demo readiness, UI/hardware completeness, and final guidance.
                   </p>
                   <textarea
                     id="phase2-remarks"
-                    rows="6"
-                    placeholder="Enter Phase 2 mentor observations, review of progress made after Phase 1, demo readiness, and final guidance..."
+                    rows="5"
+                    placeholder={IS_PHASE_2_LOCKED
+                      ? "🔒 Phase 2 feedback is currently locked by the administration. It will be enabled when the Phase 2 judging round commences..."
+                      : "Enter Phase 2 mentor observations, review of progress made after Phase 1, demo readiness, and final guidance..."}
                     value={phase2Remarks}
-                    onChange={(e) => setPhase2Remarks(e.target.value)}
+                    onChange={(e) => {
+                      if (!IS_PHASE_2_LOCKED) setPhase2Remarks(e.target.value);
+                    }}
+                    readOnly={IS_PHASE_2_LOCKED}
+                    disabled={IS_PHASE_2_LOCKED}
                     style={{
                       width: '100%',
                       padding: '14px',
                       fontSize: '0.92rem',
                       lineHeight: '1.6',
                       borderRadius: '8px',
-                      background: 'rgba(0, 0, 0, 0.85)',
-                      border: '1.5px solid rgba(255, 102, 204, 0.4)',
-                      color: '#ffffff',
+                      background: IS_PHASE_2_LOCKED ? 'rgba(30, 15, 20, 0.75)' : 'rgba(0, 0, 0, 0.85)',
+                      border: IS_PHASE_2_LOCKED ? '1.5px dashed rgba(255, 51, 102, 0.4)' : '1.5px solid rgba(255, 102, 204, 0.4)',
+                      color: IS_PHASE_2_LOCKED ? '#888' : '#ffffff',
                       fontFamily: 'inherit',
-                      resize: 'vertical',
-                      minHeight: '140px'
+                      resize: IS_PHASE_2_LOCKED ? 'none' : 'vertical',
+                      minHeight: '120px',
+                      cursor: IS_PHASE_2_LOCKED ? 'not-allowed' : 'text'
                     }}
                   ></textarea>
                 </div>
@@ -910,7 +969,7 @@ function JudgeEvaluationContent() {
                   cursor: isSubmitting ? 'not-allowed' : 'pointer'
                 }}
               >
-                <span className="pacman-icon"></span> {isSubmitting ? 'SAVING FEEDBACK...' : '💬 SUBMIT INTERNAL JURY FEEDBACK (PHASE 1 & 2)'}
+                <span className="pacman-icon"></span> {isSubmitting ? 'SAVING FEEDBACK...' : (IS_PHASE_2_LOCKED ? '💾 SAVE PHASE 1 INTERNAL FEEDBACK (P2 LOCKED 🔒)' : '💬 SUBMIT INTERNAL JURY FEEDBACK (PHASE 1 & 2)')}
               </button>
             </div>
           ) : (
@@ -1333,6 +1392,21 @@ function JudgeEvaluationContent() {
                   {!phase1Remarks.trim() && !phase2Remarks.trim() && remarks.trim() && (
                     <div style={{ color: '#fff', fontSize: '0.84rem', fontStyle: 'italic', lineHeight: '1.5' }}>
                       &ldquo;{remarks}&rdquo;
+                    </div>
+                  )}
+                  {IS_PHASE_2_LOCKED && (
+                    <div style={{
+                      background: 'rgba(255, 51, 102, 0.12)',
+                      border: '1px solid #ff3366',
+                      borderRadius: '4px',
+                      padding: '8px 12px',
+                      fontSize: '0.62rem',
+                      color: '#ff88a3',
+                      fontFamily: 'Press Start 2P, monospace',
+                      textAlign: 'center',
+                      lineHeight: '1.4'
+                    }}>
+                      🔒 PHASE 2 LOCKED • WILL UNLOCK FOR NEXT SPRINT
                     </div>
                   )}
                 </div>

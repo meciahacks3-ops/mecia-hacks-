@@ -33,7 +33,7 @@ import {
   exportFinalistTeamsAndMembersExcel,
   exportFinalistTeamsAndMembersCSV
 } from '@/lib/excelExport';
-import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord } from '@/lib/teamUtils';
+import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
 import {
   FINAL_ROUND_TEAMS,
   FINAL_ROUND_STATS,
@@ -3540,11 +3540,24 @@ export default function AdminDashboardPage() {
                                        </td>
                                        <td className="criterion-name">
                                          <strong style={{ color: '#fff', fontSize: '0.9rem' }}>{t.teamName}</strong>
-                                         {isPanelMM && hasFeedback && (
-                                           <div style={{ fontSize: '0.74rem', color: '#00ffcc', marginTop: '4px', fontStyle: 'italic', maxWidth: '380px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                             &ldquo;{evalEntry.remarks}&rdquo;
-                                           </div>
-                                         )}
+                                          {isPanelMM && (
+                                            <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                              {evalEntry?.phase1Feedback ? (
+                                                <div style={{ fontSize: '0.74rem', color: '#00ffcc', fontStyle: 'italic', maxWidth: '380px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                  <span style={{ fontWeight: 'bold' }}>⚡ P1:</span> &ldquo;{evalEntry.phase1Feedback}&rdquo;
+                                                </div>
+                                              ) : hasFeedback ? (
+                                                <div style={{ fontSize: '0.74rem', color: '#00ffcc', fontStyle: 'italic', maxWidth: '380px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                  &ldquo;{evalEntry.remarks}&rdquo;
+                                                </div>
+                                              ) : null}
+                                              {IS_PHASE_2_LOCKED && (
+                                                <span style={{ fontSize: '0.58rem', color: '#ff88a3', fontFamily: 'Press Start 2P, monospace' }}>
+                                                  🔒 P2 LOCKED
+                                                </span>
+                                              )}
+                                            </div>
+                                          )}
                                        </td>
 
                                        <td>
@@ -4150,12 +4163,25 @@ export default function AdminDashboardPage() {
                                         </span>
                                       </td>
                                       <td>
-                                        <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{t.teamName}</strong>
-                                        {isPanelMM && hasFeedback && (
-                                          <div style={{ fontSize: '0.72rem', color: '#00ffcc', marginTop: '4px', fontStyle: 'italic', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                            &ldquo;{evalEntry.remarks}&rdquo;
-                                          </div>
-                                        )}
+                                         <strong style={{ color: '#fff', fontSize: '0.88rem' }}>{t.teamName}</strong>
+                                         {isPanelMM && (
+                                           <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px' }}>
+                                             {evalEntry?.phase1Feedback ? (
+                                               <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontStyle: 'italic', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                 <span style={{ fontWeight: 'bold' }}>⚡ P1:</span> &ldquo;{evalEntry.phase1Feedback}&rdquo;
+                                               </div>
+                                             ) : hasFeedback ? (
+                                               <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontStyle: 'italic', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                 &ldquo;{evalEntry.remarks}&rdquo;
+                                               </div>
+                                             ) : null}
+                                             {IS_PHASE_2_LOCKED && (
+                                               <span style={{ fontSize: '0.58rem', color: '#ff88a3', fontFamily: 'Press Start 2P, monospace' }}>
+                                                 🔒 P2 LOCKED
+                                               </span>
+                                             )}
+                                           </div>
+                                         )}
                                       </td>
                                       <td>
                                         <div style={{ fontSize: '0.78rem' }}>
