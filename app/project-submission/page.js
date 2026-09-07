@@ -473,6 +473,8 @@ export default function ProjectSubmissionPage() {
   };
 
   const judgeProfile = getJudgeProfile(assignedJudge);
+  const currentFinalistInfo = getFinalRoundTeamInfo({ teamName, teamIdNo });
+  const teamLabLocation = currentFinalistInfo?.labLocation || judgeProfile?.location || 'Computer Engineering Dept.';
 
   return (
     <>
@@ -500,7 +502,7 @@ export default function ProjectSubmissionPage() {
               }}>
                 <span>🏛️ {assignedJudge.toUpperCase()}</span>
                 <span>•</span>
-                <span style={{ color: '#fdff00' }}>📍 {judgeProfile?.location || 'Assigned Lab'}</span>
+                <span style={{ color: '#fdff00' }}>📍 {teamLabLocation}</span>
               </div>
             )}
             {timeSlot && timeSlot !== 'TBA' && (
@@ -902,6 +904,14 @@ export default function ProjectSubmissionPage() {
                           {finalistInfo?.score} / 50
                         </div>
                       </div>
+                      {finalistInfo?.labLocation && (
+                        <div style={{ background: 'rgba(0,0,0,0.6)', border: '1.5px solid #00ffcc', padding: '10px 14px', borderRadius: '8px' }}>
+                          <span style={{ fontSize: '0.6rem', color: '#aaa', fontFamily: 'Press Start 2P, monospace' }}>ASSIGNED LAB VENUE:</span>
+                          <div style={{ color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', marginTop: '4px' }}>
+                            📍 {finalistInfo.labLocation}
+                          </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 );
@@ -1036,7 +1046,7 @@ export default function ProjectSubmissionPage() {
                         <span style={{ fontSize: '1.8rem' }}>📍</span>
                         <div>
                           <div style={{ color: '#fdff00', fontFamily: 'Press Start 2P, monospace', fontSize: '0.95rem', lineHeight: '1.5' }}>
-                            {judgeProfile?.location || 'Computer Engineering Dept.'}
+                            {teamLabLocation}
                           </div>
                         </div>
                       </div>
@@ -1352,7 +1362,7 @@ export default function ProjectSubmissionPage() {
                       ALLOCATED EVALUATION PANEL: <span style={{ color: '#fdff00' }}>{assignedJudge.toUpperCase()}</span> {judgeProfile?.group ? `(${judgeProfile.group})` : ''}
                     </div>
                     <div style={{ color: '#fff', fontSize: '0.78rem' }}>
-                      <span>📍 <strong>Venue Location:</strong> <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{judgeProfile?.location || 'Computer Engineering Dept.'}</span></span>
+                      <span>📍 <strong>Venue Location:</strong> <span style={{ color: '#fdff00', fontWeight: 'bold' }}>{teamLabLocation}</span></span>
                       <span style={{ margin: '0 8px', color: '#666' }}>|</span>
                       <span>⏰ <strong>Time Slot:</strong> <span style={{ color: getTimeSlotInfo(timeSlot).badgeColor, fontWeight: 'bold' }}>{timeSlot === 'TBA' ? '⏳ TBA' : timeSlot}</span></span>
                     </div>
