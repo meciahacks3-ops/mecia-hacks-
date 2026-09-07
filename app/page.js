@@ -181,7 +181,7 @@ export default function LoginPage() {
     }, 400);
   };
 
-  // Internal Judges Login Handler (MM001 - MM010)
+  // Mentors Login Handler (MM001 - MM010)
   const handleInternalJudgeLogin = async (e) => {
     e.preventDefault();
     setAuthError('');
@@ -200,7 +200,7 @@ export default function LoginPage() {
     const validInternalIds = [...FINAL_ROUND_JUDGE_IDS, ...ROUND_2_JUDGE_IDS];
     if (!validInternalIds.includes(cleanId)) {
       setIsLoggingIn(false);
-      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Internal Judge ID.`);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is not an authorized Mentor ID.`);
       return;
     }
 
@@ -215,13 +215,13 @@ export default function LoginPage() {
 
     if (!isPassValid) {
       setIsLoggingIn(false);
-      setAuthError('⛔ ACCESS DENIED: Incorrect Internal Judge Password.');
+      setAuthError('⛔ ACCESS DENIED: Incorrect Mentor Password.');
       return;
     }
 
     sessionStorage.setItem('judgeEmail', cleanId);
     sessionStorage.setItem('judgeId', cleanId);
-    await recordLoginToSupabase(cleanId, `INTERNAL JUDGE (${cleanId})`);
+    await recordLoginToSupabase(cleanId, `MENTOR (${cleanId})`);
 
     setTimeout(() => {
       setIsLoggingIn(false);
@@ -238,11 +238,11 @@ export default function LoginPage() {
 
     const cleanId = (externalJudgeId || '').trim().toUpperCase();
 
-    // Check if user accidentally entered an Internal Judge ID
+    // Check if user accidentally entered a Mentor ID
     const validInternalIds = [...FINAL_ROUND_JUDGE_IDS, ...ROUND_2_JUDGE_IDS];
     if (validInternalIds.includes(cleanId)) {
       setIsLoggingIn(false);
-      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is an Internal Judge ID. Please switch to the "Internal Judges" tab.`);
+      setAuthError(`⛔ ACCESS DENIED: '${cleanId}' is a Mentor ID. Please switch to the "Mentors" tab.`);
       return;
     }
 
@@ -343,7 +343,7 @@ export default function LoginPage() {
           <div className="badge-wrapper">
             <span className="role-badge" id="role-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
               {role === 'student' && 'STAGE 3: STUDENT DASHBOARD (FINAL ROUND)'}
-              {role === 'internal-judge' && 'INTERNAL JUDGES'}
+              {role === 'internal-judge' && 'MENTORS'}
               {role === 'external-judge' && 'EXTERNAL JURY'}
               {role === 'admin' && 'STAGE 3: ADMIN CONTROL (FINAL ROUND)'}
             </span>
@@ -351,7 +351,7 @@ export default function LoginPage() {
           <h2>Mecia Hack 3.0</h2>
           <p>
             {role === 'student' && 'Sign in with your registered Google account to view your Final Round qualification status, Judge Panel & Time Slot.'}
-            {role === 'internal-judge' && 'Internal Judges: Review finalist teams and submit qualitative guidance & feedback.'}
+            {role === 'internal-judge' && 'Mentors: Review finalist teams and submit qualitative guidance & feedback.'}
             {role === 'external-judge' && 'External Jury: Evaluate finalist presentations and submit official rubric marks.'}
             {role === 'admin' && 'Manage Final Round events, qualified teams, and administrative settings.'}
           </p>
@@ -417,7 +417,7 @@ export default function LoginPage() {
             className={`tab-btn internal-judge-tab ${role === 'internal-judge' ? 'active' : ''}`}
             onClick={() => handleRoleSelect('internal-judge')}
           >
-            <span className="tab-ghost cyan-ghost"></span> Internal Judges
+            <span className="tab-ghost cyan-ghost"></span> Mentors
           </button>
           <button
             type="button"
@@ -480,7 +480,7 @@ export default function LoginPage() {
           </div>
         )}
 
-        {/* 2. Internal Mentor Login Form (MM001 - MM010) */}
+        {/* 2. Mentor Login Form (MM001 - MM010) */}
         {role === 'internal-judge' && (
           <form className="login-form active" onSubmit={handleInternalJudgeLogin}>
             <div style={{
@@ -495,15 +495,15 @@ export default function LoginPage() {
               marginBottom: '18px',
               textAlign: 'center'
             }}>
-              👨‍🏫 AUTHORIZED INTERNAL JUDGES ACCESS
+              👨‍🏫 AUTHORIZED MENTORS ACCESS
             </div>
 
             <div className="form-group">
-              <label htmlFor="internal-judge-id">Internal Judge ID</label>
+              <label htmlFor="internal-judge-id">Mentor ID</label>
               <input
                 type="text"
                 id="internal-judge-id"
-                placeholder="Enter Internal Judge ID"
+                placeholder="Enter Mentor ID"
                 required
                 value={internalJudgeId}
                 onChange={(e) => setInternalJudgeId(e.target.value.toUpperCase())}
@@ -511,7 +511,7 @@ export default function LoginPage() {
               />
             </div>
             <div className="form-group">
-              <label htmlFor="internal-judge-pass">Judge Password</label>
+              <label htmlFor="internal-judge-pass">Mentor Password</label>
               <input
                 type="password"
                 id="internal-judge-pass"
@@ -526,7 +526,7 @@ export default function LoginPage() {
               className="submit-btn"
               disabled={isLoggingIn}
             >
-              <span className="pacman-icon"></span> LOGIN AS INTERNAL JUDGE
+              <span className="pacman-icon"></span> LOGIN AS MENTOR
             </button>
           </form>
         )}

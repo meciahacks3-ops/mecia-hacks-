@@ -713,10 +713,10 @@ function JudgeEvaluationContent() {
               }}>
                 <div>
                   <h3 className="section-title" style={{ margin: 0, color: '#00ffcc', fontSize: '0.88rem' }}>
-                    <span className="pacman-bullet"></span> 💬 INTERNAL JURY: TWO-PHASE TEAM FEEDBACK
+                    <span className="pacman-bullet"></span> 💬 MENTORS: TWO-PHASE TEAM FEEDBACK
                   </h3>
                   <p style={{ color: '#ccc', fontSize: '0.78rem', marginTop: '6px', margin: 0, lineHeight: '1.5' }}>
-                    Logged in as Internal Jury <strong>{judgeEmail.toUpperCase()}</strong>. Record qualitative mentorship critique and observations for <strong>Phase 1</strong>. {IS_PHASE_2_LOCKED ? <span style={{ color: '#ff6688', fontWeight: 'bold' }}>Phase 2 feedback is currently locked by administration.</span> : 'Phase 2 feedback is active.'}
+                    Logged in as Mentor <strong>{judgeEmail.toUpperCase()}</strong>. Record qualitative mentorship critique and observations for <strong>Phase 1</strong>. {IS_PHASE_2_LOCKED ? <span style={{ color: '#ff6688', fontWeight: 'bold' }}>Phase 2 feedback is currently locked by administration.</span> : 'Phase 2 feedback is active.'}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -964,7 +964,7 @@ function JudgeEvaluationContent() {
                   cursor: isSubmitting ? 'not-allowed' : 'pointer'
                 }}
               >
-                <span className="pacman-icon"></span> {isSubmitting ? 'SAVING FEEDBACK...' : (IS_PHASE_2_LOCKED ? '💾 SAVE PHASE 1 INTERNAL FEEDBACK (P2 LOCKED 🔒)' : '💬 SUBMIT INTERNAL JURY FEEDBACK (PHASE 1 & 2)')}
+                <span className="pacman-icon"></span> {isSubmitting ? 'SAVING FEEDBACK...' : (IS_PHASE_2_LOCKED ? '💾 SAVE PHASE 1 MENTOR FEEDBACK (P2 LOCKED 🔒)' : '💬 SUBMIT MENTOR FEEDBACK (PHASE 1 & 2)')}
               </button>
             </div>
           ) : (
@@ -984,10 +984,10 @@ function JudgeEvaluationContent() {
                       <span style={{ fontSize: '1.5rem' }}>📋</span>
                       <div>
                         <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.74rem', color: '#fdff00', letterSpacing: '0.5px' }}>
-                          INTERNAL MENTOR FEEDBACK &amp; OBSERVATIONS
+                          MENTOR FEEDBACK &amp; OBSERVATIONS
                         </h3>
                         <p style={{ margin: '4px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
-                          Review qualitative observations, critique, and guidance provided by internal mentors.
+                          Review qualitative observations, critique, and guidance provided by mentors.
                         </p>
                       </div>
                     </div>
@@ -1089,7 +1089,7 @@ function JudgeEvaluationContent() {
                       fontSize: '0.8rem',
                       fontStyle: 'italic'
                     }}>
-                      ⏳ No internal mentor feedback has been recorded for this team yet.
+                      ⏳ No mentor feedback has been recorded for this team yet.
                     </div>
                   )}
                 </div>
@@ -1362,7 +1362,7 @@ function JudgeEvaluationContent() {
             {isFinalRoundJudge ? (
               <>
                 <h2 className="victory-title" style={{ color: '#00ffcc' }}>FEEDBACK SUBMITTED!</h2>
-                <p className="victory-subtitle">INTERNAL JURY FEEDBACK RECORDED FOR {teamName.toUpperCase()}</p>
+                <p className="victory-subtitle">MENTOR FEEDBACK RECORDED FOR {teamName.toUpperCase()}</p>
                 <div className="score-box" style={{ background: 'rgba(0, 255, 204, 0.08)', borderColor: '#00ffcc', padding: '16px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
                   {phase1Remarks.trim() && (
                     <div style={{ textAlign: 'left', borderBottom: phase2Remarks.trim() ? '1px dashed rgba(0, 255, 204, 0.3)' : 'none', paddingBottom: phase2Remarks.trim() ? '8px' : '0' }}>

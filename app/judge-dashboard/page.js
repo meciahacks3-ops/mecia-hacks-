@@ -347,7 +347,7 @@ export default function JudgeDashboardPage() {
               <span style={{ fontSize: '1.8rem' }}>🏆</span>
               <div>
                 <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.8rem', color: '#fdff00', letterSpacing: '1px' }}>
-                  {isMentorJudge ? 'STAGE 3: INTERNAL JURY MENTOR PANEL' : isExternalRound3Judge ? 'ROUND 3: GRAND FINALE EXTERNAL JURY PANEL' : 'STAGE 3: FINAL ROUND EVALUATIONS ACTIVE'}
+                  {isMentorJudge ? 'STAGE 3: MENTOR PANEL' : isExternalRound3Judge ? 'ROUND 3: GRAND FINALE EXTERNAL JURY PANEL' : 'STAGE 3: FINAL ROUND EVALUATIONS ACTIVE'}
                 </h3>
                 <p style={{ margin: '6px 0 0 0', color: '#ccc', fontSize: '0.76rem', lineHeight: '1.5' }}>
                   {isExternalRound3Judge
@@ -640,7 +640,7 @@ export default function JudgeDashboardPage() {
         <div className="login-header text-left">
           <div className="badge-wrapper">
             <span className="role-badge eval-badge" style={{ background: '#fdff00', color: '#000', fontWeight: 'bold' }}>
-              {isMentorJudge ? 'STAGE 3: INTERNAL JURY PANEL' : isExternalRound3Judge ? 'ROUND 3: EXTERNAL JURY PANEL' : 'STAGE 3: FINAL ROUND EVALUATION PANEL'}
+              {isMentorJudge ? 'STAGE 3: MENTOR PANEL' : isExternalRound3Judge ? 'ROUND 3: EXTERNAL JURY PANEL' : 'STAGE 3: FINAL ROUND EVALUATION PANEL'}
             </span>
           </div>
           <h2>{isExternalRound3Judge ? 'ROUND 3: ALL FINALIST TEAMS' : isMentorJudge ? (effectiveScope === 'MY_ASSIGNED' ? 'MY ASSIGNED FINALIST TEAMS FOR FEEDBACK' : 'ALL FINALIST TEAMS FOR FEEDBACK') : 'FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})</h2>
@@ -1077,7 +1077,7 @@ export default function JudgeDashboardPage() {
                             <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                               <span style={{ fontSize: '0.9rem' }}>📝</span>
                               <span style={{ fontSize: '0.68rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
-                                INTERNAL MENTOR FEEDBACK
+                                MENTOR FEEDBACK
                               </span>
                             </div>
                             <span style={{
@@ -1142,7 +1142,7 @@ export default function JudgeDashboardPage() {
                             </div>
                           ) : (
                             <p style={{ color: '#aaa', fontSize: '0.78rem', fontStyle: 'italic', margin: 0 }}>
-                              ⏳ Internal mentor feedback has not yet been submitted for this team.
+                              ⏳ Mentor feedback has not yet been submitted for this team.
                             </p>
                           )}
                         </div>
