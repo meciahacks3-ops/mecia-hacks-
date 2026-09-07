@@ -103,6 +103,12 @@ export default function AdminDashboardPage() {
   const [showTracksModal, setShowTracksModal] = useState(false);
   const [isExportingTracksZip, setIsExportingTracksZip] = useState(false);
 
+  // Final Round Allocator Studio Modal State
+  const [showFinalRoundModal, setShowFinalRoundModal] = useState(false);
+  const [finalRoundModalFilter, setFinalRoundModalFilter] = useState('all');
+  const [finalRoundModalSearch, setFinalRoundModalSearch] = useState('');
+  const [finalRoundModalTrack, setFinalRoundModalTrack] = useState('all');
+
   const fetchAllowedUsers = async () => {
     try {
       const { data } = await supabase.from('allowed_users').select('*').order('created_at', { ascending: false });
@@ -165,6 +171,18 @@ export default function AdminDashboardPage() {
           });
 
           const finalistInfo = getFinalRoundTeamInfo({ teamName: st.team_name, teamIdNo: parsedTeamId, main_idea: st.main_idea });
+          const hasFinalistTag = (st.main_idea || '').includes('[FINALIST]');
+          const isAssignedExternal = (st.assigned_judge || '').toUpperCase().startsWith('FM');
+          const isFinalist = Boolean(finalistInfo) || hasFinalistTag || isAssignedExternal;
+
+          const effectiveFinalistInfo = finalistInfo || (isFinalist ? {
+            teamId: parsedTeamId,
+            teamName: st.team_name,
+            projectTitle: st.project_title,
+            track: parsedProjectType === 'software' ? 'Software' : parsedProjectType === 'hardware' ? 'Hardware' : 'Hybrid',
+            labLocation: 'CE Dept Labs (Assigned by Admin)',
+            rank: '⭐ FINALIST'
+          } : null);
 
           return {
             id: st.id,
@@ -183,8 +201,8 @@ export default function AdminDashboardPage() {
             rawMainIdea: st.main_idea || '',
             members: parsedMembers,
             totalTeamSize: 1 + parsedMembers.length,
-            isFinalist: Boolean(finalistInfo),
-            finalistInfo: finalistInfo || null
+            isFinalist: isFinalist,
+            finalistInfo: effectiveFinalistInfo
           };
         });
         setTeams(formattedTeams);
@@ -658,6 +676,144 @@ export default function AdminDashboardPage() {
       alert("Error during external judge auto-assignment: " + err.message);
     } finally {
       setIsAssigningExternal(false);
+    }
+  };
+
+  // Auto-distribute all 50 Finalist teams evenly across 10 Internal Mentor Panels (MM001 - MM010)
+  const handleAutoAssignMentorJudges = async () => {
+    const finalistTeamsList = teams.filter(t => t.isFinalist);
+    const targetTeams = finalistTeamsList.length > 0 ? finalistTeamsList : teams;
+
+    if (targetTeams.length === 0) {
+      alert("No qualified finalist teams found to assign.");
+      return;
+    }
+
+    const mmPanels = ['MM001', 'MM002', 'MM003', 'MM004', 'MM005', 'MM006', 'MM007', 'MM008', 'MM009', 'MM010'];
+
+    const confirmMsg =
+      `👨‍🏫 AUTO-ASSIGN ${targetTeams.length} FINALISTS TO 10 INTERNAL MENTOR PANELS?\n\n` +
+      `This will evenly distribute all ${targetTeams.length} finalist teams across:\n` +
+      `• Mentor Panels MM001 to MM010 (~5 teams each)\n` +
+      `• Tracks will be balanced across all 10 panels\n\n` +
+      `Proceed with auto-assignment?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setIsAssigningExternal(true);
+
+    try {
+      const hardwareTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'hardware');
+      const hybridTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'hybrid');
+      const softwareTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'software');
+      const otherTeams = targetTeams.filter(t => 
+        !hardwareTeams.includes(t) && !hybridTeams.includes(t) && !softwareTeams.includes(t)
+      );
+
+      const assignments = [];
+      let panelIndex = 0;
+
+      hardwareTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: mmPanels[panelIndex % mmPanels.length] });
+        panelIndex++;
+      });
+      hybridTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: mmPanels[panelIndex % mmPanels.length] });
+        panelIndex++;
+      });
+      softwareTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: mmPanels[panelIndex % mmPanels.length] });
+        panelIndex++;
+      });
+      otherTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: mmPanels[panelIndex % mmPanels.length] });
+        panelIndex++;
+      });
+
+      let successCount = 0;
+      const updatedMap = {};
+
+      for (const item of assignments) {
+        const { error } = await saveTeamAssignment(
+          supabase,
+          item.team.id,
+          item.team.teamName,
+          { assignedJudge: item.assignedJudge }
+        );
+
+        if (!error) {
+          successCount++;
+          updatedMap[item.team.id] = item.assignedJudge;
+        }
+      }
+
+      setTeams(prev => prev.map(t => updatedMap[t.id] ? { ...t, assignedJudge: updatedMap[t.id] } : t));
+      setJudgeSelections(prev => ({ ...prev, ...updatedMap }));
+
+      alert(`✅ Successfully auto-assigned ${successCount} finalist teams across Mentor Panels MM001 to MM010!`);
+    } catch (e) {
+      console.error("Auto assign mentors error:", e);
+      alert("Auto assign mentors error: " + e.message);
+    } finally {
+      setIsAssigningExternal(false);
+    }
+  };
+
+  // Toggle a team's finalist status (promote non-finalist or demote finalist)
+  const handleToggleFinalistStatus = async (team) => {
+    if (!team) return;
+    const isCurrentlyFinalist = team.isFinalist;
+    const newStatus = !isCurrentlyFinalist;
+
+    const actionText = newStatus ? "PROMOTE TO FINAL ROUND" : "REMOVE FROM FINAL ROUND";
+    if (!confirm(`Are you sure you want to ${actionText} for team "${team.teamName}"?`)) {
+      return;
+    }
+
+    try {
+      let rawIdea = team.rawMainIdea || '';
+      let updatedIdea = rawIdea;
+
+      if (newStatus) {
+        if (!updatedIdea.includes('[FINALIST]')) {
+          updatedIdea = `${updatedIdea} [FINALIST]`.trim();
+        }
+      } else {
+        updatedIdea = updatedIdea.replace(/\[FINALIST\]/g, '').trim();
+      }
+
+      const { error } = await supabase
+        .from('teams')
+        .update({ main_idea: updatedIdea })
+        .eq('id', team.id);
+
+      if (error) throw error;
+
+      setTeams(prev => prev.map(t => {
+        if (t.id === team.id) {
+          const finInfo = newStatus ? (t.finalistInfo || {
+            teamId: t.teamIdNo,
+            teamName: t.teamName,
+            projectTitle: t.projectTitle,
+            track: t.projectType === 'software' ? 'Software' : t.projectType === 'hardware' ? 'Hardware' : 'Hybrid',
+            labLocation: 'CE Dept Labs (Assigned by Admin)',
+            rank: '⭐ FINALIST'
+          }) : null;
+
+          return {
+            ...t,
+            rawMainIdea: updatedIdea,
+            isFinalist: newStatus,
+            finalistInfo: finInfo
+          };
+        }
+        return t;
+      }));
+
+      alert(`✅ Successfully updated team "${team.teamName}" to ${newStatus ? 'FINAL ROUND QUALIFIER' : 'ROUND 2 ONLY'}!`);
+    } catch (e) {
+      console.error("Toggle finalist error:", e);
+      alert("Error updating finalist status: " + e.message);
     }
   };
 
@@ -1492,7 +1648,29 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Scope Toggle: Finalists vs All */}
-            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+              <button
+                type="button"
+                onClick={() => setShowFinalRoundModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, #ff00cc, #9900ff)',
+                  color: '#fff',
+                  border: '2px solid #ff00cc',
+                  padding: '8px 16px',
+                  borderRadius: '6px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.62rem',
+                  fontWeight: 'bold',
+                  cursor: 'pointer',
+                  boxShadow: '0 0 16px rgba(255, 0, 204, 0.45)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+                title="Open dedicated allocation studio to assign Final Round teams to External Judges (FM001-FM007) and Mentors (MM001-MM010)"
+              >
+                🎯 ASSIGN FINAL ROUND TEAMS
+              </button>
               <button
                 type="button"
                 onClick={() => { setScopeFilter('finalists'); setFinalistTrackFilter('all'); }}
@@ -1780,6 +1958,20 @@ export default function AdminDashboardPage() {
                 onClick={() => setActiveTab('scores-tab')}
               >
                 ⭐ FINAL ROUND LEADERBOARD
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-tab-btn"
+                onClick={() => setShowFinalRoundModal(true)}
+                style={{
+                  background: 'linear-gradient(135deg, rgba(255, 0, 204, 0.3), rgba(253, 255, 0, 0.2))',
+                  border: '2px solid #ff00cc',
+                  color: '#fff',
+                  fontWeight: 'bold',
+                  boxShadow: '0 0 15px rgba(255, 0, 204, 0.35)'
+                }}
+              >
+                🎯 ASSIGN FINAL ROUND TEAMS
               </button>
               <button
                 type="button"
@@ -2371,22 +2563,60 @@ export default function AdminDashboardPage() {
                               <td className="criterion-name">
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
                                   <strong style={{ color: '#fff', fontSize: '0.95rem' }}>{t.teamName}</strong>
-                                  {t.isFinalist && (
-                                    <span style={{
-                                      background: 'linear-gradient(135deg, #fdff00, #ffb852)',
-                                      color: '#000',
-                                      borderRadius: '4px',
-                                      padding: '2px 6px',
-                                      fontSize: '0.55rem',
-                                      fontFamily: 'Press Start 2P, monospace',
-                                      fontWeight: 'bold',
-                                      boxShadow: '0 0 8px rgba(253, 255, 0, 0.4)',
-                                      display: 'inline-flex',
-                                      alignItems: 'center',
-                                      gap: '4px'
-                                    }}>
-                                      🏆 FINALIST: {t.finalistInfo?.track} {t.finalistInfo?.rank}
-                                    </span>
+                                  {t.isFinalist ? (
+                                    <div style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                      <span style={{
+                                        background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                                        color: '#000',
+                                        borderRadius: '4px',
+                                        padding: '2px 6px',
+                                        fontSize: '0.55rem',
+                                        fontFamily: 'Press Start 2P, monospace',
+                                        fontWeight: 'bold',
+                                        boxShadow: '0 0 8px rgba(253, 255, 0, 0.4)',
+                                        display: 'inline-flex',
+                                        alignItems: 'center',
+                                        gap: '4px'
+                                      }}>
+                                        🏆 FINALIST: {t.finalistInfo?.track} {t.finalistInfo?.rank}
+                                      </span>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleFinalistStatus(t)}
+                                        style={{
+                                          background: 'transparent',
+                                          border: '1px solid #ff3366',
+                                          color: '#ff6699',
+                                          borderRadius: '3px',
+                                          padding: '1px 4px',
+                                          fontSize: '0.45rem',
+                                          fontFamily: 'Press Start 2P, monospace',
+                                          cursor: 'pointer'
+                                        }}
+                                        title="Click to remove from Final Round"
+                                      >
+                                        ✕
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleToggleFinalistStatus(t)}
+                                      style={{
+                                        background: 'rgba(253, 255, 0, 0.12)',
+                                        border: '1px dashed #fdff00',
+                                        color: '#fdff00',
+                                        borderRadius: '4px',
+                                        padding: '3px 6px',
+                                        fontSize: '0.52rem',
+                                        fontFamily: 'Press Start 2P, monospace',
+                                        cursor: 'pointer',
+                                        fontWeight: 'bold'
+                                      }}
+                                      title="Promote this team to the Final Round"
+                                    >
+                                      + ASSIGN AS FINALIST
+                                    </button>
                                   )}
                                 </div>
                                 <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
@@ -3135,6 +3365,25 @@ export default function AdminDashboardPage() {
                     <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
                       <button
                         type="button"
+                        onClick={() => setShowFinalRoundModal(true)}
+                        style={{
+                          background: 'linear-gradient(135deg, #ff00cc, #9900ff)',
+                          color: '#fff',
+                          border: 'none',
+                          borderRadius: '5px',
+                          padding: '6px 14px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 0 12px rgba(255, 0, 204, 0.4)'
+                        }}
+                        title="Open Final Round Allocation Studio to assign teams to External Judges (FM001-FM007) and Mentors"
+                      >
+                        🎯 ASSIGN FINAL ROUND TEAMS
+                      </button>
+                      <button
+                        type="button"
                         onClick={handleExportSpecialLeaderboardCSV}
                         style={{
                           background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
@@ -3657,6 +3906,28 @@ export default function AdminDashboardPage() {
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={() => setShowFinalRoundModal(true)}
+                      style={{
+                        background: 'linear-gradient(135deg, #ff00cc, #9900ff)',
+                        border: '2px solid #ff00cc',
+                        color: '#fff',
+                        padding: '12px 18px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 15px rgba(255, 0, 204, 0.4)'
+                      }}
+                      title="Open Final Round Allocation Studio to assign teams to External Judges (FM001-FM007) and Mentors"
+                    >
+                      🎯 ASSIGN FINAL ROUND TEAMS
+                    </button>
                     <button
                       type="button"
                       onClick={handleExportTeamsLabJudgesCSV}
@@ -5284,6 +5555,664 @@ export default function AdminDashboardPage() {
                       ✕ Close
                     </button>
                   </div>
+                </div>
+              </div>
+            </div>
+          );
+        })()}
+
+        {/* ======================================================== */}
+        {/* FINAL ROUND TEAM ALLOCATION STUDIO MODAL                */}
+        {/* ======================================================== */}
+        {showFinalRoundModal && (() => {
+          const allFinalistTeamsList = teams.filter(t => t.isFinalist);
+          const cleanModalSearch = finalRoundModalSearch.trim().toLowerCase();
+
+          const filteredFinalists = allFinalistTeamsList.filter(t => {
+            // Track filter
+            if (finalRoundModalTrack !== 'all') {
+              if ((t.projectType || t.finalistInfo?.track || '').toLowerCase() !== finalRoundModalTrack.toLowerCase()) {
+                return false;
+              }
+            }
+
+            // Judge state or panel filter
+            const jUpper = (t.assignedJudge || '').trim().toUpperCase();
+            if (finalRoundModalFilter === 'unassigned') {
+              if (jUpper && jUpper !== 'UNASSIGNED') return false;
+            } else if (finalRoundModalFilter === 'assigned') {
+              if (!jUpper || jUpper === 'UNASSIGNED') return false;
+            } else if (finalRoundModalFilter === 'external') {
+              if (!jUpper.startsWith('FM')) return false;
+            } else if (finalRoundModalFilter === 'mentor') {
+              if (!jUpper.startsWith('MM')) return false;
+            } else if (finalRoundModalFilter !== 'all') {
+              if (jUpper !== finalRoundModalFilter.toUpperCase()) return false;
+            }
+
+            // Search filter
+            if (cleanModalSearch) {
+              const matchName = (t.teamName || '').toLowerCase().includes(cleanModalSearch);
+              const matchId = (t.teamIdNo || '').toLowerCase().includes(cleanModalSearch);
+              const matchLeader = (t.leaderName || '').toLowerCase().includes(cleanModalSearch);
+              const matchJudge = (t.assignedJudge || '').toLowerCase().includes(cleanModalSearch);
+              const matchLoc = (t.finalistInfo?.labLocation || '').toLowerCase().includes(cleanModalSearch);
+              const matchTitle = (t.projectTitle || '').toLowerCase().includes(cleanModalSearch);
+              if (!matchName && !matchId && !matchLeader && !matchJudge && !matchLoc && !matchTitle) {
+                return false;
+              }
+            }
+
+            return true;
+          });
+
+          // Sort by track then team ID
+          filteredFinalists.sort((a, b) => {
+            const trackOrder = { 'software': 1, 'hybrid': 2, 'hardware': 3 };
+            const aTrack = trackOrder[(a.projectType || a.finalistInfo?.track || '').toLowerCase()] || 4;
+            const bTrack = trackOrder[(b.projectType || b.finalistInfo?.track || '').toLowerCase()] || 4;
+            if (aTrack !== bTrack) return aTrack - bTrack;
+            return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
+          });
+
+          const modalExternalCount = allFinalistTeamsList.filter(t => (t.assignedJudge || '').toUpperCase().startsWith('FM')).length;
+          const modalMentorCount = allFinalistTeamsList.filter(t => (t.assignedJudge || '').toUpperCase().startsWith('MM')).length;
+          const modalUnassignedCount = allFinalistTeamsList.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned').length;
+
+          const isAllFilteredSelected = filteredFinalists.length > 0 && filteredFinalists.every(t => selectedTeamIds.includes(t.id));
+
+          return (
+            <div style={{
+              position: 'fixed',
+              inset: 0,
+              zIndex: 99999,
+              background: 'rgba(0, 0, 0, 0.88)',
+              backdropFilter: 'blur(10px)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              padding: '16px'
+            }}>
+              <div style={{
+                background: 'rgba(14, 14, 30, 0.98)',
+                border: '2px solid #ff00cc',
+                borderRadius: '14px',
+                boxShadow: '0 0 50px rgba(255, 0, 204, 0.35)',
+                width: '100%',
+                maxWidth: '1280px',
+                maxHeight: '94vh',
+                display: 'flex',
+                flexDirection: 'column',
+                overflow: 'hidden'
+              }}>
+                {/* Header */}
+                <div style={{
+                  padding: '18px 24px',
+                  background: 'linear-gradient(135deg, rgba(255, 0, 204, 0.2), rgba(0, 255, 204, 0.15))',
+                  borderBottom: '2px solid #ff00cc',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                    <span style={{ fontSize: '1.8rem' }}>🏆</span>
+                    <div>
+                      <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.85rem', color: '#ff66ff', letterSpacing: '1px' }}>
+                        FINAL ROUND TEAM ALLOCATION STUDIO
+                      </h3>
+                      <p style={{ margin: '5px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
+                        Assign all {allFinalistTeamsList.length} Qualified Finalist Teams to Grand Finale External Jury Panels (FM001–FM007) or Mentors (MM001–MM010).
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFinalRoundModal(false)}
+                    style={{
+                      background: 'rgba(255, 0, 85, 0.25)',
+                      border: '1.5px solid #ff0055',
+                      color: '#ff4d79',
+                      padding: '8px 14px',
+                      borderRadius: '6px',
+                      fontSize: '0.62rem',
+                      fontFamily: 'Press Start 2P, monospace',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ✕ CLOSE
+                  </button>
+                </div>
+
+                {/* Live KPI Metric Cards */}
+                <div style={{
+                  display: 'grid',
+                  gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))',
+                  gap: '12px',
+                  padding: '14px 24px',
+                  background: 'rgba(0, 0, 0, 0.5)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ background: 'rgba(0, 255, 204, 0.08)', border: '1px solid #00ffcc', borderRadius: '8px', padding: '10px 14px' }}>
+                    <div style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#00ffcc', marginBottom: '4px' }}>
+                      🏆 TOTAL FINALISTS
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#fff', fontFamily: 'Press Start 2P, monospace' }}>
+                      {allFinalistTeamsList.length}
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(255, 0, 204, 0.12)', border: '1px solid #ff00cc', borderRadius: '8px', padding: '10px 14px', boxShadow: '0 0 10px rgba(255, 0, 204, 0.2)' }}>
+                    <div style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#ff66ff', marginBottom: '4px' }}>
+                      🌟 EXTERNAL JURY (FM)
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#ff66ff', fontFamily: 'Press Start 2P, monospace' }}>
+                      {modalExternalCount} <span style={{ fontSize: '0.65rem', color: '#aaa' }}>/ {allFinalistTeamsList.length}</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(253, 255, 0, 0.1)', border: '1px solid #fdff00', borderRadius: '8px', padding: '10px 14px' }}>
+                    <div style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00', marginBottom: '4px' }}>
+                      👨‍🏫 MENTORS (MM)
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>
+                      {modalMentorCount} <span style={{ fontSize: '0.65rem', color: '#aaa' }}>/ {allFinalistTeamsList.length}</span>
+                    </div>
+                  </div>
+                  <div style={{ background: 'rgba(255, 0, 85, 0.1)', border: '1px solid #ff0055', borderRadius: '8px', padding: '10px 14px' }}>
+                    <div style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#ff4d79', marginBottom: '4px' }}>
+                      ⚠️ UNASSIGNED
+                    </div>
+                    <div style={{ fontSize: '1.4rem', fontWeight: 'bold', color: '#ff4d79', fontFamily: 'Press Start 2P, monospace' }}>
+                      {modalUnassignedCount}
+                    </div>
+                  </div>
+                </div>
+
+                {/* Primary 1-Click Action Bar */}
+                <div style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  padding: '12px 24px',
+                  background: 'rgba(255, 255, 255, 0.03)',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
+                }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleAutoAssignExternalJudges}
+                      disabled={isAssigningExternal}
+                      style={{
+                        background: 'linear-gradient(135deg, #ff00cc, #9900ff)',
+                        color: '#fff',
+                        border: '1.5px solid #ff00cc',
+                        padding: '8px 14px',
+                        borderRadius: '6px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.58rem',
+                        fontWeight: 'bold',
+                        cursor: isAssigningExternal ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 0 12px rgba(255, 0, 204, 0.4)'
+                      }}
+                      title="Evenly distribute 50 finalist teams by track across External Jury Panels FM001 to FM007 (~7 teams each)"
+                    >
+                      {isAssigningExternal ? '⏳ ALLOCATING...' : '⚡ AUTO-ASSIGN TO EXTERNAL (FM001–FM007)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAutoAssignMentorJudges}
+                      disabled={isAssigningExternal}
+                      style={{
+                        background: 'linear-gradient(135deg, #00ffcc, #0099ff)',
+                        color: '#000',
+                        border: '1.5px solid #00ffcc',
+                        padding: '8px 14px',
+                        borderRadius: '6px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.58rem',
+                        fontWeight: 'bold',
+                        cursor: isAssigningExternal ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 0 12px rgba(0, 255, 204, 0.3)'
+                      }}
+                      title="Evenly distribute 50 finalist teams across Internal Mentor Panels MM001 to MM010 (~5 teams each)"
+                    >
+                      ⚡ AUTO-ASSIGN TO MENTORS (MM001–MM010)
+                    </button>
+                  </div>
+
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleExportTeamsLabJudgesCSV}
+                      style={{
+                        background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                        color: '#000',
+                        border: '1.5px solid #fdff00',
+                        padding: '8px 14px',
+                        borderRadius: '6px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.58rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
+                      }}
+                      title="Download CSV containing Team ID, Team Name, Lab Location, and Panel Judges Name"
+                    >
+                      📥 EXPORT LAB & JUDGES (.CSV)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleUnassignAllFinalists}
+                      disabled={isUnassigningFinalists}
+                      style={{
+                        background: 'rgba(255, 0, 85, 0.2)',
+                        color: '#ff3366',
+                        border: '1px solid #ff3366',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        fontWeight: 'bold',
+                        cursor: isUnassigningFinalists ? 'not-allowed' : 'pointer'
+                      }}
+                    >
+                      {isUnassigningFinalists ? '⏳ UNASSIGNING...' : '⚠️ UNASSIGN ALL'}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Filter and Search Bar */}
+                <div style={{
+                  padding: '12px 24px',
+                  background: 'rgba(0, 0, 0, 0.4)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '12px',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+                }}>
+                  {/* Search Input */}
+                  <div style={{ flex: '1 1 240px', maxWidth: '380px', position: 'relative' }}>
+                    <input
+                      type="text"
+                      placeholder="🔍 Search finalist name, ID, lab, or leader..."
+                      value={finalRoundModalSearch}
+                      onChange={(e) => setFinalRoundModalSearch(e.target.value)}
+                      style={{
+                        width: '100%',
+                        padding: '8px 12px',
+                        background: '#000',
+                        border: '1px solid #555',
+                        borderRadius: '6px',
+                        color: '#fff',
+                        fontSize: '0.75rem',
+                        outline: 'none'
+                      }}
+                    />
+                  </div>
+
+                  {/* Filter Pills */}
+                  <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <button
+                      type="button"
+                      onClick={() => setFinalRoundModalFilter('all')}
+                      style={{
+                        background: finalRoundModalFilter === 'all' ? '#fdff00' : 'rgba(255, 255, 255, 0.06)',
+                        color: finalRoundModalFilter === 'all' ? '#000' : '#fff',
+                        border: '1px solid ' + (finalRoundModalFilter === 'all' ? '#fdff00' : '#444'),
+                        borderRadius: '4px',
+                        padding: '5px 8px',
+                        fontSize: '0.55rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      ALL ({allFinalistTeamsList.length})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFinalRoundModalFilter('unassigned')}
+                      style={{
+                        background: finalRoundModalFilter === 'unassigned' ? '#ff0055' : 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        border: '1px solid ' + (finalRoundModalFilter === 'unassigned' ? '#ff0055' : '#444'),
+                        borderRadius: '4px',
+                        padding: '5px 8px',
+                        fontSize: '0.55rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      UNASSIGNED ({modalUnassignedCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFinalRoundModalFilter('external')}
+                      style={{
+                        background: finalRoundModalFilter === 'external' ? '#ff00cc' : 'rgba(255, 255, 255, 0.06)',
+                        color: '#fff',
+                        border: '1px solid ' + (finalRoundModalFilter === 'external' ? '#ff00cc' : '#ff00cc88'),
+                        borderRadius: '4px',
+                        padding: '5px 8px',
+                        fontSize: '0.55rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        cursor: 'pointer',
+                        fontWeight: 'bold'
+                      }}
+                    >
+                      EXTERNAL ({modalExternalCount})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setFinalRoundModalFilter('mentor')}
+                      style={{
+                        background: finalRoundModalFilter === 'mentor' ? '#fdff00' : 'rgba(255, 255, 255, 0.06)',
+                        color: finalRoundModalFilter === 'mentor' ? '#000' : '#fdff00',
+                        border: '1px solid ' + (finalRoundModalFilter === 'mentor' ? '#fdff00' : '#fdff0088'),
+                        borderRadius: '4px',
+                        padding: '5px 8px',
+                        fontSize: '0.55rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        cursor: 'pointer'
+                      }}
+                    >
+                      MENTORS ({modalMentorCount})
+                    </button>
+
+                    <span style={{ color: '#555', margin: '0 4px' }}>|</span>
+
+                    {/* Quick Panel Pills */}
+                    {['FM001', 'FM002', 'FM003', 'FM004', 'FM005', 'FM006', 'FM007'].map(fId => {
+                      const count = allFinalistTeamsList.filter(t => (t.assignedJudge || '').toUpperCase() === fId).length;
+                      const active = finalRoundModalFilter === fId;
+                      return (
+                        <button
+                          key={fId}
+                          type="button"
+                          onClick={() => setFinalRoundModalFilter(active ? 'all' : fId)}
+                          style={{
+                            background: active ? '#ff00cc' : 'rgba(255, 0, 204, 0.1)',
+                            color: active ? '#fff' : '#ff66ff',
+                            border: '1px solid ' + (active ? '#ff00cc' : '#ff00cc55'),
+                            borderRadius: '4px',
+                            padding: '4px 6px',
+                            fontSize: '0.52rem',
+                            fontFamily: 'Press Start 2P, monospace',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          {fId} ({count})
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* Bulk Action Toolbar inside modal */}
+                {selectedTeamIds.length > 0 && (
+                  <div style={{
+                    background: 'rgba(33, 33, 255, 0.3)',
+                    borderBottom: '2px solid #2121ff',
+                    padding: '10px 24px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    flexWrap: 'wrap',
+                    gap: '10px'
+                  }}>
+                    <span style={{ color: '#fdff00', fontFamily: 'Press Start 2P, monospace', fontSize: '0.65rem', fontWeight: 'bold' }}>
+                      ☑️ {selectedTeamIds.length} TEAMS SELECTED
+                    </span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#ff66ff' }}>
+                        ⚡ 1-CLICK ASSIGN:
+                      </span>
+                      {['FM001', 'FM002', 'FM003', 'FM004', 'FM005', 'FM006', 'FM007'].map(fId => (
+                        <button
+                          key={fId}
+                          type="button"
+                          disabled={isSavingBulk}
+                          onClick={() => handleBulkAssignSpecificJudge(fId)}
+                          style={{
+                            background: 'rgba(255, 0, 204, 0.2)',
+                            border: '1px solid #ff00cc',
+                            color: '#ff66ff',
+                            padding: '4px 8px',
+                            borderRadius: '4px',
+                            fontSize: '0.55rem',
+                            fontFamily: 'Press Start 2P, monospace',
+                            cursor: 'pointer',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          {fId}
+                        </button>
+                      ))}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedTeamIds([])}
+                        style={{ background: 'transparent', border: '1px solid #777', color: '#bbb', borderRadius: '4px', padding: '4px 8px', fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', cursor: 'pointer' }}
+                      >
+                        ✕ DESELECT
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Finalists Table Content */}
+                <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
+                  <div className="table-responsive" style={{ margin: 0 }}>
+                    <table className="eval-table admin-table" style={{ margin: 0 }}>
+                      <thead>
+                        <tr>
+                          <th style={{ width: '4%', textAlign: 'center' }}>
+                            <input
+                              type="checkbox"
+                              checked={isAllFilteredSelected}
+                              onChange={() => toggleSelectAllDisplayed(filteredFinalists)}
+                              style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
+                            />
+                          </th>
+                          <th style={{ width: '12%', textAlign: 'center' }}>Team ID & Track</th>
+                          <th style={{ width: '22%' }}>Team Name & Project</th>
+                          <th style={{ width: '18%' }}>Lab Venue</th>
+                          <th style={{ width: '20%' }}>Leader Details</th>
+                          <th style={{ width: '18%' }}>Assign Judge Panel</th>
+                          <th style={{ width: '6%', textAlign: 'center' }}>Save</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {filteredFinalists.length === 0 ? (
+                          <tr>
+                            <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                              ⚠️ No finalist teams match the selected filter criteria.
+                            </td>
+                          </tr>
+                        ) : (
+                          filteredFinalists.map((t, idx) => {
+                            const isSelected = selectedTeamIds.includes(t.id);
+                            const rawJudgeVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
+                            const isSaving = assigningTeamId === t.id;
+                            const isFM = (t.assignedJudge || '').toUpperCase().startsWith('FM');
+                            const isMM = (t.assignedJudge || '').toUpperCase().startsWith('MM');
+                            const judgeProf = JUDGE_PROFILES[(t.assignedJudge || '').toUpperCase()];
+
+                            return (
+                              <tr key={t.id || idx} style={{ background: isSelected ? 'rgba(33, 33, 255, 0.18)' : undefined }}>
+                                <td style={{ textAlign: 'center' }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleSelectTeam(t.id)}
+                                    style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
+                                  />
+                                </td>
+
+                                {/* Team ID & Track */}
+                                <td style={{ textAlign: 'center' }}>
+                                  <span style={{
+                                    display: 'inline-block',
+                                    background: 'rgba(253, 255, 0, 0.15)',
+                                    color: '#fdff00',
+                                    border: '1.5px solid #fdff00',
+                                    borderRadius: '6px',
+                                    padding: '4px 8px',
+                                    fontFamily: 'Press Start 2P, monospace',
+                                    fontSize: '0.68rem',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    {t.teamIdNo || 'N/A'}
+                                  </span>
+                                  <div style={{ marginTop: '5px' }}>
+                                    <span style={{
+                                      fontSize: '0.52rem',
+                                      fontFamily: 'Press Start 2P, monospace',
+                                      color: (t.projectType || '').toLowerCase() === 'hardware' ? '#ffb852' : (t.projectType || '').toLowerCase() === 'hybrid' ? '#ff66cc' : '#00ffcc',
+                                      background: 'rgba(0,0,0,0.5)',
+                                      padding: '2px 5px',
+                                      borderRadius: '3px',
+                                      border: '1px solid #444'
+                                    }}>
+                                      {t.finalistInfo?.track || t.projectType || 'Software'}
+                                    </span>
+                                  </div>
+                                </td>
+
+                                {/* Team Name & Project */}
+                                <td>
+                                  <strong style={{ color: '#fff', fontSize: '0.92rem' }}>{t.teamName}</strong>
+                                  <div style={{ color: '#aaa', fontSize: '0.74rem', marginTop: '2px' }}>
+                                    {t.projectTitle || 'Untitled Project'}
+                                  </div>
+                                </td>
+
+                                {/* Lab Venue */}
+                                <td>
+                                  {t.finalistInfo?.labLocation ? (
+                                    <span style={{
+                                      display: 'inline-block',
+                                      background: 'rgba(0, 255, 204, 0.12)',
+                                      border: '1px solid #00ffcc',
+                                      color: '#00ffcc',
+                                      padding: '4px 8px',
+                                      borderRadius: '6px',
+                                      fontSize: '0.68rem',
+                                      fontWeight: 'bold'
+                                    }}>
+                                      📍 {t.finalistInfo.labLocation}
+                                    </span>
+                                  ) : (
+                                    <span style={{ color: '#666', fontSize: '0.7rem' }}>TBA</span>
+                                  )}
+                                </td>
+
+                                {/* Leader Details */}
+                                <td>
+                                  <div style={{ color: '#fff', fontSize: '0.8rem', fontWeight: 'bold' }}>{t.leaderName}</div>
+                                  <div style={{ color: '#ccc', fontSize: '0.72rem', marginTop: '2px' }}>
+                                    📞 {t.leaderPhone || 'N/A'}
+                                  </div>
+                                </td>
+
+                                {/* Assign Judge Panel Dropdown */}
+                                <td>
+                                  <select
+                                    className="retro-select"
+                                    value={rawJudgeVal || 'Unassigned'}
+                                    onChange={(e) => {
+                                      const val = e.target.value;
+                                      setJudgeSelections(prev => ({ ...prev, [t.id]: val }));
+                                    }}
+                                    style={{
+                                      width: '100%',
+                                      padding: '6px 8px',
+                                      fontSize: '0.72rem',
+                                      borderColor: isFM ? '#ff00cc' : isMM ? '#fdff00' : '#444'
+                                    }}
+                                  >
+                                    <option value="Unassigned">⚠️ Unassigned</option>
+                                    <optgroup label="🌟 Round 3 External Judges (FM001 - FM007)">
+                                      {Object.values(JUDGE_PROFILES).filter(p => p.id.startsWith('FM')).map(p => (
+                                        <option key={p.id} value={p.id}>{p.id} ({p.group}) - {p.namesText}</option>
+                                      ))}
+                                    </optgroup>
+                                    <optgroup label="⭐ Mentor Panels (MM001 - MM010)">
+                                      {Object.values(JUDGE_PROFILES).filter(p => p.id.startsWith('MM')).map(p => (
+                                        <option key={p.id} value={p.id}>{p.id} ({p.group})</option>
+                                      ))}
+                                    </optgroup>
+                                  </select>
+                                  {isFM && judgeProf && (
+                                    <div style={{ fontSize: '0.62rem', color: '#ff99ff', marginTop: '4px', lineHeight: '1.2' }}>
+                                      👤 {judgeProf.namesText}
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* Save Button */}
+                                <td style={{ textAlign: 'center' }}>
+                                  <button
+                                    type="button"
+                                    disabled={isSaving}
+                                    onClick={() => handleSaveTeam(t.id, t.teamName)}
+                                    style={{
+                                      background: '#00ffcc',
+                                      color: '#000',
+                                      border: 'none',
+                                      padding: '6px 10px',
+                                      borderRadius: '4px',
+                                      fontFamily: 'Press Start 2P, monospace',
+                                      fontSize: '0.55rem',
+                                      cursor: isSaving ? 'not-allowed' : 'pointer',
+                                      fontWeight: 'bold'
+                                    }}
+                                    title="Save assignment for this team"
+                                  >
+                                    {isSaving ? '...' : '💾'}
+                                  </button>
+                                </td>
+                              </tr>
+                            );
+                          })
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+
+                {/* Modal Footer */}
+                <div style={{
+                  padding: '14px 24px',
+                  background: 'rgba(0, 0, 0, 0.7)',
+                  borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  flexWrap: 'wrap',
+                  gap: '12px'
+                }}>
+                  <div style={{ fontSize: '0.7rem', color: '#aaa' }}>
+                    💡 <em>External Judges logging in with <strong>FM001–FM007</strong> will see their assigned teams instantly in their judge dashboard.</em>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowFinalRoundModal(false)}
+                    style={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid #777',
+                      color: '#fff',
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontSize: '0.72rem',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    Close Studio
+                  </button>
                 </div>
               </div>
             </div>
