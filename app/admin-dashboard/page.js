@@ -29,7 +29,9 @@ import {
   exportProjectTracksWorkbook,
   exportSingleTrackExcel,
   exportAllTracksZip,
-  exportTop30Soft15HybAllHardExcel
+  exportTop30Soft15HybAllHardExcel,
+  exportFinalistTeamsAndMembersExcel,
+  exportFinalistTeamsAndMembersCSV
 } from '@/lib/excelExport';
 import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord } from '@/lib/teamUtils';
 import {
@@ -621,6 +623,28 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error("Special leaderboard export error:", err);
       alert("Error generating special leaderboard Excel workbook: " + err.message);
+    }
+  };
+
+  // Export Finalist Teams with Team ID, Team Name, Leader Name, and Member Names
+  const handleExportFinalistTeamsMembersExcel = () => {
+    try {
+      const filename = exportFinalistTeamsAndMembersExcel();
+      alert(`✅ Finalist Teams & Members Excel Spreadsheet Generated!\n\nFile: ${filename}\n\nSheets Included:\n• Finalist Teams (Overview with Team ID, Name, Leader, Members)\n• Clean Team & Members (Direct 4-column format)\n• All Participants Roster (189 rows)\n• Software Track (30 Teams)\n• Hybrid Track (15 Teams)\n• Hardware Track (4 Teams)`);
+    } catch (err) {
+      console.error("Finalist teams export error:", err);
+      alert("Error generating finalist teams Excel workbook: " + err.message);
+    }
+  };
+
+  // Export Finalist Teams with Team ID, Team Name, Leader Name, and Member Names (CSV)
+  const handleExportFinalistTeamsMembersCSV = () => {
+    try {
+      const filename = exportFinalistTeamsAndMembersCSV();
+      alert(`✅ Finalist Teams & Members CSV Generated!\n\nFile: ${filename}\n\nColumns: S.No, Team ID, Team Name, Track, Leader Name, Member Names, Member 1, Member 2, Member 3, Total Members, Project Title, Lab Location`);
+    } catch (err) {
+      console.error("Finalist teams CSV export error:", err);
+      alert("Error generating finalist teams CSV: " + err.message);
     }
   };
 
@@ -1431,6 +1455,44 @@ export default function AdminDashboardPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={handleExportFinalistTeamsMembersExcel}
+                  title="Download Finalist Teams spreadsheet with Team ID, Team Name, Leader Name, and Member Names"
+                  style={{
+                    background: '#00ffcc',
+                    color: '#000',
+                    border: 'none',
+                    borderRadius: '4px',
+                    padding: '5px 10px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 8px rgba(0, 255, 204, 0.4)'
+                  }}
+                >
+                  📋 FINALIST TEAMS & MEMBERS (.XLSX)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleExportFinalistTeamsMembersCSV}
+                  title="Download Finalist Teams CSV with Team ID, Team Name, Leader Name, and Member Names"
+                  style={{
+                    background: 'rgba(0, 255, 204, 0.2)',
+                    color: '#00ffcc',
+                    border: '1.5px solid #00ffcc',
+                    borderRadius: '4px',
+                    padding: '5px 10px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 8px rgba(0, 255, 204, 0.2)'
+                  }}
+                >
+                  📄 TEAMS & MEMBERS (.CSV)
+                </button>
+                <button
+                  type="button"
                   onClick={handleUnassignAllFinalists}
                   disabled={isUnassigningFinalists}
                   title="Unassign all 49 qualified finalist teams from judges so you can re-allocate them"
@@ -1588,6 +1650,36 @@ export default function AdminDashboardPage() {
                 }}
               >
                 ⭐ TOP 30 SOFT + 15 HYB + HARD (.XLSX)
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-cyan"
+                onClick={handleExportFinalistTeamsMembersExcel}
+                title="Download Finalist Teams Excel with Team ID, Team Name, Leader Name, and Member Names"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(0, 153, 255, 0.2))',
+                  border: '1.5px solid #00ffcc',
+                  color: '#00ffcc',
+                  fontWeight: 'bold',
+                  boxShadow: '0 0 10px rgba(0, 255, 204, 0.3)'
+                }}
+              >
+                📋 FINALIST TEAMS & MEMBERS (.XLSX)
+              </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-emerald"
+                onClick={handleExportFinalistTeamsMembersCSV}
+                title="Download Finalist Teams CSV with Team ID, Team Name, Leader Name, and Member Names"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(0, 255, 136, 0.2), rgba(0, 204, 255, 0.2))',
+                  border: '1.5px solid #00ff88',
+                  color: '#00ff88',
+                  fontWeight: 'bold',
+                  boxShadow: '0 0 10px rgba(0, 255, 136, 0.3)'
+                }}
+              >
+                📄 FINALIST TEAMS & MEMBERS (.CSV)
               </button>
             </div>
           </div>
@@ -2320,6 +2412,28 @@ export default function AdminDashboardPage() {
                     >
                       📥 DOWNLOAD EXCEL (TOP 30S + 15H + HARD)
                     </button>
+                    <button
+                      type="button"
+                      onClick={handleExportFinalistTeamsMembersExcel}
+                      style={{
+                        background: 'linear-gradient(135deg, #00ffcc, #0099ff)',
+                        color: '#000',
+                        border: '2px solid #00ffcc',
+                        borderRadius: '6px',
+                        padding: '8px 16px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.62rem',
+                        fontWeight: 'bold',
+                        cursor: 'pointer',
+                        boxShadow: '0 0 15px rgba(0, 255, 204, 0.4)',
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px'
+                      }}
+                      title="Download Finalist Teams spreadsheet with Team ID, Team Name, Leader Name, and Member Names"
+                    >
+                      📋 TEAMS & MEMBERS (.XLSX)
+                    </button>
                     <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.58rem', padding: '6px 12px' }}>
                       🔴 LIVE REAL-TIME SYNC (3S POLL)
                     </span>
@@ -2681,6 +2795,25 @@ export default function AdminDashboardPage() {
                         title="Download Excel for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
                       >
                         ⭐ EXPORT TOP 30S + 15H + HARD (.XLSX)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleExportFinalistTeamsMembersExcel}
+                        style={{
+                          background: 'linear-gradient(135deg, #00ffcc, #0099ff)',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '5px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.55rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer',
+                          boxShadow: '0 0 10px rgba(0, 255, 204, 0.4)'
+                        }}
+                        title="Download Finalist Teams spreadsheet with Team ID, Team Name, Leader Name, and Member Names"
+                      >
+                        📋 TEAMS & MEMBERS (.XLSX)
                       </button>
                       {round3TotalTeams > 0 && (
                         <>
