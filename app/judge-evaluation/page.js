@@ -473,7 +473,7 @@ function JudgeEvaluationContent() {
               <span className="pacman-bullet" style={{ transform: 'rotate(180deg)', width: '10px', height: '10px', margin: 0 }}></span>
               RETURN TO DASHBOARD
             </button>
-            <div style={{
+            <div className="judge-panel-info-card" style={{
               background: 'rgba(0, 0, 0, 0.85)',
               border: '1.5px solid var(--neon-cyan, #00ffcc)',
               boxShadow: '0 0 12px rgba(0, 255, 204, 0.25)',
@@ -484,7 +484,7 @@ function JudgeEvaluationContent() {
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                 <span className="ghost cyan-ghost" style={{ width: '12px', height: '12px', display: 'inline-block' }}></span>
-                <span style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.62rem', color: '#00ffcc' }}>
+                <span className="judge-panel-title" style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.62rem', color: '#00ffcc' }}>
                   JUDGE PANEL: {judgeEmail.toUpperCase()} {judgeProfile?.group ? `• ${judgeProfile.group}` : ''}
                 </span>
               </div>
@@ -492,15 +492,15 @@ function JudgeEvaluationContent() {
                 <div>
                   <div style={{ display: 'flex', flexDirection: 'column', gap: '3px', marginTop: '4px' }}>
                     {judgeProfile.names.map((name, idx) => (
-                      <div key={idx} style={{ color: '#ffffff', fontSize: '0.82rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <span style={{ color: '#00ffcc', fontSize: '0.65rem' }}>▸</span>
-                        <span>{name}</span>
+                      <div key={idx} className="judge-name-row" style={{ color: '#ffffff', fontSize: '0.82rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                        <span className="judge-name-arrow" style={{ color: '#00ffcc', fontSize: '0.65rem' }}>▸</span>
+                        <span className="judge-name-text">{name}</span>
                       </div>
                     ))}
                   </div>
                 </div>
               ) : (
-                <div style={{ color: '#fff', fontSize: '0.8rem', fontWeight: '600' }}>
+                <div className="judge-name-row" style={{ color: '#fff', fontSize: '0.8rem', fontWeight: '600' }}>
                   👨‍⚖️ Authorized Evaluation Judge Panel
                 </div>
               )}

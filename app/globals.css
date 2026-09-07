@@ -1976,10 +1976,49 @@ body.simple-theme p[style*="color: #aaa"] {
   color: #475569 !important;
 }
 
-body.simple-theme span[style*="color: #fff"],
-body.simple-theme span[style*="color: #ffffff"],
-body.simple-theme div[style*="color: #fff"],
-body.simple-theme div[style*="color: #ffffff"] {
+/* Judge Panel Info Card in Light Theme */
+body.simple-theme .judge-panel-info-card {
+  background: #f8fafc !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05) !important;
+  color: #0f172a !important;
+}
+
+body.simple-theme .judge-panel-info-card .judge-panel-title,
+body.simple-theme .judge-panel-info-card .judge-panel-title * {
+  color: #0284c7 !important;
+  font-weight: 700 !important;
+}
+
+body.simple-theme .judge-panel-info-card .judge-name-row,
+body.simple-theme .judge-panel-info-card .judge-name-text,
+body.simple-theme .judge-panel-info-card .judge-name-row span {
+  color: #0f172a !important;
+  font-weight: 600 !important;
+}
+
+body.simple-theme .judge-panel-info-card .judge-name-arrow {
+  color: #0284c7 !important;
+}
+
+/* Comprehensive White Text Overrides (Hex & RGB) for Light Theme */
+body.simple-theme [style*="color: #fff"],
+body.simple-theme [style*="color:#fff"],
+body.simple-theme [style*="color: #ffffff"],
+body.simple-theme [style*="color:#ffffff"],
+body.simple-theme [style*="color: rgb(255, 255, 255)"],
+body.simple-theme [style*="color:rgb(255, 255, 255)"],
+body.simple-theme [style*="color: rgb(255,255,255)"] {
+  color: #0f172a !important;
+}
+
+body.simple-theme [style*="color: #fff"] *,
+body.simple-theme [style*="color:#fff"] *,
+body.simple-theme [style*="color: #ffffff"] *,
+body.simple-theme [style*="color:#ffffff"] *,
+body.simple-theme [style*="color: rgb(255, 255, 255)"] *,
+body.simple-theme [style*="color:rgb(255, 255, 255)"] *,
+body.simple-theme [style*="color: rgb(255,255,255)"] * {
   color: #0f172a !important;
 }
 
@@ -1987,7 +2026,11 @@ body.simple-theme div[style*="color: #ffffff"] {
 body.simple-theme .submit-btn,
 body.simple-theme .eval-btn,
 body.simple-theme .tab-btn.active,
-body.simple-theme .theme-toggle-btn:hover {
+body.simple-theme .theme-toggle-btn:hover,
+body.simple-theme .submit-btn *,
+body.simple-theme .eval-btn *,
+body.simple-theme .tab-btn.active *,
+body.simple-theme .theme-toggle-btn:hover * {
   color: #ffffff !important;
 }
 
