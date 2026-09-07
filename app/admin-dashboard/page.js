@@ -31,7 +31,8 @@ import {
   exportAllTracksZip,
   exportTop30Soft15HybAllHardExcel,
   exportFinalistTeamsAndMembersExcel,
-  exportFinalistTeamsAndMembersCSV
+  exportFinalistTeamsAndMembersCSV,
+  exportTeamLabLocationAndJudgesCSV
 } from '@/lib/excelExport';
 import ThemeToggle from '@/app/components/ThemeToggle';
 import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
@@ -71,9 +72,10 @@ export default function AdminDashboardPage() {
 
   // Bulk Selection & Assignment State
   const [selectedTeamIds, setSelectedTeamIds] = useState([]);
-  const [bulkJudgeChoice, setBulkJudgeChoice] = useState('MM001');
+  const [bulkJudgeChoice, setBulkJudgeChoice] = useState('FM001');
   const [isSavingBulk, setIsSavingBulk] = useState(false);
   const [isUnassigningFinalists, setIsUnassigningFinalists] = useState(false);
+  const [isAssigningExternal, setIsAssigningExternal] = useState(false);
 
   // Round 3 Selection & Member Calculator State
   const [selectedRound3TeamIds, setSelectedRound3TeamIds] = useState([]);
@@ -554,6 +556,157 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // 🌟 Auto-distribute the qualified finalist teams across External Jury Panels FM001 to FM007
+  const handleAutoAssignExternalJudges = async () => {
+    const finalistTeamsList = teams.filter(t => t.isFinalist);
+    const targetTeams = finalistTeamsList.length > 0 ? finalistTeamsList : teams;
+
+    if (targetTeams.length === 0) {
+      alert("No qualified finalist teams found to assign.");
+      return;
+    }
+
+    const fmPanels = ['FM001', 'FM002', 'FM003', 'FM004', 'FM005', 'FM006', 'FM007'];
+
+    const confirmMsg =
+      `🌟 AUTO-ASSIGN ${targetTeams.length} FINALISTS TO 7 EXTERNAL JURY PANELS?\n\n` +
+      `This will evenly and intelligently distribute all ${targetTeams.length} qualified finalist teams across:\n` +
+      `• External Panels FM001 to FM007 (~7-8 teams each)\n` +
+      `• Tracks (Software, Hybrid, Hardware) will be balanced across all 7 panels\n\n` +
+      `Are you sure you want to proceed?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setIsAssigningExternal(true);
+
+    try {
+      // Group teams by track for balanced distribution
+      const hardwareTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'hardware');
+      const hybridTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'hybrid');
+      const softwareTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'software');
+      const otherTeams = targetTeams.filter(t => 
+        !hardwareTeams.includes(t) && !hybridTeams.includes(t) && !softwareTeams.includes(t)
+      );
+
+      // Distribute each track evenly across the 7 FM panels
+      const assignments = [];
+      let panelIndex = 0;
+
+      // 1. Distribute Hardware
+      hardwareTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: fmPanels[panelIndex % fmPanels.length] });
+        panelIndex++;
+      });
+
+      // 2. Distribute Hybrid
+      hybridTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: fmPanels[panelIndex % fmPanels.length] });
+        panelIndex++;
+      });
+
+      // 3. Distribute Software
+      softwareTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: fmPanels[panelIndex % fmPanels.length] });
+        panelIndex++;
+      });
+
+      // 4. Distribute any others
+      otherTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: fmPanels[panelIndex % fmPanels.length] });
+        panelIndex++;
+      });
+
+      // Save assignments to Supabase
+      let successCount = 0;
+      const updatedMap = {};
+
+      for (const item of assignments) {
+        const { error } = await saveTeamAssignment(
+          supabase,
+          item.team.id,
+          item.team.teamName,
+          { assignedJudge: item.assignedJudge }
+        );
+
+        if (!error) {
+          successCount++;
+          updatedMap[item.team.id] = item.assignedJudge;
+        } else {
+          console.error(`Error assigning team ${item.team.teamName} to ${item.assignedJudge}:`, error);
+        }
+      }
+
+      // Update local state
+      setTeams(prev => prev.map(t => updatedMap[t.id] ? { ...t, assignedJudge: updatedMap[t.id] } : t));
+      setJudgeSelections(prev => ({ ...prev, ...updatedMap }));
+
+      // Compute summary per panel
+      const summaryLines = fmPanels.map(pId => {
+        const count = assignments.filter(a => a.assignedJudge === pId).length;
+        const prof = JUDGE_PROFILES[pId];
+        return `• ${pId} (${prof?.group || 'Panel'}): ${count} teams [${prof?.namesText || ''}]`;
+      });
+
+      alert(
+        `✅ Successfully Assigned ${successCount} Finalist Teams to External Jury Panels!\n\n` +
+        `Allocation Breakdown:\n` +
+        summaryLines.join('\n') +
+        `\n\nExternal judges will now see their assigned teams immediately upon login.`
+      );
+    } catch (err) {
+      console.error("Auto-assign external judges error:", err);
+      alert("Error during external judge auto-assignment: " + err.message);
+    } finally {
+      setIsAssigningExternal(false);
+    }
+  };
+
+  // Quick 1-Click bulk assign to a specific judge panel
+  const handleBulkAssignSpecificJudge = async (targetJudge) => {
+    if (selectedTeamIds.length === 0) {
+      alert("Please select at least one team using the checkboxes.");
+      return;
+    }
+    const cleanJudge = (targetJudge || '').trim().toUpperCase();
+    const prof = JUDGE_PROFILES[cleanJudge];
+    const judgeLabel = prof ? `${cleanJudge} (${prof.group} - ${prof.namesText})` : cleanJudge;
+
+    if (!confirm(`Assign Judge Panel "${judgeLabel}" to the ${selectedTeamIds.length} selected team(s)?`)) {
+      return;
+    }
+
+    setIsSavingBulk(true);
+    try {
+      let successCount = 0;
+      for (const teamId of selectedTeamIds) {
+        const currentTeam = teams.find(t => t.id === teamId);
+        if (currentTeam) {
+          const { error, finalJudge: savedJudge } = await saveTeamAssignment(
+            supabase,
+            teamId,
+            currentTeam.teamName,
+            { assignedJudge: cleanJudge }
+          );
+          if (!error) {
+            successCount++;
+            const activeJudge = savedJudge || cleanJudge;
+            setTeams(prev => prev.map(t => t.id === teamId ? { ...t, assignedJudge: activeJudge } : t));
+            setJudgeSelections(prev => ({ ...prev, [teamId]: activeJudge }));
+          } else {
+            console.error(`Error assigning team ${currentTeam.teamName}:`, error);
+          }
+        }
+      }
+      alert(`✅ Successfully assigned Panel "${cleanJudge}" to ${successCount} team(s)!`);
+      setSelectedTeamIds([]);
+    } catch (e) {
+      console.error("Bulk assign error:", e);
+      alert("Bulk assignment error: " + e.message);
+    } finally {
+      setIsSavingBulk(false);
+    }
+  };
+
   // Toggle selection for single team
   const toggleSelectTeam = (teamId) => {
     setSelectedTeamIds(prev =>
@@ -651,6 +804,41 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error("Finalist teams CSV export error:", err);
       alert("Error generating finalist teams CSV: " + err.message);
+    }
+  };
+
+  // 📄 Export CSV containing Team ID, Team Name, Lab Location, and Panel Judges Name
+  const handleExportTeamsLabJudgesCSV = () => {
+    try {
+      const teamsToExport = scopeFilter === 'finalists'
+        ? teams.filter(t => t.isFinalist)
+        : teams;
+
+      if (teamsToExport.length === 0) {
+        alert("No teams available to export!");
+        return;
+      }
+
+      const filename = exportTeamLabLocationAndJudgesCSV(teamsToExport);
+      alert(
+        `✅ Teams Lab Location & Panel Judges CSV Generated!\n\n` +
+        `File: ${filename}\n\n` +
+        `Teams Exported: ${teamsToExport.length}\n\n` +
+        `Columns Included:\n` +
+        `• S.No\n` +
+        `• Team ID\n` +
+        `• Team Name\n` +
+        `• Lab Location\n` +
+        `• Panel Judges Name\n` +
+        `• Assigned Panel ID\n` +
+        `• Panel Group / Room\n` +
+        `• Track\n` +
+        `• Leader Name & Phone\n` +
+        `• Project Title`
+      );
+    } catch (err) {
+      console.error("Teams lab location & judges CSV export error:", err);
+      alert("Error generating CSV: " + err.message);
     }
   };
 
@@ -1151,6 +1339,8 @@ export default function AdminDashboardPage() {
   // Calculate statistics
   const unassignedJudgeCount = searchMatchedTeams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned').length;
   const assignedJudgeCount = searchMatchedTeams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned').length;
+  const externalJudgeCount = searchMatchedTeams.filter(t => (t.assignedJudge || '').toUpperCase().startsWith('FM')).length;
+  const mentorJudgeCount = searchMatchedTeams.filter(t => (t.assignedJudge || '').toUpperCase().startsWith('MM')).length;
 
   return (
     <>
@@ -1501,6 +1691,45 @@ export default function AdminDashboardPage() {
                 </button>
                 <button
                   type="button"
+                  onClick={handleExportTeamsLabJudgesCSV}
+                  title="Download CSV containing Team ID, Team Name, Lab Location, and Panel Judges Name"
+                  style={{
+                    background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                    color: '#000',
+                    border: '1.5px solid #fdff00',
+                    borderRadius: '4px',
+                    padding: '5px 10px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
+                  }}
+                >
+                  📥 EXPORT LAB & JUDGES (.CSV)
+                </button>
+                <button
+                  type="button"
+                  onClick={handleAutoAssignExternalJudges}
+                  disabled={isAssigningExternal}
+                  title="Auto-distribute all 50 Finalist teams evenly across External Jury Panels FM001 - FM007"
+                  style={{
+                    background: 'linear-gradient(135deg, #ff00cc, #9900ff)',
+                    color: '#fff',
+                    border: '1.5px solid #ff00cc',
+                    borderRadius: '4px',
+                    padding: '5px 10px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.55rem',
+                    fontWeight: 'bold',
+                    cursor: isAssigningExternal ? 'not-allowed' : 'pointer',
+                    boxShadow: '0 0 10px rgba(255, 0, 204, 0.4)'
+                  }}
+                >
+                  {isAssigningExternal ? '⏳ ALLOCATING...' : '⚡ AUTO-ASSIGN TO EXTERNAL (FM001–FM007)'}
+                </button>
+                <button
+                  type="button"
                   onClick={handleUnassignAllFinalists}
                   disabled={isUnassigningFinalists}
                   title="Unassign all qualified finalist teams from judges so you can re-allocate them"
@@ -1689,6 +1918,21 @@ export default function AdminDashboardPage() {
               >
                 📄 FINALIST TEAMS & MEMBERS (.CSV)
               </button>
+              <button
+                type="button"
+                className="admin-control-btn admin-export-btn btn-gold"
+                onClick={handleExportTeamsLabJudgesCSV}
+                title="Download Finalist Teams CSV with Team ID, Team Name, Lab Location, and Panel Judges Name"
+                style={{
+                  background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.2), rgba(255, 184, 82, 0.2))',
+                  border: '1.5px solid #fdff00',
+                  color: '#fdff00',
+                  fontWeight: 'bold',
+                  boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
+                }}
+              >
+                📥 LAB LOCATION & JUDGES (.CSV)
+              </button>
             </div>
           </div>
         </div>
@@ -1745,6 +1989,12 @@ export default function AdminDashboardPage() {
             ? searchMatchedTeams.filter(t => !t.assignedJudge || t.assignedJudge === 'Unassigned')
             : teamsFilter === 'assigned'
             ? searchMatchedTeams.filter(t => t.assignedJudge && t.assignedJudge !== 'Unassigned')
+            : teamsFilter === 'external'
+            ? searchMatchedTeams.filter(t => (t.assignedJudge || '').toUpperCase().startsWith('FM'))
+            : teamsFilter === 'internal'
+            ? searchMatchedTeams.filter(t => (t.assignedJudge || '').toUpperCase().startsWith('MM'))
+            : teamsFilter.startsWith('panel-')
+            ? searchMatchedTeams.filter(t => (t.assignedJudge || '').toUpperCase() === teamsFilter.replace('panel-', '').toUpperCase())
             : searchMatchedTeams;
 
           const displayedTeams = filteredByJudge;
@@ -1776,6 +2026,12 @@ export default function AdminDashboardPage() {
                     <div style={{ background: 'rgba(0, 255, 204, 0.12)', border: '1px solid #00ffcc', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#00ffcc' }}>
                       ✅ ASSIGNED: <span>{assignedJudgeCount}</span>
                     </div>
+                    <div style={{ background: 'rgba(255, 0, 204, 0.12)', border: '1px solid #ff00cc', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#ff66ff' }}>
+                      🌟 EXTERNAL (FM): <span style={{ fontWeight: 'bold' }}>{externalJudgeCount}</span>
+                    </div>
+                    <div style={{ background: 'rgba(253, 255, 0, 0.12)', border: '1px solid #fdff00', borderRadius: '6px', padding: '6px 10px', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00' }}>
+                      👨‍🏫 MENTORS (MM): <span>{mentorJudgeCount}</span>
+                    </div>
                   </div>
                 </div>
 
@@ -1786,7 +2042,7 @@ export default function AdminDashboardPage() {
                     <span style={{ fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', color: '#888', minWidth: '120px' }}>
                       ⚖️ JUDGE FILTER:
                     </span>
-                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                       <button
                         type="button"
                         onClick={() => setTeamsFilter('all')}
@@ -1801,7 +2057,7 @@ export default function AdminDashboardPage() {
                           cursor: 'pointer'
                         }}
                       >
-                        📋 ALL JUDGE STATES ({searchMatchedTeams.length})
+                        📋 ALL ({searchMatchedTeams.length})
                       </button>
                       <button
                         type="button"
@@ -1817,7 +2073,7 @@ export default function AdminDashboardPage() {
                           cursor: 'pointer'
                         }}
                       >
-                        ⚠️ UNASSIGNED JUDGE ({unassignedJudgeCount})
+                        ⚠️ UNASSIGNED ({unassignedJudgeCount})
                       </button>
                       <button
                         type="button"
@@ -1833,8 +2089,63 @@ export default function AdminDashboardPage() {
                           cursor: 'pointer'
                         }}
                       >
-                        ✅ ASSIGNED JUDGE ({assignedJudgeCount})
+                        ✅ ASSIGNED ({assignedJudgeCount})
                       </button>
+                      <button
+                        type="button"
+                        onClick={() => setTeamsFilter('external')}
+                        style={{
+                          background: teamsFilter === 'external' ? '#ff00cc' : 'rgba(0,0,0,0.6)',
+                          color: '#fff',
+                          border: '1px solid ' + (teamsFilter === 'external' ? '#ff00cc' : '#ff00cc88'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          boxShadow: teamsFilter === 'external' ? '0 0 10px rgba(255, 0, 204, 0.4)' : 'none'
+                        }}
+                      >
+                        🌟 EXTERNAL JURY ({externalJudgeCount})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setTeamsFilter('internal')}
+                        style={{
+                          background: teamsFilter === 'internal' ? '#fdff00' : 'rgba(0,0,0,0.6)',
+                          color: teamsFilter === 'internal' ? '#000' : '#fdff00',
+                          border: '1px solid ' + (teamsFilter === 'internal' ? '#fdff00' : '#fdff0088'),
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer',
+                          fontWeight: 'bold'
+                        }}
+                      >
+                        👨‍🏫 MENTORS ({mentorJudgeCount})
+                      </button>
+
+                      {/* Dropdown for specific panel filter */}
+                      <select
+                        className="retro-select"
+                        value={teamsFilter.startsWith('panel-') ? teamsFilter : ''}
+                        onChange={(e) => setTeamsFilter(e.target.value ? e.target.value : 'all')}
+                        style={{ padding: '6px 10px', fontSize: '0.62rem', width: 'auto' }}
+                      >
+                        <option value="">🎯 FILTER BY SPECIFIC PANEL...</option>
+                        <optgroup label="🌟 External Jury Panels (FM001 - FM007)">
+                          {Object.values(JUDGE_PROFILES).filter(p => p.id.startsWith('FM')).map(p => (
+                            <option key={p.id} value={`panel-${p.id}`}>{p.id} ({p.group}) - {p.namesText}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="⭐ Mentor Panels (MM001 - MM010)">
+                          {Object.values(JUDGE_PROFILES).filter(p => p.id.startsWith('MM')).map(p => (
+                            <option key={p.id} value={`panel-${p.id}`}>{p.id} ({p.group})</option>
+                          ))}
+                        </optgroup>
+                      </select>
                     </div>
                   </div>
                 </div>
@@ -1911,6 +2222,38 @@ export default function AdminDashboardPage() {
                       >
                         {isSavingBulk ? 'SAVING...' : bulkJudgeChoice === 'Unassigned' ? '⚡ UNASSIGN SELECTED' : '⚡ ASSIGN JUDGE'}
                       </button>
+                    </div>
+
+                    {/* 1-Click Quick External Judge Assigners */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap', width: '100%', marginTop: '6px', paddingTop: '10px', borderTop: '1px dashed rgba(255, 255, 255, 0.15)' }}>
+                      <span style={{ fontSize: '0.58rem', fontFamily: 'Press Start 2P, monospace', color: '#ff66ff' }}>
+                        ⚡ 1-CLICK ASSIGN EXTERNAL PANEL:
+                      </span>
+                      {['FM001', 'FM002', 'FM003', 'FM004', 'FM005', 'FM006', 'FM007'].map(fId => {
+                        const prof = JUDGE_PROFILES[fId];
+                        return (
+                          <button
+                            key={fId}
+                            type="button"
+                            disabled={isSavingBulk}
+                            onClick={() => handleBulkAssignSpecificJudge(fId)}
+                            title={`Assign selected teams to ${fId}: ${prof?.namesText || ''} (${prof?.location || ''})`}
+                            style={{
+                              background: 'rgba(255, 0, 204, 0.15)',
+                              border: '1px solid #ff00cc',
+                              color: '#ff66ff',
+                              padding: '5px 9px',
+                              borderRadius: '4px',
+                              fontSize: '0.58rem',
+                              fontFamily: 'Press Start 2P, monospace',
+                              cursor: isSavingBulk ? 'not-allowed' : 'pointer',
+                              fontWeight: 'bold'
+                            }}
+                          >
+                            {fId}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
@@ -2049,9 +2392,33 @@ export default function AdminDashboardPage() {
                                 <div style={{ marginTop: '6px', display: 'flex', flexDirection: 'column', gap: '4px' }}>
                                   {/* Judge status badge */}
                                   {isAssignedJudge ? (
-                                    <span style={{ fontSize: '0.55rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>
-                                      🏛️ {t.assignedJudge}
-                                    </span>
+                                    t.assignedJudge.toUpperCase().startsWith('FM') ? (
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
+                                        <span style={{
+                                          fontSize: '0.55rem',
+                                          color: '#fff',
+                                          fontFamily: 'Press Start 2P, monospace',
+                                          background: 'linear-gradient(135deg, rgba(255, 0, 204, 0.4), rgba(153, 0, 255, 0.4))',
+                                          border: '1px solid #ff00cc',
+                                          padding: '3px 6px',
+                                          borderRadius: '4px',
+                                          display: 'inline-block',
+                                          width: 'fit-content',
+                                          boxShadow: '0 0 8px rgba(255, 0, 204, 0.3)'
+                                        }}>
+                                          🌟 EXTERNAL: {t.assignedJudge.toUpperCase()}
+                                        </span>
+                                        {JUDGE_PROFILES[t.assignedJudge.toUpperCase()] && (
+                                          <span style={{ fontSize: '0.65rem', color: '#e0b0ff', lineHeight: '1.3' }}>
+                                            👤 {JUDGE_PROFILES[t.assignedJudge.toUpperCase()].namesText}
+                                          </span>
+                                        )}
+                                      </div>
+                                    ) : (
+                                      <span style={{ fontSize: '0.55rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>
+                                        🏛️ {t.assignedJudge}
+                                      </span>
+                                    )
                                   ) : (
                                     <span style={{ fontSize: '0.55rem', color: '#ff0055', fontFamily: 'Press Start 2P, monospace' }}>
                                       ⚠️ UNASSIGNED JUDGE
@@ -3290,6 +3657,28 @@ export default function AdminDashboardPage() {
                     </p>
                   </div>
                   <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                    <button
+                      type="button"
+                      onClick={handleExportTeamsLabJudgesCSV}
+                      style={{
+                        background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                        border: '2px solid #fdff00',
+                        color: '#000',
+                        padding: '12px 18px',
+                        fontSize: '0.62rem',
+                        fontFamily: 'Press Start 2P, monospace',
+                        borderRadius: '8px',
+                        cursor: 'pointer',
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 15px rgba(253, 255, 0, 0.4)'
+                      }}
+                      title="Download CSV containing Team ID, Team Name, Lab Location, and Panel Judges Name"
+                    >
+                      📄 EXPORT LAB & JUDGES (.CSV)
+                    </button>
                     <button
                       type="button"
                       onClick={handleExportJudgesPanelsExcel}

@@ -191,13 +191,12 @@ export default function JudgeDashboardPage() {
   const myAssignedFinalistCount = myAssignedTeams.filter(t => t.isFinalist).length;
   const hasMyAssigned = myAssignedTeams.length > 0;
 
-  // For External Jury (FM), they evaluate all finalists
-  // For Internal Jury (MM), if they have assigned teams, allow toggling between 'MY_ASSIGNED' (default) and 'ALL'
-  const effectiveScope = isExternalRound3Judge
-    ? 'ALL'
-    : (panelScope === 'MY_ASSIGNED' && hasMyAssigned ? 'MY_ASSIGNED' : (hasMyAssigned ? panelScope : 'ALL'));
+  // If judge has assigned teams (External FM or Mentor MM), allow toggling between 'MY_ASSIGNED' (default) and 'ALL'
+  const effectiveScope = hasMyAssigned
+    ? (panelScope === 'ALL' ? 'ALL' : 'MY_ASSIGNED')
+    : 'ALL';
 
-  const availableTeams = (isExternalRound3Judge || effectiveScope === 'ALL')
+  const availableTeams = effectiveScope === 'ALL'
     ? teams
     : myAssignedTeams;
 
@@ -356,7 +355,9 @@ export default function JudgeDashboardPage() {
                 </h3>
                 <p style={{ margin: '6px 0 0 0', color: '#ccc', fontSize: '0.76rem', lineHeight: '1.5' }}>
                   {isExternalRound3Judge
-                    ? `Open Grand Finale access: All ${allFinalistTeams.length} qualified finalist teams are open to your jury panel (${judgeEmail.toUpperCase()}). You can evaluate and score any team across all 5 official evaluation rubrics (50 marks max).`
+                    ? (effectiveScope === 'MY_ASSIGNED' && hasMyAssigned
+                        ? `Grand Finale Jury: Reviewing your ${myAssignedFinalistCount} assigned finalist ${myAssignedFinalistCount === 1 ? 'team' : 'teams'} (${judgeEmail.toUpperCase()}). You can evaluate and score across all 5 official evaluation rubrics (50 marks max). Switch to "ALL FINALISTS" anytime to view and evaluate any other team.`
+                        : `Open Grand Finale access: Viewing all ${allFinalistTeams.length} qualified finalist teams (${judgeEmail.toUpperCase()}). You can evaluate and score any team across all 5 official evaluation rubrics (50 marks max).${hasMyAssigned ? ` You have ${myAssignedFinalistCount} assigned teams.` : ''}`)
                     : isMentorJudge
                     ? (effectiveScope === 'MY_ASSIGNED'
                         ? (IS_PHASE_2_LOCKED
@@ -372,7 +373,7 @@ export default function JudgeDashboardPage() {
 
             {/* Quick Live Stats */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
-              {isMentorJudge && hasMyAssigned && (
+              {(isMentorJudge || isExternalRound3Judge) && hasMyAssigned && (
                 <span style={{
                   background: effectiveScope === 'MY_ASSIGNED' ? 'rgba(253, 255, 0, 0.2)' : 'rgba(0, 0, 0, 0.65)',
                   border: '1.5px solid #fdff00',
@@ -443,7 +444,7 @@ export default function JudgeDashboardPage() {
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            {isMentorJudge && hasMyAssigned && (
+            {(isMentorJudge || isExternalRound3Judge) && hasMyAssigned && (
               <>
                 <button
                   type="button"
@@ -486,7 +487,7 @@ export default function JudgeDashboardPage() {
                 </button>
               </>
             )}
-            {(!isMentorJudge || !hasMyAssigned) && (
+            {(!((isMentorJudge || isExternalRound3Judge) && hasMyAssigned)) && (
               <>
                 <button
                   type="button"
@@ -652,10 +653,18 @@ export default function JudgeDashboardPage() {
               {isMentorJudge ? 'STAGE 3: MENTOR PANEL' : isExternalRound3Judge ? 'ROUND 3: EXTERNAL JURY PANEL' : 'STAGE 3: FINAL ROUND EVALUATION PANEL'}
             </span>
           </div>
-          <h2>{isExternalRound3Judge ? 'ROUND 3: ALL FINALIST TEAMS' : isMentorJudge ? (effectiveScope === 'MY_ASSIGNED' ? 'MY ASSIGNED FINALIST TEAMS FOR FEEDBACK' : 'ALL FINALIST TEAMS FOR FEEDBACK') : 'FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})</h2>
+          <h2>
+            {isExternalRound3Judge
+              ? (effectiveScope === 'MY_ASSIGNED' && hasMyAssigned ? 'ROUND 3: MY ASSIGNED FINALIST TEAMS' : 'ROUND 3: ALL FINALIST TEAMS')
+              : isMentorJudge
+              ? (effectiveScope === 'MY_ASSIGNED' ? 'MY ASSIGNED FINALIST TEAMS FOR FEEDBACK' : 'ALL FINALIST TEAMS FOR FEEDBACK')
+              : 'FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})
+          </h2>
           <p>
             {isExternalRound3Judge
-              ? `Open evaluation: All ${FINAL_ROUND_STATS.totalTeams} qualified finalist teams are open to all judges. You can evaluate and score any finalist team across all 5 official evaluation rubrics (50 marks max).`
+              ? (effectiveScope === 'MY_ASSIGNED' && hasMyAssigned
+                  ? `Showing ${displayedAssignedTeams.length} finalist teams assigned specifically to your jury panel (${judgeEmail.toUpperCase()}). You can evaluate and score across all 5 official evaluation rubrics (50 marks max). Switch to "ALL FINALISTS" anytime to evaluate any other team.`
+                  : `Open evaluation: All ${FINAL_ROUND_STATS.totalTeams} qualified finalist teams are open to all judges. You can evaluate and score any finalist team across all 5 official evaluation rubrics (50 marks max).`)
               : isMentorJudge
               ? (effectiveScope === 'MY_ASSIGNED'
                   ? (IS_PHASE_2_LOCKED
