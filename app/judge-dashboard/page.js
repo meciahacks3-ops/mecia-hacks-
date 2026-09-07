@@ -55,6 +55,9 @@ export default function JudgeDashboardPage() {
           const parsedSlot = parseTimeSlotFromTeam(st);
           const finalistInfo = getFinalRoundTeamInfo({ teamName: st.team_name, teamIdNo: parsedTeamId, main_idea: st.main_idea });
           const labLocation = getTeamLabLocation({ teamName: st.team_name, teamIdNo: parsedTeamId, main_idea: st.main_idea });
+          const hasFinalistTag = (st.main_idea || '').includes('[FINALIST]');
+          const isAssignedExternal = (st.assigned_judge || '').toUpperCase().startsWith('FM');
+          const isFinalist = Boolean(finalistInfo) || hasFinalistTag || isAssignedExternal;
 
           return {
             id: st.id,
@@ -64,7 +67,7 @@ export default function JudgeDashboardPage() {
             projectDesc: cleanDesc || st.main_idea || 'No description provided.',
             assignedJudge: st.assigned_judge,
             timeSlot: parsedSlot,
-            isFinalist: Boolean(finalistInfo),
+            isFinalist: isFinalist,
             finalistInfo: finalistInfo || null,
             labLocation: labLocation || finalistInfo?.labLocation || null
           };
@@ -750,12 +753,32 @@ export default function JudgeDashboardPage() {
                 const scoreVal = evalEntry ? evalEntry.totalScore : 0;
                 const slotInfo = getTimeSlotInfo(t.timeSlot);
 
+                // Sourced from official Round 2 leaderboard & Supabase evaluations
+                const finInfo = t.finalistInfo || getFinalRoundTeamInfo(t);
+                const round2Eval = evaluations.find(e => {
+                  const nameMatch = (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
+                  const projMatch = t.projectTitle && t.projectTitle !== 'Untitled Project' && t.projectTitle !== 'N/A' && (e.teamName || '').trim().toLowerCase() === t.projectTitle.trim().toLowerCase();
+                  const jEmail = (e.judgeEmail || '').trim().toUpperCase();
+                  return (nameMatch || projMatch) && jEmail.startsWith('JM');
+                });
+                const round2Score = round2Eval ? round2Eval.totalScore : (finInfo?.score ?? null);
+                const round2C1 = round2Eval ? round2Eval.c1 : (finInfo?.c1 ?? null);
+                const round2C2 = round2Eval ? round2Eval.c2 : (finInfo?.c2 ?? null);
+                const round2C3 = round2Eval ? round2Eval.c3 : (finInfo?.c3 ?? null);
+                const round2C4 = round2Eval ? round2Eval.c4 : (finInfo?.c4 ?? null);
+                const round2C5 = round2Eval ? round2Eval.c5 : (finInfo?.c5 ?? null);
+                const round2Judge = round2Eval ? round2Eval.judgeEmail : (finInfo?.assignedJudge || null);
+                const round2Remarks = round2Eval?.remarks || '';
+                const round2Rank = finInfo?.rank || null;
+                const round2Category = finInfo?.category || null;
+
+                // Dedicated Internal Mentor Feedback (MM001 - MM010)
                 const internalMentorFeedback = evaluations.filter(e => {
                   const nameMatch = (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
-                  if (!nameMatch) return false;
+                  const projMatch = t.projectTitle && t.projectTitle !== 'Untitled Project' && t.projectTitle !== 'N/A' && (e.teamName || '').trim().toLowerCase() === t.projectTitle.trim().toLowerCase();
+                  if (!nameMatch && !projMatch) return false;
                   const jEmail = (e.judgeEmail || '').trim().toUpperCase();
-                  const isInternal = jEmail.startsWith('MM') || jEmail.startsWith('JM');
-                  return isInternal && e.remarks && e.remarks.trim();
+                  return jEmail.startsWith('MM') && (e.remarks || e.phase1Feedback || e.phase2Feedback);
                 });
 
                 return (
@@ -1093,25 +1116,121 @@ export default function JudgeDashboardPage() {
                         </div>
                       )}
 
-                      {/* External Judge view of Internal Mentor Feedback */}
+                      {/* External Judge view of Stage 2 Official Marks & Rubric Breakdown */}
                       {isExternalRound3Judge && (
                         <div style={{
                           marginTop: '14px',
-                          padding: '12px 16px',
+                          padding: '14px 18px',
                           background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.08) 0%, rgba(0, 255, 204, 0.06) 100%)',
                           border: '1.5px solid #fdff00',
                           borderRadius: '8px',
-                          boxShadow: '0 0 12px rgba(253, 255, 0, 0.15)'
+                          boxShadow: '0 0 15px rgba(253, 255, 0, 0.15)'
                         }}>
-                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '8px' }}>
-                            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                              <span style={{ fontSize: '0.9rem' }}>📝</span>
-                              <span style={{ fontSize: '0.68rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
-                                MENTOR FEEDBACK
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '1.1rem' }}>🎯</span>
+                              <div>
+                                <span style={{ fontSize: '0.72rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                  STAGE 2 MARKS &amp; RUBRIC BREAKDOWN
+                                </span>
+                                {round2Rank && (
+                                  <span style={{ marginLeft: '8px', fontSize: '0.62rem', color: '#00ffcc', fontFamily: 'Press Start 2P, monospace' }}>
+                                    {round2Rank} {round2Category ? `(${round2Category})` : ''}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                            {round2Score !== null && round2Score !== undefined ? (
+                              <span style={{
+                                background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                                color: '#000',
+                                fontFamily: 'Press Start 2P, monospace',
+                                fontSize: '0.72rem',
+                                padding: '5px 12px',
+                                borderRadius: '5px',
+                                fontWeight: 'bold',
+                                boxShadow: '0 0 8px rgba(253, 255, 0, 0.4)'
+                              }}>
+                                {round2Score} / 50 MARKS ({Math.round((round2Score / 50) * 100)}%)
+                              </span>
+                            ) : (
+                              <span style={{ color: '#888', fontSize: '0.65rem', fontFamily: 'Press Start 2P, monospace' }}>
+                                STAGE 2 SCORE: N/A
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Rubric Criteria 5-Pillar Matrix */}
+                          {(round2C1 !== null || round2C2 !== null || round2C3 !== null || round2C4 !== null || round2C5 !== null) && (
+                            <div style={{
+                              display: 'grid',
+                              gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))',
+                              gap: '8px',
+                              margin: '10px 0'
+                            }}>
+                              <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '6px 8px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>💡 Innovation</div>
+                                <div style={{ fontSize: '0.78rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                  {round2C1 ?? '-'}/10
+                                </div>
+                              </div>
+                              <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '6px 8px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>⚙️ Execution</div>
+                                <div style={{ fontSize: '0.78rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                  {round2C2 ?? '-'}/10
+                                </div>
+                              </div>
+                              <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '6px 8px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>🎯 Feasibility</div>
+                                <div style={{ fontSize: '0.78rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                  {round2C3 ?? '-'}/10
+                                </div>
+                              </div>
+                              <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '6px 8px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>🗣️ Presentation</div>
+                                <div style={{ fontSize: '0.78rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                  {round2C4 ?? '-'}/10
+                                </div>
+                              </div>
+                              <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '6px 8px', textAlign: 'center' }}>
+                                <div style={{ fontSize: '0.55rem', color: '#aaa', marginBottom: '2px' }}>🚀 Implementation</div>
+                                <div style={{ fontSize: '0.78rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                  {round2C5 ?? '-'}/10
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '6px', fontSize: '0.7rem', color: '#888', marginTop: '6px' }}>
+                            {round2Judge && (
+                              <span>👨‍⚖️ Evaluated in Stage 2 by Panel: <strong style={{ color: '#00ffcc' }}>{round2Judge}</strong></span>
+                            )}
+                            {round2Remarks && (
+                              <span style={{ color: '#ccc', fontStyle: 'italic' }}>Note: &ldquo;{round2Remarks}&rdquo;</span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      {/* External Judge view of Internal Mentor Feedback (Phase 1 & Phase 2) */}
+                      {isExternalRound3Judge && (
+                        <div style={{
+                          marginTop: '12px',
+                          padding: '14px 18px',
+                          background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.06) 0%, rgba(255, 0, 204, 0.04) 100%)',
+                          border: '1.5px solid #00ffcc',
+                          borderRadius: '8px',
+                          boxShadow: '0 0 15px rgba(0, 255, 204, 0.12)'
+                        }}>
+                          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '8px', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontSize: '1.1rem' }}>👨‍🏫</span>
+                              <span style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                INTERNAL MENTOR OBSERVATIONS &amp; GUIDANCE
                               </span>
                             </div>
                             <span style={{
-                              background: internalMentorFeedback.length > 0 ? '#fdff00' : 'rgba(255, 255, 255, 0.1)',
+                              background: internalMentorFeedback.length > 0 ? '#00ffcc' : 'rgba(255, 255, 255, 0.1)',
                               color: internalMentorFeedback.length > 0 ? '#000' : '#888',
                               fontSize: '0.55rem',
                               fontFamily: 'Press Start 2P, monospace',
@@ -1119,43 +1238,43 @@ export default function JudgeDashboardPage() {
                               borderRadius: '4px',
                               fontWeight: 'bold'
                             }}>
-                              {internalMentorFeedback.length} REVIEW{internalMentorFeedback.length === 1 ? '' : 'S'}
+                              {internalMentorFeedback.length} MENTOR REVIEW{internalMentorFeedback.length === 1 ? '' : 'S'}
                             </span>
                           </div>
 
                           {internalMentorFeedback.length > 0 ? (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
                               {internalMentorFeedback.map((fb, idx) => {
                                 const mentorProf = getJudgeProfile(fb.judgeEmail);
                                 const mentorNames = mentorProf ? mentorProf.namesText : fb.judgeEmail;
                                 return (
                                   <div key={idx} style={{
-                                    background: 'rgba(0, 0, 0, 0.7)',
-                                    borderLeft: '3px solid #00ffcc',
-                                    padding: '8px 12px',
-                                    borderRadius: '4px'
+                                    background: 'rgba(0, 0, 0, 0.75)',
+                                    borderLeft: '4px solid #fdff00',
+                                    borderRadius: '6px',
+                                    padding: '10px 14px'
                                   }}>
-                                    <div style={{ color: '#00ffcc', fontSize: '0.74rem', fontWeight: 'bold', marginBottom: '6px' }}>
+                                    <div style={{ color: '#00ffcc', fontSize: '0.76rem', fontWeight: 'bold', marginBottom: '8px' }}>
                                       👨‍🏫 Mentor Panel: <span style={{ color: '#fdff00' }}>{fb.judgeEmail}</span> {mentorProf?.group ? `(${mentorProf.group})` : ''} • {mentorNames}
                                     </div>
                                     {fb.hasPhase1 || fb.hasPhase2 ? (
-                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                                         {fb.phase1Feedback && (
-                                          <div style={{ background: 'rgba(0, 255, 204, 0.05)', borderLeft: '3px solid #00ffcc', padding: '6px 10px', borderRadius: '4px' }}>
-                                            <div style={{ color: '#00ffcc', fontSize: '0.62rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '2px' }}>
-                                              ⚡ PHASE 1:
+                                          <div style={{ background: 'rgba(0, 255, 204, 0.06)', borderLeft: '3px solid #00ffcc', padding: '8px 12px', borderRadius: '4px' }}>
+                                            <div style={{ color: '#00ffcc', fontSize: '0.64rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '4px' }}>
+                                              ⚡ PHASE 1 MENTOR FEEDBACK:
                                             </div>
-                                            <p style={{ color: '#ffffff', fontSize: '0.82rem', lineHeight: '1.4', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                            <p style={{ color: '#ffffff', fontSize: '0.84rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', margin: 0 }}>
                                               {fb.phase1Feedback}
                                             </p>
                                           </div>
                                         )}
                                         {fb.phase2Feedback && (
-                                          <div style={{ background: 'rgba(255, 102, 204, 0.05)', borderLeft: '3px solid #ff66cc', padding: '6px 10px', borderRadius: '4px' }}>
-                                            <div style={{ color: '#ff66cc', fontSize: '0.62rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '2px' }}>
-                                              🚀 PHASE 2:
+                                          <div style={{ background: 'rgba(255, 102, 204, 0.06)', borderLeft: '3px solid #ff66cc', padding: '8px 12px', borderRadius: '4px' }}>
+                                            <div style={{ color: '#ff66cc', fontSize: '0.64rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace', marginBottom: '4px' }}>
+                                              🚀 PHASE 2 MENTOR FEEDBACK:
                                             </div>
-                                            <p style={{ color: '#ffffff', fontSize: '0.82rem', lineHeight: '1.4', whiteSpace: 'pre-wrap', margin: 0 }}>
+                                            <p style={{ color: '#ffffff', fontSize: '0.84rem', lineHeight: '1.5', whiteSpace: 'pre-wrap', margin: 0 }}>
                                               {fb.phase2Feedback}
                                             </p>
                                           </div>

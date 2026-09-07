@@ -108,6 +108,9 @@ export default function AdminDashboardPage() {
   const [finalRoundModalFilter, setFinalRoundModalFilter] = useState('all');
   const [finalRoundModalSearch, setFinalRoundModalSearch] = useState('');
   const [finalRoundModalTrack, setFinalRoundModalTrack] = useState('all');
+  const [finalRoundModalLab, setFinalRoundModalLab] = useState('all');
+  const [finalRoundModalMentor, setFinalRoundModalMentor] = useState('all');
+  const [previewMentorFeedback, setPreviewMentorFeedback] = useState(null);
 
   const fetchAllowedUsers = async () => {
     try {
@@ -759,6 +762,264 @@ export default function AdminDashboardPage() {
     }
   };
 
+  // 🎯 Smart Track-based Distribution: Software -> FM001-FM004, Hybrid -> FM005-FM006, Hardware -> FM007
+  const handleSmartTrackDistribution = async () => {
+    const finalistTeamsList = teams.filter(t => t.isFinalist);
+    const targetTeams = finalistTeamsList.length > 0 ? finalistTeamsList : teams;
+
+    if (targetTeams.length === 0) {
+      alert("No qualified finalist teams found.");
+      return;
+    }
+
+    const softwareTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'software');
+    const hybridTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'hybrid');
+    const hardwareTeams = targetTeams.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'hardware');
+    const otherTeams = targetTeams.filter(t => 
+      !softwareTeams.includes(t) && !hybridTeams.includes(t) && !hardwareTeams.includes(t)
+    );
+
+    const confirmMsg =
+      `🎯 SMART TRACK-BASED ALLOCATION TO EXTERNAL JURY:\n\n` +
+      `• Pure Software Track (${softwareTeams.length} teams) ➔ FM001, FM002, FM003, FM004 (~7-8 teams each)\n` +
+      `• Hybrid / AI+IoT Track (${hybridTeams.length} teams) ➔ FM005, FM006 (~7-8 teams each)\n` +
+      `• Hardware / Robotics Track (${hardwareTeams.length} teams) ➔ FM007 (All 4 teams)\n` +
+      (otherTeams.length > 0 ? `• Other Teams (${otherTeams.length} teams) ➔ FM001-FM007\n` : '') +
+      `\nTotal Teams: ${targetTeams.length}\n\n` +
+      `This guarantees external jury members evaluate projects matching their domain expertise.\n\n` +
+      `Proceed with Smart Track Allocation?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setIsAssigningExternal(true);
+
+    try {
+      const assignments = [];
+
+      // Software across FM001-FM004
+      const swPanels = ['FM001', 'FM002', 'FM003', 'FM004'];
+      softwareTeams.forEach((t, i) => {
+        assignments.push({ team: t, assignedJudge: swPanels[i % swPanels.length] });
+      });
+
+      // Hybrid across FM005-FM006
+      const hyPanels = ['FM005', 'FM006'];
+      hybridTeams.forEach((t, i) => {
+        assignments.push({ team: t, assignedJudge: hyPanels[i % hyPanels.length] });
+      });
+
+      // Hardware to FM007
+      hardwareTeams.forEach(t => {
+        assignments.push({ team: t, assignedJudge: 'FM007' });
+      });
+
+      // Others to FM001-FM007
+      const allPanels = ['FM001', 'FM002', 'FM003', 'FM004', 'FM005', 'FM006', 'FM007'];
+      otherTeams.forEach((t, i) => {
+        assignments.push({ team: t, assignedJudge: allPanels[i % allPanels.length] });
+      });
+
+      let successCount = 0;
+      const updatedMap = {};
+
+      for (const item of assignments) {
+        const { error } = await saveTeamAssignment(
+          supabase,
+          item.team.id,
+          item.team.teamName,
+          { assignedJudge: item.assignedJudge }
+        );
+
+        if (!error) {
+          successCount++;
+          updatedMap[item.team.id] = item.assignedJudge;
+        }
+      }
+
+      setTeams(prev => prev.map(t => updatedMap[t.id] ? { ...t, assignedJudge: updatedMap[t.id] } : t));
+      setJudgeSelections(prev => ({ ...prev, ...updatedMap }));
+
+      alert(`✅ Successfully allocated ${successCount} finalists by track domain!\n\n• Software: FM001–FM004\n• Hybrid: FM005–FM006\n• Hardware: FM007`);
+    } catch (err) {
+      console.error("Smart track allocation error:", err);
+      alert("Error during track allocation: " + err.message);
+    } finally {
+      setIsAssigningExternal(false);
+    }
+  };
+
+  // 🏢 Lab Venue-based Allocation: Keeps External Judges in contiguous physical lab rooms
+  const handleAutoAssignByLabVenue = async () => {
+    const finalistTeamsList = teams.filter(t => t.isFinalist);
+    const targetTeams = finalistTeamsList.length > 0 ? finalistTeamsList : teams;
+
+    if (targetTeams.length === 0) {
+      alert("No qualified finalist teams found.");
+      return;
+    }
+
+    const confirmMsg =
+      `🏢 AUTO-ALLOCATE EXTERNAL JURY BY PHYSICAL LAB VENUES?\n\n` +
+      `This assigns jury panels to specific lab rooms so judges don't have to navigate between buildings/floors:\n` +
+      `• S2 Lab (2nd Fl CE Dept) ➔ FM001 & FM002\n` +
+      `• F2 Lab (1st Fl CE Dept) ➔ FM003 & FM004\n` +
+      `• Project Lab (Ground Fl IT Dept) ➔ FM005\n` +
+      `• Networking Lab (1st Fl IT Dept) ➔ FM006\n` +
+      `• Workshop / Machine Lab / Others ➔ FM007\n\n` +
+      `Proceed with Lab Venue Allocation?`;
+
+    if (!confirm(confirmMsg)) return;
+
+    setIsAssigningExternal(true);
+
+    try {
+      const assignments = [];
+      let s2Index = 0;
+      let f2Index = 0;
+
+      targetTeams.forEach(t => {
+        const lab = (t.finalistInfo?.labLocation || t.labLocation || '').toLowerCase();
+        let targetPanel = 'FM007';
+
+        if (lab.includes('s2 lab') || lab.includes('second floor')) {
+          targetPanel = s2Index % 2 === 0 ? 'FM001' : 'FM002';
+          s2Index++;
+        } else if (lab.includes('f2 lab') || lab.includes('first floor ce')) {
+          targetPanel = f2Index % 2 === 0 ? 'FM003' : 'FM004';
+          f2Index++;
+        } else if (lab.includes('project lab') || lab.includes('ground floor it')) {
+          targetPanel = 'FM005';
+        } else if (lab.includes('networking') || lab.includes('first floor it')) {
+          targetPanel = 'FM006';
+        } else {
+          targetPanel = 'FM007';
+        }
+
+        assignments.push({ team: t, assignedJudge: targetPanel });
+      });
+
+      let successCount = 0;
+      const updatedMap = {};
+
+      for (const item of assignments) {
+        const { error } = await saveTeamAssignment(
+          supabase,
+          item.team.id,
+          item.team.teamName,
+          { assignedJudge: item.assignedJudge }
+        );
+
+        if (!error) {
+          successCount++;
+          updatedMap[item.team.id] = item.assignedJudge;
+        }
+      }
+
+      setTeams(prev => prev.map(t => updatedMap[t.id] ? { ...t, assignedJudge: updatedMap[t.id] } : t));
+      setJudgeSelections(prev => ({ ...prev, ...updatedMap }));
+
+      alert(`✅ Successfully allocated ${successCount} finalists by Lab Venue!\n\nJudges can now conduct evaluations within their assigned lab rooms.`);
+    } catch (err) {
+      console.error("Lab allocation error:", err);
+      alert("Error during lab allocation: " + err.message);
+    } finally {
+      setIsAssigningExternal(false);
+    }
+  };
+
+  // ⚡ Batch Assign all teams in an arbitrary array (e.g. filtered by lab, mentor, or search) to a specific panel
+  const handleAssignFilteredTeamsToPanel = async (targetTeams, panelId) => {
+    if (!targetTeams || targetTeams.length === 0) {
+      alert("No teams selected or filtered.");
+      return;
+    }
+    if (!panelId) return;
+
+    const judgeProf = JUDGE_PROFILES[panelId.toUpperCase()];
+    const profText = judgeProf ? ` (${judgeProf.namesText})` : '';
+
+    if (!confirm(`Assign all ${targetTeams.length} filtered team(s) to ${panelId}${profText}?`)) {
+      return;
+    }
+
+    setIsAssigningExternal(true);
+
+    try {
+      let count = 0;
+      const updatedMap = {};
+
+      for (const t of targetTeams) {
+        const { error } = await saveTeamAssignment(
+          supabase,
+          t.id,
+          t.teamName,
+          { assignedJudge: panelId }
+        );
+
+        if (!error) {
+          count++;
+          updatedMap[t.id] = panelId;
+        }
+      }
+
+      setTeams(prev => prev.map(t => updatedMap[t.id] ? { ...t, assignedJudge: updatedMap[t.id] } : t));
+      setJudgeSelections(prev => ({ ...prev, ...updatedMap }));
+
+      alert(`✅ Assigned ${count} teams to ${panelId}!`);
+    } catch (err) {
+      console.error("Batch assign error:", err);
+      alert("Error: " + err.message);
+    } finally {
+      setIsAssigningExternal(false);
+    }
+  };
+
+  // 🔄 Transfer / Swap all teams from one External Panel to another
+  const handleTransferExternalPanel = async (fromPanelId, toPanelId) => {
+    if (!fromPanelId || !toPanelId || fromPanelId === toPanelId) return;
+
+    const teamsToTransfer = teams.filter(t => (t.assignedJudge || '').toUpperCase() === fromPanelId.toUpperCase());
+    if (teamsToTransfer.length === 0) {
+      alert(`No teams currently assigned to ${fromPanelId}.`);
+      return;
+    }
+
+    if (!confirm(`Transfer all ${teamsToTransfer.length} teams from ${fromPanelId} to ${toPanelId}?`)) {
+      return;
+    }
+
+    setIsAssigningExternal(true);
+
+    try {
+      let count = 0;
+      const updatedMap = {};
+
+      for (const t of teamsToTransfer) {
+        const { error } = await saveTeamAssignment(
+          supabase,
+          t.id,
+          t.teamName,
+          { assignedJudge: toPanelId }
+        );
+
+        if (!error) {
+          count++;
+          updatedMap[t.id] = toPanelId;
+        }
+      }
+
+      setTeams(prev => prev.map(t => updatedMap[t.id] ? { ...t, assignedJudge: updatedMap[t.id] } : t));
+      setJudgeSelections(prev => ({ ...prev, ...updatedMap }));
+
+      alert(`✅ Transferred ${count} teams from ${fromPanelId} to ${toPanelId}!`);
+    } catch (err) {
+      console.error("Transfer error:", err);
+      alert("Error: " + err.message);
+    } finally {
+      setIsAssigningExternal(false);
+    }
+  };
+
   // Toggle a team's finalist status (promote non-finalist or demote finalist)
   const handleToggleFinalistStatus = async (team) => {
     if (!team) return;
@@ -975,22 +1236,19 @@ export default function AdminDashboardPage() {
         return;
       }
 
-      const filename = exportTeamLabLocationAndJudgesCSV(teamsToExport);
+      const filename = exportTeamLabLocationAndJudgesCSV(teamsToExport, evaluations);
       alert(
-        `✅ Teams Lab Location & Panel Judges CSV Generated!\n\n` +
+        `✅ Teams Lab Location, Panel Judges, Marks & Mentor Feedback CSV Generated!\n\n` +
         `File: ${filename}\n\n` +
         `Teams Exported: ${teamsToExport.length}\n\n` +
         `Columns Included:\n` +
-        `• S.No\n` +
-        `• Team ID\n` +
-        `• Team Name\n` +
-        `• Lab Location\n` +
-        `• Panel Judges Name\n` +
-        `• Assigned Panel ID\n` +
-        `• Panel Group / Room\n` +
-        `• Track\n` +
-        `• Leader Name & Phone\n` +
-        `• Project Title`
+        `• S.No, Team ID, Team Name, Lab Location\n` +
+        `• Assigned External Panel ID & External Jury Names\n` +
+        `• Track, Leader Name & Phone, Project Title\n` +
+        `• Round 2 Rank, Total Score (out of 50), and Rubrics C1..C5\n` +
+        `• Stage 2 Judge Panel\n` +
+        `• Mentor Panel ID & Mentor Names\n` +
+        `• Phase 1 Mentor Feedback & Phase 2 Mentor Feedback`
       );
     } catch (err) {
       console.error("Teams lab location & judges CSV export error:", err);
@@ -5576,6 +5834,23 @@ export default function AdminDashboardPage() {
               }
             }
 
+            // Lab Venue filter
+            if (finalRoundModalLab !== 'all') {
+              const loc = (t.finalistInfo?.labLocation || t.labLocation || '').toLowerCase();
+              if (!loc.includes(finalRoundModalLab.toLowerCase())) return false;
+            }
+
+            // Mentor Panel filter
+            if (finalRoundModalMentor !== 'all') {
+              const mEval = evaluations.find(e => {
+                const nMatch = (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
+                const pMatch = t.projectTitle && t.projectTitle !== 'Untitled Project' && t.projectTitle !== 'N/A' && (e.teamName || '').trim().toLowerCase() === t.projectTitle.trim().toLowerCase();
+                return (nMatch || pMatch) && (e.judgeEmail || '').toUpperCase().startsWith('MM');
+              });
+              const mId = mEval ? mEval.judgeEmail.toUpperCase() : ((t.assignedJudge || '').toUpperCase().startsWith('MM') ? t.assignedJudge.toUpperCase() : '');
+              if (mId !== finalRoundModalMentor.toUpperCase()) return false;
+            }
+
             // Judge state or panel filter
             const jUpper = (t.assignedJudge || '').trim().toUpperCase();
             if (finalRoundModalFilter === 'unassigned') {
@@ -5605,6 +5880,10 @@ export default function AdminDashboardPage() {
 
             return true;
           });
+
+          // Unique Lab Venues and Mentors for filtering
+          const uniqueLabs = Array.from(new Set(allFinalistTeamsList.map(t => t.finalistInfo?.labLocation || t.labLocation).filter(Boolean))).sort();
+          const uniqueMentors = ['MM001', 'MM002', 'MM003', 'MM004', 'MM005', 'MM006', 'MM007', 'MM008', 'MM009', 'MM010'];
 
           // Sort by track then team ID
           filteredFinalists.sort((a, b) => {
@@ -5740,7 +6019,7 @@ export default function AdminDashboardPage() {
                   background: 'rgba(255, 255, 255, 0.03)',
                   borderBottom: '1px solid rgba(255, 255, 255, 0.1)'
                 }}>
-                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <button
                       type="button"
                       onClick={handleAutoAssignExternalJudges}
@@ -5749,17 +6028,57 @@ export default function AdminDashboardPage() {
                         background: 'linear-gradient(135deg, #ff00cc, #9900ff)',
                         color: '#fff',
                         border: '1.5px solid #ff00cc',
-                        padding: '8px 14px',
+                        padding: '8px 12px',
                         borderRadius: '6px',
                         fontFamily: 'Press Start 2P, monospace',
-                        fontSize: '0.58rem',
+                        fontSize: '0.55rem',
                         fontWeight: 'bold',
                         cursor: isAssigningExternal ? 'not-allowed' : 'pointer',
                         boxShadow: '0 0 12px rgba(255, 0, 204, 0.4)'
                       }}
                       title="Evenly distribute 50 finalist teams by track across External Jury Panels FM001 to FM007 (~7 teams each)"
                     >
-                      {isAssigningExternal ? '⏳ ALLOCATING...' : '⚡ AUTO-ASSIGN TO EXTERNAL (FM001–FM007)'}
+                      {isAssigningExternal ? '⏳ ALLOCATING...' : '⚡ AUTO-ASSIGN TO FM (7 PANELS)'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSmartTrackDistribution}
+                      disabled={isAssigningExternal}
+                      style={{
+                        background: 'linear-gradient(135deg, #9900ff, #0099ff)',
+                        color: '#fff',
+                        border: '1.5px solid #9900ff',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        fontWeight: 'bold',
+                        cursor: isAssigningExternal ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 0 12px rgba(153, 0, 255, 0.4)'
+                      }}
+                      title="Smart Track Allocation: Software -> FM001-FM004, Hybrid -> FM005-FM006, Hardware -> FM007"
+                    >
+                      🎯 SMART TRACK ALLOCATION
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleAutoAssignByLabVenue}
+                      disabled={isAssigningExternal}
+                      style={{
+                        background: 'linear-gradient(135deg, #ff66cc, #ff0066)',
+                        color: '#fff',
+                        border: '1.5px solid #ff66cc',
+                        padding: '8px 12px',
+                        borderRadius: '6px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.55rem',
+                        fontWeight: 'bold',
+                        cursor: isAssigningExternal ? 'not-allowed' : 'pointer',
+                        boxShadow: '0 0 12px rgba(255, 102, 204, 0.3)'
+                      }}
+                      title="Allocate by Lab Venue: Groups judges by physical rooms (S2 Lab, F2 Lab, Project Lab, etc.)"
+                    >
+                      🏢 ALLOCATE BY LAB VENUE
                     </button>
                     <button
                       type="button"
@@ -5769,17 +6088,17 @@ export default function AdminDashboardPage() {
                         background: 'linear-gradient(135deg, #00ffcc, #0099ff)',
                         color: '#000',
                         border: '1.5px solid #00ffcc',
-                        padding: '8px 14px',
+                        padding: '8px 12px',
                         borderRadius: '6px',
                         fontFamily: 'Press Start 2P, monospace',
-                        fontSize: '0.58rem',
+                        fontSize: '0.55rem',
                         fontWeight: 'bold',
                         cursor: isAssigningExternal ? 'not-allowed' : 'pointer',
                         boxShadow: '0 0 12px rgba(0, 255, 204, 0.3)'
                       }}
                       title="Evenly distribute 50 finalist teams across Internal Mentor Panels MM001 to MM010 (~5 teams each)"
                     >
-                      ⚡ AUTO-ASSIGN TO MENTORS (MM001–MM010)
+                      ⚡ AUTO-ASSIGN TO MM (10 MENTORS)
                     </button>
                   </div>
 
@@ -5952,6 +6271,161 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
+                {/* Secondary Filters & Quick Assignment Assistant Bar */}
+                <div style={{
+                  padding: '10px 24px',
+                  background: 'rgba(255, 255, 255, 0.02)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: '10px',
+                  borderBottom: '1px solid rgba(255, 255, 255, 0.06)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {/* Track Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#00ffcc' }}>TRACK:</span>
+                      <select
+                        value={finalRoundModalTrack}
+                        onChange={(e) => setFinalRoundModalTrack(e.target.value)}
+                        style={{
+                          padding: '5px 8px',
+                          background: '#000',
+                          border: '1px solid #00ffcc',
+                          borderRadius: '4px',
+                          color: '#00ffcc',
+                          fontSize: '0.62rem'
+                        }}
+                      >
+                        <option value="all">ALL TRACKS ({allFinalistTeamsList.length})</option>
+                        <option value="software">💻 SOFTWARE ({allFinalistTeamsList.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'software').length})</option>
+                        <option value="hybrid">⚡ HYBRID ({allFinalistTeamsList.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'hybrid').length})</option>
+                        <option value="hardware">🔧 HARDWARE ({allFinalistTeamsList.filter(t => (t.projectType || t.finalistInfo?.track || '').toLowerCase() === 'hardware').length})</option>
+                      </select>
+                    </div>
+
+                    {/* Lab Venue Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#ffb852' }}>LAB:</span>
+                      <select
+                        value={finalRoundModalLab}
+                        onChange={(e) => setFinalRoundModalLab(e.target.value)}
+                        style={{
+                          padding: '5px 8px',
+                          background: '#000',
+                          border: '1px solid #ffb852',
+                          borderRadius: '4px',
+                          color: '#ffb852',
+                          fontSize: '0.62rem',
+                          maxWidth: '220px'
+                        }}
+                      >
+                        <option value="all">📍 ALL LAB VENUES</option>
+                        {uniqueLabs.map(lab => {
+                          const count = allFinalistTeamsList.filter(t => (t.finalistInfo?.labLocation || t.labLocation || '').toLowerCase().includes(lab.toLowerCase())).length;
+                          return (
+                            <option key={lab} value={lab}>
+                              📍 {lab.length > 25 ? lab.substring(0, 25) + '...' : lab} ({count})
+                            </option>
+                          );
+                        })}
+                      </select>
+                    </div>
+
+                    {/* Mentor Panel Filter */}
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00' }}>MENTOR:</span>
+                      <select
+                        value={finalRoundModalMentor}
+                        onChange={(e) => setFinalRoundModalMentor(e.target.value)}
+                        style={{
+                          padding: '5px 8px',
+                          background: '#000',
+                          border: '1px solid #fdff00',
+                          borderRadius: '4px',
+                          color: '#fdff00',
+                          fontSize: '0.62rem'
+                        }}
+                      >
+                        <option value="all">👨‍🏫 ALL MENTORS</option>
+                        {uniqueMentors.map(mId => (
+                          <option key={mId} value={mId}>
+                            👨‍🏫 {mId} ({JUDGE_PROFILES[mId]?.group || 'Mentor Panel'})
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {(finalRoundModalTrack !== 'all' || finalRoundModalLab !== 'all' || finalRoundModalMentor !== 'all' || finalRoundModalFilter !== 'all' || finalRoundModalSearch) && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setFinalRoundModalTrack('all');
+                          setFinalRoundModalLab('all');
+                          setFinalRoundModalMentor('all');
+                          setFinalRoundModalFilter('all');
+                          setFinalRoundModalSearch('');
+                        }}
+                        style={{
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid #666',
+                          color: '#ccc',
+                          padding: '4px 8px',
+                          borderRadius: '4px',
+                          fontSize: '0.52rem',
+                          fontFamily: 'Press Start 2P, monospace',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✕ RESET FILTERS
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Batch Assign All Filtered Teams */}
+                  {filteredFinalists.length > 0 && (
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                      <span style={{ fontSize: '0.52rem', fontFamily: 'Press Start 2P, monospace', color: '#ff66ff' }}>
+                        ⚡ ASSIGN {filteredFinalists.length} FILTERED TO:
+                      </span>
+                      <select
+                        defaultValue=""
+                        disabled={isAssigningExternal}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (val) {
+                            handleAssignFilteredTeamsToPanel(filteredFinalists, val);
+                            e.target.value = "";
+                          }
+                        }}
+                        style={{
+                          padding: '4px 8px',
+                          background: '#000',
+                          border: '1.5px solid #ff00cc',
+                          borderRadius: '4px',
+                          color: '#ff66ff',
+                          fontSize: '0.62rem',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        <option value="" disabled>Select Panel...</option>
+                        <optgroup label="🌟 Round 3 External Judges (FM001–FM007)">
+                          {['FM001', 'FM002', 'FM003', 'FM004', 'FM005', 'FM006', 'FM007'].map(fId => (
+                            <option key={fId} value={fId}>{fId} ({JUDGE_PROFILES[fId]?.group || ''}) - {JUDGE_PROFILES[fId]?.namesText || ''}</option>
+                          ))}
+                        </optgroup>
+                        <optgroup label="⭐ Mentor Panels (MM001–MM010)">
+                          {uniqueMentors.map(mId => (
+                            <option key={mId} value={mId}>{mId} ({JUDGE_PROFILES[mId]?.group || ''})</option>
+                          ))}
+                        </optgroup>
+                      </select>
+                    </div>
+                  )}
+                </div>
+
                 {/* Bulk Action Toolbar inside modal */}
                 {selectedTeamIds.length > 0 && (
                   <div style={{
@@ -6009,7 +6483,7 @@ export default function AdminDashboardPage() {
                     <table className="eval-table admin-table" style={{ margin: 0 }}>
                       <thead>
                         <tr>
-                          <th style={{ width: '4%', textAlign: 'center' }}>
+                          <th style={{ width: '3%', textAlign: 'center' }}>
                             <input
                               type="checkbox"
                               checked={isAllFilteredSelected}
@@ -6017,18 +6491,20 @@ export default function AdminDashboardPage() {
                               style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
                             />
                           </th>
-                          <th style={{ width: '12%', textAlign: 'center' }}>Team ID & Track</th>
-                          <th style={{ width: '22%' }}>Team Name & Project</th>
-                          <th style={{ width: '18%' }}>Lab Venue</th>
-                          <th style={{ width: '20%' }}>Leader Details</th>
-                          <th style={{ width: '18%' }}>Assign Judge Panel</th>
-                          <th style={{ width: '6%', textAlign: 'center' }}>Save</th>
+                          <th style={{ width: '11%', textAlign: 'center' }}>Team ID & Track</th>
+                          <th style={{ width: '17%' }}>Team Name & Project</th>
+                          <th style={{ width: '11%' }}>Lab Venue</th>
+                          <th style={{ width: '14%' }}>Round 2 Marks</th>
+                          <th style={{ width: '13%' }}>Mentor Feedback</th>
+                          <th style={{ width: '13%' }}>Leader Details</th>
+                          <th style={{ width: '14%' }}>Assign Judge Panel</th>
+                          <th style={{ width: '4%', textAlign: 'center' }}>Save</th>
                         </tr>
                       </thead>
                       <tbody>
                         {filteredFinalists.length === 0 ? (
                           <tr>
-                            <td colSpan="7" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
+                            <td colSpan="9" style={{ textAlign: 'center', padding: '36px', color: 'var(--text-muted)' }}>
                               ⚠️ No finalist teams match the selected filter criteria.
                             </td>
                           </tr>
@@ -6040,6 +6516,32 @@ export default function AdminDashboardPage() {
                             const isFM = (t.assignedJudge || '').toUpperCase().startsWith('FM');
                             const isMM = (t.assignedJudge || '').toUpperCase().startsWith('MM');
                             const judgeProf = JUDGE_PROFILES[(t.assignedJudge || '').toUpperCase()];
+
+                            // Match Round 2 official score & criteria breakdown
+                            const finInfo = t.finalistInfo || getFinalRoundTeamInfo(t);
+                            const round2Eval = evaluations.find(e => {
+                              const nameMatch = (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
+                              const projMatch = t.projectTitle && t.projectTitle !== 'Untitled Project' && t.projectTitle !== 'N/A' && (e.teamName || '').trim().toLowerCase() === t.projectTitle.trim().toLowerCase();
+                              const jEmail = (e.judgeEmail || '').trim().toUpperCase();
+                              return (nameMatch || projMatch) && jEmail.startsWith('JM');
+                            });
+                            const round2Score = round2Eval ? round2Eval.totalScore : (finInfo?.score ?? null);
+                            const round2C1 = round2Eval ? round2Eval.c1 : (finInfo?.c1 ?? null);
+                            const round2C2 = round2Eval ? round2Eval.c2 : (finInfo?.c2 ?? null);
+                            const round2C3 = round2Eval ? round2Eval.c3 : (finInfo?.c3 ?? null);
+                            const round2C4 = round2Eval ? round2Eval.c4 : (finInfo?.c4 ?? null);
+                            const round2C5 = round2Eval ? round2Eval.c5 : (finInfo?.c5 ?? null);
+                            const round2Judge = round2Eval ? round2Eval.judgeEmail : (finInfo?.assignedJudge || null);
+                            const round2Rank = finInfo?.rank || null;
+
+                            // Match Mentor evaluations (MM001 - MM010)
+                            const mentorEvals = evaluations.filter(e => {
+                              const nameMatch = (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
+                              const projMatch = t.projectTitle && t.projectTitle !== 'Untitled Project' && t.projectTitle !== 'N/A' && (e.teamName || '').trim().toLowerCase() === t.projectTitle.trim().toLowerCase();
+                              if (!nameMatch && !projMatch) return false;
+                              const jEmail = (e.judgeEmail || '').trim().toUpperCase();
+                              return jEmail.startsWith('MM') && (e.remarks || e.phase1Feedback || e.phase2Feedback);
+                            });
 
                             return (
                               <tr key={t.id || idx} style={{ background: isSelected ? 'rgba(33, 33, 255, 0.18)' : undefined }}>
@@ -6107,6 +6609,117 @@ export default function AdminDashboardPage() {
                                     </span>
                                   ) : (
                                     <span style={{ color: '#666', fontSize: '0.7rem' }}>TBA</span>
+                                  )}
+                                </td>
+
+                                {/* Round 2 Marks */}
+                                <td>
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                                    <span style={{
+                                      fontSize: '0.85rem',
+                                      fontWeight: 'bold',
+                                      color: round2Score !== null ? '#00ffcc' : '#666',
+                                      fontFamily: 'Press Start 2P, monospace'
+                                    }}>
+                                      {round2Score !== null ? `${round2Score}/50` : '—'}
+                                    </span>
+                                    {round2Rank && (
+                                      <span style={{
+                                        fontSize: '0.52rem',
+                                        padding: '2px 5px',
+                                        borderRadius: '3px',
+                                        background: 'rgba(253, 255, 0, 0.2)',
+                                        color: '#fdff00',
+                                        border: '1px solid #fdff00',
+                                        fontWeight: 'bold'
+                                      }}>
+                                        #{round2Rank}
+                                      </span>
+                                    )}
+                                  </div>
+                                  {round2C1 !== null && (
+                                    <div style={{
+                                      fontSize: '0.56rem',
+                                      color: '#aaa',
+                                      marginTop: '4px',
+                                      display: 'flex',
+                                      gap: '3px',
+                                      flexWrap: 'wrap',
+                                      fontFamily: 'monospace'
+                                    }}>
+                                      <span title="Innovation (10)" style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 3px', borderRadius: '2px' }}>C1:{round2C1}</span>
+                                      <span title="Execution (10)" style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 3px', borderRadius: '2px' }}>C2:{round2C2}</span>
+                                      <span title="Feasibility (10)" style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 3px', borderRadius: '2px' }}>C3:{round2C3}</span>
+                                      <span title="Presentation (10)" style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 3px', borderRadius: '2px' }}>C4:{round2C4}</span>
+                                      <span title="Implementation (10)" style={{ background: 'rgba(255,255,255,0.06)', padding: '1px 3px', borderRadius: '2px' }}>C5:{round2C5}</span>
+                                    </div>
+                                  )}
+                                  {round2Judge && (
+                                    <div style={{ fontSize: '0.58rem', color: '#888', marginTop: '2px' }}>
+                                      via {round2Judge}
+                                    </div>
+                                  )}
+                                </td>
+
+                                {/* Mentor Feedback */}
+                                <td>
+                                  {mentorEvals.length > 0 ? (
+                                    <div>
+                                      <div style={{ display: 'flex', alignItems: 'center', gap: '3px', flexWrap: 'wrap', marginBottom: '4px' }}>
+                                        {mentorEvals.map(me => (
+                                          <span
+                                            key={me.judgeEmail}
+                                            style={{
+                                              fontSize: '0.52rem',
+                                              fontFamily: 'Press Start 2P, monospace',
+                                              padding: '2px 4px',
+                                              borderRadius: '3px',
+                                              background: 'rgba(255, 0, 204, 0.15)',
+                                              border: '1px solid #ff00cc',
+                                              color: '#ff66cc'
+                                            }}
+                                          >
+                                            {me.judgeEmail}
+                                          </span>
+                                        ))}
+                                      </div>
+                                      <button
+                                        type="button"
+                                        onClick={() => setPreviewMentorFeedback({
+                                          team: t,
+                                          mentorEvals,
+                                          round2: {
+                                            score: round2Score,
+                                            c1: round2C1,
+                                            c2: round2C2,
+                                            c3: round2C3,
+                                            c4: round2C4,
+                                            c5: round2C5,
+                                            rank: round2Rank,
+                                            judge: round2Judge
+                                          }
+                                        })}
+                                        style={{
+                                          background: 'rgba(0, 255, 204, 0.12)',
+                                          border: '1px solid #00ffcc',
+                                          color: '#00ffcc',
+                                          padding: '3px 7px',
+                                          borderRadius: '4px',
+                                          fontSize: '0.62rem',
+                                          cursor: 'pointer',
+                                          display: 'inline-flex',
+                                          alignItems: 'center',
+                                          gap: '4px',
+                                          fontWeight: 'bold'
+                                        }}
+                                      >
+                                        💬 View Notes ({mentorEvals.filter(m => m.hasPhase1 || m.hasPhase2).length})
+                                      </button>
+                                    </div>
+                                  ) : (
+                                    <span style={{ color: '#666', fontSize: '0.68rem', fontStyle: 'italic' }}>
+                                      No mentor notes
+                                    </span>
                                   )}
                                 </td>
 
@@ -6214,6 +6827,234 @@ export default function AdminDashboardPage() {
                     Close Studio
                   </button>
                 </div>
+
+                {/* Internal Mentor Feedback & Round 2 Dossier Preview Modal */}
+                {previewMentorFeedback && (
+                  <div style={{
+                    position: 'fixed',
+                    inset: 0,
+                    zIndex: 99999,
+                    background: 'rgba(0, 0, 0, 0.85)',
+                    backdropFilter: 'blur(6px)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '16px'
+                  }}>
+                    <div style={{
+                      background: '#0d1117',
+                      border: '2px solid #00ffcc',
+                      boxShadow: '0 0 35px rgba(0, 255, 204, 0.3)',
+                      borderRadius: '12px',
+                      maxWidth: '720px',
+                      width: '100%',
+                      maxHeight: '85vh',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      overflow: 'hidden'
+                    }}>
+                      {/* Dossier Header */}
+                      <div style={{
+                        padding: '16px 20px',
+                        borderBottom: '1px solid rgba(0, 255, 204, 0.25)',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        background: 'rgba(0, 255, 204, 0.06)'
+                      }}>
+                        <div>
+                          <div style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.75rem', color: '#00ffcc' }}>
+                            DOSSIER: {previewMentorFeedback.team?.teamName}
+                          </div>
+                          <div style={{ fontSize: '0.74rem', color: '#ccc', marginTop: '4px' }}>
+                            {previewMentorFeedback.team?.projectTitle || 'Untitled Project'} • Track: {previewMentorFeedback.team?.finalistInfo?.track || previewMentorFeedback.team?.projectType || 'Software'} • Lab: {previewMentorFeedback.team?.finalistInfo?.labLocation || 'TBA'}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewMentorFeedback(null)}
+                          style={{
+                            background: 'rgba(255, 255, 255, 0.1)',
+                            border: '1px solid #666',
+                            color: '#fff',
+                            borderRadius: '50%',
+                            width: '28px',
+                            height: '28px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            cursor: 'pointer',
+                            fontSize: '0.9rem',
+                            fontWeight: 'bold'
+                          }}
+                        >
+                          ✕
+                        </button>
+                      </div>
+
+                      {/* Dossier Body */}
+                      <div style={{ padding: '20px', overflowY: 'auto', flex: 1 }}>
+                        {/* Round 2 Performance Dossier */}
+                        <div style={{
+                          background: 'rgba(253, 255, 0, 0.04)',
+                          border: '1px solid rgba(253, 255, 0, 0.3)',
+                          borderRadius: '8px',
+                          padding: '14px 16px',
+                          marginBottom: '18px'
+                        }}>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                              <span style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.65rem', color: '#fdff00' }}>
+                                ROUND 2 PERFORMANCE
+                              </span>
+                              {previewMentorFeedback.round2?.judge && (
+                                <span style={{ fontSize: '0.65rem', color: '#aaa' }}>
+                                  (Stage 2: {previewMentorFeedback.round2.judge})
+                                </span>
+                              )}
+                            </div>
+                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                              {previewMentorFeedback.round2?.rank && (
+                                <span style={{ background: '#fdff00', color: '#000', padding: '3px 7px', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                                  Rank #{previewMentorFeedback.round2.rank}
+                                </span>
+                              )}
+                              <span style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.92rem', color: '#00ffcc', fontWeight: 'bold' }}>
+                                {previewMentorFeedback.round2?.score !== null ? `${previewMentorFeedback.round2.score}/50` : 'N/A'}
+                              </span>
+                            </div>
+                          </div>
+
+                          {previewMentorFeedback.round2?.c1 !== null && (
+                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5, 1fr)', gap: '8px', fontSize: '0.65rem' }}>
+                              <div style={{ background: 'rgba(0,0,0,0.45)', padding: '6px 8px', borderRadius: '5px', textAlign: 'center', border: '1px solid #333' }}>
+                                <div style={{ color: '#888', fontSize: '0.52rem', letterSpacing: '0.5px' }}>INNOVATION</div>
+                                <div style={{ color: '#00ffcc', fontWeight: 'bold', marginTop: '3px', fontSize: '0.75rem' }}>{previewMentorFeedback.round2.c1}/10</div>
+                              </div>
+                              <div style={{ background: 'rgba(0,0,0,0.45)', padding: '6px 8px', borderRadius: '5px', textAlign: 'center', border: '1px solid #333' }}>
+                                <div style={{ color: '#888', fontSize: '0.52rem', letterSpacing: '0.5px' }}>EXECUTION</div>
+                                <div style={{ color: '#00ffcc', fontWeight: 'bold', marginTop: '3px', fontSize: '0.75rem' }}>{previewMentorFeedback.round2.c2}/10</div>
+                              </div>
+                              <div style={{ background: 'rgba(0,0,0,0.45)', padding: '6px 8px', borderRadius: '5px', textAlign: 'center', border: '1px solid #333' }}>
+                                <div style={{ color: '#888', fontSize: '0.52rem', letterSpacing: '0.5px' }}>FEASIBILITY</div>
+                                <div style={{ color: '#00ffcc', fontWeight: 'bold', marginTop: '3px', fontSize: '0.75rem' }}>{previewMentorFeedback.round2.c3}/10</div>
+                              </div>
+                              <div style={{ background: 'rgba(0,0,0,0.45)', padding: '6px 8px', borderRadius: '5px', textAlign: 'center', border: '1px solid #333' }}>
+                                <div style={{ color: '#888', fontSize: '0.52rem', letterSpacing: '0.5px' }}>PRESENTATION</div>
+                                <div style={{ color: '#00ffcc', fontWeight: 'bold', marginTop: '3px', fontSize: '0.75rem' }}>{previewMentorFeedback.round2.c4}/10</div>
+                              </div>
+                              <div style={{ background: 'rgba(0,0,0,0.45)', padding: '6px 8px', borderRadius: '5px', textAlign: 'center', border: '1px solid #333' }}>
+                                <div style={{ color: '#888', fontSize: '0.52rem', letterSpacing: '0.5px' }}>IMPLEMENTATION</div>
+                                <div style={{ color: '#00ffcc', fontWeight: 'bold', marginTop: '3px', fontSize: '0.75rem' }}>{previewMentorFeedback.round2.c5}/10</div>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Mentor Observations */}
+                        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '10px' }}>
+                          <span style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.65rem', color: '#ff66cc' }}>
+                            INTERNAL MENTOR OBSERVATIONS & GUIDANCE
+                          </span>
+                          <span style={{ fontSize: '0.68rem', color: '#888' }}>
+                            {previewMentorFeedback.mentorEvals?.length || 0} Panel Review(s)
+                          </span>
+                        </div>
+
+                        {(!previewMentorFeedback.mentorEvals || previewMentorFeedback.mentorEvals.length === 0) ? (
+                          <div style={{ color: '#888', fontStyle: 'italic', fontSize: '0.76rem', padding: '16px', textAlign: 'center', background: 'rgba(255,255,255,0.02)', borderRadius: '6px' }}>
+                            No internal mentor observations recorded yet for this team.
+                          </div>
+                        ) : (
+                          previewMentorFeedback.mentorEvals.map((me, mIdx) => (
+                            <div
+                              key={mIdx}
+                              style={{
+                                background: 'rgba(255, 0, 204, 0.04)',
+                                border: '1px solid rgba(255, 0, 204, 0.25)',
+                                borderRadius: '8px',
+                                padding: '14px 16px',
+                                marginBottom: '12px'
+                              }}
+                            >
+                              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontFamily: 'Press Start 2P, monospace', fontSize: '0.62rem', color: '#ff99ff', background: 'rgba(255,0,204,0.2)', padding: '3px 7px', borderRadius: '4px', border: '1px solid #ff00cc' }}>
+                                    {me.judgeEmail}
+                                  </span>
+                                  <span style={{ fontSize: '0.78rem', color: '#fff', fontWeight: 'bold' }}>
+                                    {me.judgeName || me.judgeGroup || 'Internal Mentor Panel'}
+                                  </span>
+                                </div>
+                                {me.updatedAt && (
+                                  <span style={{ fontSize: '0.62rem', color: '#777' }}>
+                                    {new Date(me.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Phase 1 Note */}
+                              {me.phase1Feedback && me.phase1Feedback.trim() && (
+                                <div style={{ marginBottom: '10px' }}>
+                                  <div style={{ fontSize: '0.65rem', color: '#ffb852', fontWeight: 'bold', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <span>🚩</span> PHASE 1 MENTORING / INITIAL REVIEW:
+                                  </div>
+                                  <div style={{ fontSize: '0.78rem', color: '#e0e0e0', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '5px', borderLeft: '3px solid #ffb852', lineHeight: '1.4' }}>
+                                    {me.phase1Feedback}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* Phase 2 Note */}
+                              {me.phase2Feedback && me.phase2Feedback.trim() && (
+                                <div style={{ marginBottom: '10px' }}>
+                                  <div style={{ fontSize: '0.65rem', color: '#00ffcc', fontWeight: 'bold', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                                    <span>🚀</span> PHASE 2 PROGRESS / PRE-FINALS CHECK:
+                                  </div>
+                                  <div style={{ fontSize: '0.78rem', color: '#e0e0e0', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '5px', borderLeft: '3px solid #00ffcc', lineHeight: '1.4' }}>
+                                    {me.phase2Feedback}
+                                  </div>
+                                </div>
+                              )}
+
+                              {/* General remarks if no distinct phases */}
+                              {(!me.phase1Feedback || !me.phase1Feedback.trim()) && (!me.phase2Feedback || !me.phase2Feedback.trim()) && me.remarks && (
+                                <div>
+                                  <div style={{ fontSize: '0.65rem', color: '#aaa', fontWeight: 'bold', marginBottom: '4px' }}>
+                                    OBSERVATION / REMARKS:
+                                  </div>
+                                  <div style={{ fontSize: '0.78rem', color: '#e0e0e0', background: 'rgba(0,0,0,0.3)', padding: '8px 12px', borderRadius: '5px', lineHeight: '1.4' }}>
+                                    {me.remarks}
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ))
+                        )}
+                      </div>
+
+                      {/* Modal Footer */}
+                      <div style={{ padding: '12px 20px', background: 'rgba(0, 0, 0, 0.6)', borderTop: '1px solid rgba(255, 255, 255, 0.1)', textAlign: 'right' }}>
+                        <button
+                          type="button"
+                          onClick={() => setPreviewMentorFeedback(null)}
+                          style={{
+                            background: '#00ffcc',
+                            color: '#000',
+                            border: 'none',
+                            padding: '6px 16px',
+                            borderRadius: '4px',
+                            fontWeight: 'bold',
+                            fontSize: '0.72rem',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          Close Dossier
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           );

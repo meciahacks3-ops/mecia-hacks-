@@ -37,6 +37,7 @@ function JudgeEvaluationContent() {
   const [isLocked, setIsLocked] = useState(false); // Closed editing feature for evaluated teams
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [internalFeedbackList, setInternalFeedbackList] = useState([]);
+  const [round2Data, setRound2Data] = useState(null);
 
   const [showModal, setShowModal] = useState(false);
   const [showRubrics, setShowRubrics] = useState(false);
@@ -128,130 +129,162 @@ function JudgeEvaluationContent() {
       const isMentor = currentJudge.startsWith('MM');
       const isExternal = currentJudge.startsWith('FM');
 
-      const { data: allTeamEvals } = await supabase
+      // 1. Fetch evaluations from Supabase
+      const { data: supaEvals } = await supabase
         .from('evaluations')
-        .select('*')
-        .ilike('team_name', name);
+        .select('*');
 
-      if (allTeamEvals && allTeamEvals.length > 0) {
-        const myEval = allTeamEvals.find(e => (e.judge_email || '').trim().toUpperCase() === currentJudge);
-        if (myEval) {
-          const parsed = parseEvaluationRecord(myEval);
-          if (parsed) {
-            setC1(parsed.c1);
-            setC2(parsed.c2);
-            setC3(parsed.c3);
-            setC4(parsed.c4);
-            setC5(parsed.c5);
-            const rawRemarks = parsed.remarks || '';
-            setRemarks(rawRemarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim());
-            setPhase1Remarks(parsed.phase1Feedback || '');
-            setPhase2Remarks(parsed.phase2Feedback || '');
-          }
+      const allEvals = supaEvals || [];
+      const cleanName = name.trim().toLowerCase();
+      const cleanNoSpace = cleanName.replace(/\s+/g, '');
+
+      // Match evaluations for this team (by team_name or project_title)
+      const allTeamEvals = allEvals.filter(e => {
+        const eName = (e.team_name || '').trim().toLowerCase();
+        const eNoSpace = eName.replace(/\s+/g, '');
+        const nameMatch = eName === cleanName || eNoSpace === cleanNoSpace;
+        const projMatch = projectTitle && projectTitle !== 'Untitled Project' && projectTitle !== 'N/A' && eName === projectTitle.trim().toLowerCase();
+        return nameMatch || projMatch;
+      });
+
+      // 2. Extract current judge's evaluation
+      const myEval = allTeamEvals.find(e => (e.judge_email || '').trim().toUpperCase() === currentJudge);
+      if (myEval) {
+        const parsed = parseEvaluationRecord(myEval);
+        if (parsed) {
+          setC1(parsed.c1);
+          setC2(parsed.c2);
+          setC3(parsed.c3);
+          setC4(parsed.c4);
+          setC5(parsed.c5);
+          const rawRemarks = parsed.remarks || '';
+          setRemarks(rawRemarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim());
+          setPhase1Remarks(parsed.phase1Feedback || '');
+          setPhase2Remarks(parsed.phase2Feedback || '');
         }
+      }
 
-        // Also check external_evaluations dedicated table for external jury (FM001-FM007)
-        if (isExternal) {
-          try {
-            const { data: extEval } = await supabase
-              .from('external_evaluations')
-              .select('*')
-              .ilike('team_name', name)
-              .ilike('judge_email', currentJudge)
-              .maybeSingle();
-
-            if (extEval) {
-              setC1(extEval.c1_innovation ?? 0);
-              setC2(extEval.c2_execution ?? 0);
-              setC3(extEval.c3_feasibility ?? 0);
-              setC4(extEval.c4_presentation ?? 0);
-              setC5(extEval.c5_implementation ?? 0);
-              setRemarks(extEval.remarks || '');
-            }
-          } catch (extReadErr) {
-            console.warn("external_evaluations read notice:", extReadErr);
-          }
-        }
-
-        // Also check internal_evaluations dedicated table for internal mentors (MM001-MM010)
-        if (isMentor) {
-          try {
-            const { data: intEval } = await supabase
-              .from('internal_evaluations')
-              .select('*')
-              .ilike('team_name', name)
-              .ilike('judge_email', currentJudge)
-              .maybeSingle();
-
-            if (intEval) {
-              if (intEval.phase1_feedback) setPhase1Remarks(intEval.phase1_feedback);
-              if (intEval.phase2_feedback) setPhase2Remarks(intEval.phase2_feedback);
-              if (intEval.remarks) setRemarks(intEval.remarks);
-            }
-          } catch (intReadErr) {
-            console.warn("internal_evaluations read notice:", intReadErr);
-          }
-        }
-
-        // Extract all internal mentor feedback (MM001-MM010 or JM...)
-        let mentorFeedback = allTeamEvals
-          .map(parseEvaluationRecord)
-          .filter(e => {
-            if (!e || !e.remarks || !e.remarks.trim()) return false;
-            const jEmail = (e.judgeEmail || '').trim().toUpperCase();
-            return jEmail.startsWith('MM') || jEmail.startsWith('JM');
-          });
-
-        // Also query dedicated internal_evaluations table for mentor feedback
+      // Also check external_evaluations dedicated table for external jury (FM001-FM007)
+      if (isExternal) {
         try {
-          const { data: intEvalsTable } = await supabase
+          const { data: extEval } = await supabase
+            .from('external_evaluations')
+            .select('*')
+            .ilike('team_name', name)
+            .ilike('judge_email', currentJudge)
+            .maybeSingle();
+
+          if (extEval) {
+            setC1(extEval.c1_innovation ?? 0);
+            setC2(extEval.c2_execution ?? 0);
+            setC3(extEval.c3_feasibility ?? 0);
+            setC4(extEval.c4_presentation ?? 0);
+            setC5(extEval.c5_implementation ?? 0);
+            setRemarks(extEval.remarks || '');
+          }
+        } catch (extReadErr) {
+          console.warn("external_evaluations read notice:", extReadErr);
+        }
+      }
+
+      // Also check internal_evaluations dedicated table for internal mentors (MM001-MM010)
+      if (isMentor) {
+        try {
+          const { data: intEval } = await supabase
             .from('internal_evaluations')
             .select('*')
-            .ilike('team_name', name);
+            .ilike('team_name', name)
+            .ilike('judge_email', currentJudge)
+            .maybeSingle();
 
-          if (intEvalsTable && intEvalsTable.length > 0) {
-            intEvalsTable.forEach(ie => {
-              const p1 = ie.phase1_feedback || '';
-              const p2 = ie.phase2_feedback || '';
-              const formattedRemarks = ie.remarks || (p1 || p2 ? formatPhaseFeedback(p1, p2) : '');
-              const item = {
-                id: ie.id,
-                teamName: ie.team_name,
-                judgeEmail: (ie.judge_email || '').trim().toUpperCase(),
-                judgeName: ie.judge_name,
-                judgeGroup: ie.judge_group,
-                phase1Feedback: p1,
-                phase2Feedback: p2,
-                hasPhase1: Boolean(p1 && p1.trim()),
-                hasPhase2: Boolean(p2 && p2.trim()),
-                hasPhases: Boolean((p1 && p1.trim()) || (p2 && p2.trim())),
-                remarks: formattedRemarks,
-                updatedAt: ie.updated_at
-              };
-
-              const existingIdx = mentorFeedback.findIndex(
-                mf => (mf.judgeEmail || '').trim().toUpperCase() === item.judgeEmail
-              );
-              if (existingIdx >= 0) {
-                mentorFeedback[existingIdx] = { ...mentorFeedback[existingIdx], ...item };
-              } else if (item.remarks && item.remarks.trim()) {
-                mentorFeedback.push(item);
-              }
-            });
+          if (intEval) {
+            if (intEval.phase1_feedback) setPhase1Remarks(intEval.phase1_feedback);
+            if (intEval.phase2_feedback) setPhase2Remarks(intEval.phase2_feedback);
+            if (intEval.remarks) setRemarks(intEval.remarks);
           }
-        } catch (intFetchErr) {
-          console.warn("internal_evaluations fetch notice:", intFetchErr);
+        } catch (intReadErr) {
+          console.warn("internal_evaluations read notice:", intReadErr);
         }
-
-        setInternalFeedbackList(mentorFeedback);
-
-        // Only lock for legacy Round 2 JM judges, never lock for internal MM or external FM judges
-        const isLegacyR2 = !isMentor && !isExternal;
-        setIsLocked(isLegacyR2 && Boolean(myEval));
-      } else {
-        setIsLocked(false);
-        setInternalFeedbackList([]);
       }
+
+      // 3. Extract official Round 2 marks & rubric details
+      const finInfo = getFinalRoundTeamInfo({ teamName: name, teamIdNo });
+      const r2Eval = allTeamEvals.find(e => (e.judge_email || '').trim().toUpperCase().startsWith('JM'));
+      const parsedR2 = r2Eval ? parseEvaluationRecord(r2Eval) : null;
+      const r2DataObj = {
+        score: parsedR2 ? parsedR2.totalScore : (finInfo?.score ?? null),
+        c1: parsedR2 ? parsedR2.c1 : (finInfo?.c1 ?? null),
+        c2: parsedR2 ? parsedR2.c2 : (finInfo?.c2 ?? null),
+        c3: parsedR2 ? parsedR2.c3 : (finInfo?.c3 ?? null),
+        c4: parsedR2 ? parsedR2.c4 : (finInfo?.c4 ?? null),
+        c5: parsedR2 ? parsedR2.c5 : (finInfo?.c5 ?? null),
+        rank: finInfo?.rank || null,
+        category: finInfo?.category || null,
+        track: finInfo?.track || null,
+        judge: r2Eval ? (r2Eval.judge_email || '').trim().toUpperCase() : (finInfo?.assignedJudge || null),
+        remarks: parsedR2?.remarks || ''
+      };
+      setRound2Data(r2DataObj);
+
+      // 4. Extract all internal mentor feedback (MM001-MM010)
+      let mentorFeedback = allTeamEvals
+        .map(parseEvaluationRecord)
+        .filter(e => {
+          if (!e) return false;
+          const jEmail = (e.judgeEmail || '').trim().toUpperCase();
+          return jEmail.startsWith('MM') && (e.remarks || e.phase1Feedback || e.phase2Feedback);
+        });
+
+      // Also query dedicated internal_evaluations table for mentor feedback
+      try {
+        const { data: intEvalsTable } = await supabase
+          .from('internal_evaluations')
+          .select('*');
+
+        if (intEvalsTable && intEvalsTable.length > 0) {
+          const matchedInt = intEvalsTable.filter(ie => {
+            const ieName = (ie.team_name || '').trim().toLowerCase();
+            return ieName === cleanName || ieName.replace(/\s+/g, '') === cleanNoSpace;
+          });
+
+          matchedInt.forEach(ie => {
+            const p1 = ie.phase1_feedback || '';
+            const p2 = ie.phase2_feedback || '';
+            const formattedRemarks = ie.remarks || (p1 || p2 ? formatPhaseFeedback(p1, p2) : '');
+            const item = {
+              id: ie.id,
+              teamName: ie.team_name,
+              judgeEmail: (ie.judge_email || '').trim().toUpperCase(),
+              judgeName: ie.judge_name,
+              judgeGroup: ie.judge_group,
+              phase1Feedback: p1,
+              phase2Feedback: p2,
+              hasPhase1: Boolean(p1 && p1.trim()),
+              hasPhase2: Boolean(p2 && p2.trim()),
+              hasPhases: Boolean((p1 && p1.trim()) || (p2 && p2.trim())),
+              remarks: formattedRemarks,
+              updatedAt: ie.updated_at
+            };
+
+            const existingIdx = mentorFeedback.findIndex(
+              mf => (mf.judgeEmail || '').trim().toUpperCase() === item.judgeEmail
+            );
+            if (existingIdx >= 0) {
+              mentorFeedback[existingIdx] = { ...mentorFeedback[existingIdx], ...item };
+            } else if (item.remarks && item.remarks.trim()) {
+              mentorFeedback.push(item);
+            }
+          });
+        }
+      } catch (intFetchErr) {
+        console.warn("internal_evaluations fetch notice:", intFetchErr);
+      }
+
+      setInternalFeedbackList(mentorFeedback);
+
+      // Only lock for legacy Round 2 JM judges, never lock for internal MM or external FM judges
+      const isLegacyR2 = !isMentor && !isExternal;
+      setIsLocked(isLegacyR2 && Boolean(myEval));
     } catch (e) {
       console.warn("Supabase fetch marks warning:", e);
     }
@@ -1007,6 +1040,143 @@ function JudgeEvaluationContent() {
             </div>
           ) : (
             <>
+              {/* STAGE 2 EVALUATION & MARKS DOSSIER (Visible to External Judges) */}
+              {isExternalRound3Judge && (
+                <div style={{
+                  background: 'linear-gradient(135deg, rgba(253, 255, 0, 0.1) 0%, rgba(0, 255, 204, 0.08) 100%)',
+                  border: '2px solid #fdff00',
+                  borderRadius: '10px',
+                  padding: '18px 22px',
+                  marginBottom: '24px',
+                  boxShadow: '0 0 25px rgba(253, 255, 0, 0.2)'
+                }}>
+                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '10px', marginBottom: '14px' }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                      <span style={{ fontSize: '1.6rem' }}>🎯</span>
+                      <div>
+                        <h3 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.78rem', color: '#fdff00', letterSpacing: '0.5px' }}>
+                          STAGE 2 MARKS &amp; RUBRIC PERFORMANCE DOSSIER
+                        </h3>
+                        <p style={{ margin: '4px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
+                          Official qualification score, category ranking, and 5-pillar rubric marks from Stage 2.
+                        </p>
+                      </div>
+                    </div>
+                    {round2Data && round2Data.score !== null && round2Data.score !== undefined ? (
+                      <span style={{
+                        background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                        color: '#000',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.75rem',
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontWeight: 'bold',
+                        boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
+                      }}>
+                        {round2Data.score} / 50 MARKS ({Math.round((round2Data.score / 50) * 100)}%)
+                      </span>
+                    ) : (
+                      <span style={{ color: '#888', fontSize: '0.65rem', fontFamily: 'Press Start 2P, monospace' }}>
+                        STAGE 2 SCORE: N/A
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Rank and Category Banner */}
+                  {round2Data && (round2Data.rank || round2Data.category || round2Data.track) && (
+                    <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', alignItems: 'center', marginBottom: '14px' }}>
+                      {round2Data.rank && (
+                        <span style={{
+                          background: 'rgba(253, 255, 0, 0.2)',
+                          color: '#fdff00',
+                          border: '1px solid #fdff00',
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          fontSize: '0.68rem',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontWeight: 'bold'
+                        }}>
+                          🏆 {round2Data.rank}
+                        </span>
+                      )}
+                      {round2Data.category && (
+                        <span style={{
+                          background: 'rgba(0, 255, 204, 0.15)',
+                          color: '#00ffcc',
+                          border: '1px solid #00ffcc',
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          fontSize: '0.68rem',
+                          fontFamily: 'Press Start 2P, monospace'
+                        }}>
+                          📌 {round2Data.category}
+                        </span>
+                      )}
+                      {round2Data.judge && (
+                        <span style={{
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          color: '#fff',
+                          border: '1px solid #555',
+                          padding: '4px 10px',
+                          borderRadius: '4px',
+                          fontSize: '0.68rem'
+                        }}>
+                          👨‍⚖️ Evaluated by Panel: <strong style={{ color: '#00ffcc' }}>{round2Data.judge}</strong>
+                        </span>
+                      )}
+                    </div>
+                  )}
+
+                  {/* 5 Criteria Score Cards */}
+                  {round2Data && (round2Data.c1 !== null || round2Data.c2 !== null || round2Data.c3 !== null || round2Data.c4 !== null || round2Data.c5 !== null) && (
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                      gap: '10px',
+                      marginBottom: '12px'
+                    }}>
+                      <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.62rem', color: '#aaa', marginBottom: '4px' }}>💡 Innovation &amp; Problem</div>
+                        <div style={{ fontSize: '1rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                          {round2Data.c1 ?? '-'}<span style={{ fontSize: '0.6rem', color: '#666' }}>/10</span>
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.62rem', color: '#aaa', marginBottom: '4px' }}>⚙️ Execution &amp; Tech</div>
+                        <div style={{ fontSize: '1rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                          {round2Data.c2 ?? '-'}<span style={{ fontSize: '0.6rem', color: '#666' }}>/10</span>
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.62rem', color: '#aaa', marginBottom: '4px' }}>🎯 Feasibility &amp; Impact</div>
+                        <div style={{ fontSize: '1rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                          {round2Data.c3 ?? '-'}<span style={{ fontSize: '0.6rem', color: '#666' }}>/10</span>
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.62rem', color: '#aaa', marginBottom: '4px' }}>🗣️ Presentation &amp; Q&amp;A</div>
+                        <div style={{ fontSize: '1rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                          {round2Data.c4 ?? '-'}<span style={{ fontSize: '0.6rem', color: '#666' }}>/10</span>
+                        </div>
+                      </div>
+                      <div style={{ background: 'rgba(0, 0, 0, 0.75)', border: '1px solid rgba(0, 255, 204, 0.4)', borderRadius: '6px', padding: '10px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.62rem', color: '#aaa', marginBottom: '4px' }}>🚀 Prototype Implementation</div>
+                        <div style={{ fontSize: '1rem', color: '#00ffcc', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
+                          {round2Data.c5 ?? '-'}<span style={{ fontSize: '0.6rem', color: '#666' }}>/10</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {round2Data?.remarks && (
+                    <div style={{ background: 'rgba(0, 0, 0, 0.6)', borderLeft: '3px solid #fdff00', padding: '8px 12px', borderRadius: '4px', marginTop: '8px' }}>
+                      <span style={{ color: '#fdff00', fontSize: '0.7rem', fontWeight: 'bold' }}>Stage 2 Evaluator Remarks: </span>
+                      <span style={{ color: '#fff', fontSize: '0.82rem', fontStyle: 'italic' }}>&ldquo;{round2Data.remarks}&rdquo;</span>
+                    </div>
+                  )}
+                </div>
+              )}
+
               {/* INTERNAL MENTOR FEEDBACK (Visible to External Judges) */}
               {(isExternalRound3Judge || internalFeedbackList.length > 0) && (
                 <div style={{
