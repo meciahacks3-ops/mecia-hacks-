@@ -1110,7 +1110,8 @@ export default function AdminDashboardPage() {
 
   const cleanQuery = searchQuery.trim().toLowerCase();
 
-  const finalistTeamsCount = teams.filter(t => t.isFinalist).length;
+  const finalistTeams = teams.filter(t => t.isFinalist);
+  const finalistTeamsCount = finalistTeams.length;
 
   // Primary Scope: Finalists (Default 49 qualified teams) vs All Teams (121 teams archive)
   const scopeTeams = scopeFilter === 'finalists'
@@ -1257,7 +1258,7 @@ export default function AdminDashboardPage() {
           <h2>HACKATHON FINAL ROUND CONTROL</h2>
           <p>
             {scopeFilter === 'finalists'
-              ? `Focusing on the ${finalistTeams.length || FINAL_ROUND_STATS.totalTeams} Qualified Finalist Teams (${FINAL_ROUND_STATS.softwareTeams} Software • ${FINAL_ROUND_STATS.hybridTeams} Hybrid • ${FINAL_ROUND_STATS.hardwareTeams} Hardware • ${FINAL_ROUND_STATS.totalParticipants} Participants). Allocate final round slots, panels, and scores.`
+              ? `Focusing on the ${finalistTeamsCount || FINAL_ROUND_STATS.totalTeams} Qualified Finalist Teams (${FINAL_ROUND_STATS.softwareTeams} Software • ${FINAL_ROUND_STATS.hybridTeams} Hybrid • ${FINAL_ROUND_STATS.hardwareTeams} Hardware • ${FINAL_ROUND_STATS.totalParticipants} Participants). Allocate final round slots, panels, and scores.`
               : 'Managing all registered teams archive. Allocate presentation time slots, assign judge panels, and monitor evaluations.'}
           </p>
         </div>
@@ -1291,11 +1292,11 @@ export default function AdminDashboardPage() {
                     fontSize: '0.55rem',
                     fontWeight: 'bold'
                   }}>
-                    {finalistTeams.length || FINAL_ROUND_STATS.totalTeams} TEAMS ADVANCED
+                    {finalistTeamsCount || FINAL_ROUND_STATS.totalTeams} TEAMS ADVANCED
                   </span>
                 </div>
                 <p style={{ margin: '6px 0 0 0', color: '#ccc', fontSize: '0.78rem' }}>
-                  Portal is currently focused on the {finalistTeams.length || FINAL_ROUND_STATS.totalTeams} qualified finalist teams ({FINAL_ROUND_STATS.softwareTeams} Software • {FINAL_ROUND_STATS.hybridTeams} Hybrid • {FINAL_ROUND_STATS.hardwareTeams} Hardware • {FINAL_ROUND_STATS.totalParticipants} Participants).
+                  Portal is currently focused on the {finalistTeamsCount || FINAL_ROUND_STATS.totalTeams} qualified finalist teams ({FINAL_ROUND_STATS.softwareTeams} Software • {FINAL_ROUND_STATS.hybridTeams} Hybrid • {FINAL_ROUND_STATS.hardwareTeams} Hardware • {FINAL_ROUND_STATS.totalParticipants} Participants).
                 </p>
               </div>
             </div>
@@ -1318,7 +1319,7 @@ export default function AdminDashboardPage() {
                   boxShadow: scopeFilter === 'finalists' ? '0 0 14px rgba(253, 255, 0, 0.4)' : 'none'
                 }}
               >
-                🏆 {finalistTeams.length || FINAL_ROUND_STATS.totalTeams} FINALISTS (ACTIVE)
+                🏆 {finalistTeamsCount || FINAL_ROUND_STATS.totalTeams} FINALISTS (ACTIVE)
               </button>
               <button
                 type="button"
@@ -1369,7 +1370,7 @@ export default function AdminDashboardPage() {
                   fontWeight: 'bold'
                 }}
               >
-                ALL {finalistTeams.length || FINAL_ROUND_STATS.totalTeams} FINALISTS
+                ALL {finalistTeamsCount || FINAL_ROUND_STATS.totalTeams} FINALISTS
               </button>
               <button
                 type="button"
@@ -1516,7 +1517,7 @@ export default function AdminDashboardPage() {
                     boxShadow: '0 0 8px rgba(255, 51, 102, 0.3)'
                   }}
                 >
-                  {isUnassigningFinalists ? '⏳ UNASSIGNING...' : `⚡ UNASSIGN ${finalistTeams.length || FINAL_ROUND_STATS.totalTeams} FINALISTS`}
+                  {isUnassigningFinalists ? '⏳ UNASSIGNING...' : `⚡ UNASSIGN ${finalistTeamsCount || FINAL_ROUND_STATS.totalTeams} FINALISTS`}
                 </button>
               </div>
             </div>
@@ -2592,7 +2593,7 @@ export default function AdminDashboardPage() {
                         boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
                       }}
                     >
-                      ⭐ ALL QUALIFIED FINALISTS ({finalistTeams.length || FINAL_ROUND_STATS.totalTeams})
+                      ⭐ ALL QUALIFIED FINALISTS ({finalistTeamsCount || FINAL_ROUND_STATS.totalTeams})
                     </button>
                     <button
                       type="button"
