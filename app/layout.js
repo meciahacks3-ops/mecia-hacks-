@@ -15,7 +15,7 @@ export const metadata = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -23,8 +23,18 @@ export default function RootLayout({ children }) {
           href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Silkscreen:wght@400;700&family=Outfit:wght@400;600;700;800&family=Inter:wght@400;500;600;700&display=swap"
           rel="stylesheet"
         />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=localStorage.getItem('themeMode');if(m==='simple'){document.documentElement.classList.add('simple-theme');}}catch(e){}})();`,
+          }}
+        />
       </head>
-      <body>
+      <body suppressHydrationWarning>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `(function(){try{var m=localStorage.getItem('themeMode');if(m==='simple'){document.body.classList.add('simple-theme');}}catch(e){}})();`,
+          }}
+        />
         {children}
       </body>
     </html>

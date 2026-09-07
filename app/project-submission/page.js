@@ -7,6 +7,7 @@ import { findRegisteredTeam } from '@/lib/teamUtils';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { isFinalRoundTeam, getFinalRoundTeamInfo } from '@/lib/finalRoundTeams';
+import ThemeToggle from '@/app/components/ThemeToggle';
 
 export default function ProjectSubmissionPage() {
   const router = useRouter();
@@ -523,9 +524,12 @@ export default function ProjectSubmissionPage() {
               </div>
             )}
           </div>
-          <button type="button" className="logout-btn" onClick={handleLogout}>
-            🚪 LOG OUT
-          </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <ThemeToggle />
+            <button type="button" className="logout-btn" onClick={handleLogout}>
+              🚪 LOG OUT
+            </button>
+          </div>
         </div>
 
         <div className="login-header text-left">

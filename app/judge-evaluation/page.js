@@ -4,6 +4,7 @@ import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
+import ThemeToggle from '@/app/components/ThemeToggle';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { parseEvaluationRecord, formatPhaseFeedback, parsePhaseFeedback, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
@@ -507,6 +508,7 @@ function JudgeEvaluationContent() {
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+            <ThemeToggle />
             <button type="button" className="logout-btn" onClick={handleLogout}>
               🚪 LOG OUT
             </button>

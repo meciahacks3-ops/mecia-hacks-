@@ -1561,22 +1561,40 @@ body::before {
   transform: translateY(-1px);
 }
 
-/* Simple Theme Global Overrides */
+/* ==========================================
+   SIMPLE / LIGHT THEME GLOBAL OVERRIDES
+   Ensures every card, container, sub-section,
+   table, input, and modal adapts to light theme
+   ========================================== */
+html.simple-theme,
 body.simple-theme {
-  background: #f8fafc !important;
+  background-color: #f8fafc !important;
+  background-image: none !important;
   color: #0f172a !important;
-  font-family: 'Inter', sans-serif !important;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
+body.simple-theme::before,
+body.simple-theme::after {
+  display: none !important;
+}
+
+/* Hide arcade visual retro decorations in Light Theme */
 body.simple-theme .scanlines,
 body.simple-theme .arcade-marquee,
 body.simple-theme .arcade-footer,
 body.simple-theme .tab-ghost,
 body.simple-theme .pacman-bullet,
-body.simple-theme .pacman-icon {
+body.simple-theme .pacman-icon,
+body.simple-theme .pellet-line,
+body.simple-theme .power-pellet,
+body.simple-theme .pacman-runner,
+body.simple-theme .modal-ghost-row,
+body.simple-theme .ghost {
   display: none !important;
 }
 
+/* Main Top-Level Containers & Cards */
 body.simple-theme .login-container,
 body.simple-theme .submission-container,
 body.simple-theme .judge-container,
@@ -1586,82 +1604,216 @@ body.simple-theme .form-section,
 body.simple-theme .team-card,
 body.simple-theme .modal-card,
 body.simple-theme .sub-block,
-body.simple-theme .total-score-box {
+body.simple-theme .total-score-box,
+body.simple-theme .registered-summary-card {
   background: #ffffff !important;
-  border: 1px solid #cbd5e1 !important;
-  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.08) !important;
+  border: 1px solid #e2e8f0 !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05), 0 1px 3px rgba(0, 0, 0, 0.03) !important;
   color: #0f172a !important;
-  border-radius: 12px !important;
+  border-radius: 14px !important;
 }
 
-body.simple-theme h1, 
-body.simple-theme h2, 
-body.simple-theme h3,
-body.simple-theme .section-title,
-body.simple-theme .team-name,
-body.simple-theme .victory-title {
-  font-family: 'Outfit', 'Inter', sans-serif !important;
+/* All Inner Dark Sub-blocks, Panels, Cards, and Detail Tiles across all pages */
+body.simple-theme div[style*="rgba(0, 0, 0"],
+body.simple-theme div[style*="rgba(0,0,0"],
+body.simple-theme div[style*="background: #000"],
+body.simple-theme div[style*="background:#000"],
+body.simple-theme div[style*="background: rgb(0, 0, 0)"],
+body.simple-theme div[style*="background:rgb(0, 0, 0)"],
+body.simple-theme div[style*="background: #0d0e1b"],
+body.simple-theme div[style*="background:#0d0e1b"],
+body.simple-theme div[style*="background: rgb(13, 14, 27)"],
+body.simple-theme div[style*="background: rgba(13, 14, 27"],
+body.simple-theme div[style*="background: rgba(20, 10, 15"],
+body.simple-theme div[style*="background: rgb(20, 10, 15)"],
+body.simple-theme div[style*="background: rgba(0, 40, 60"],
+body.simple-theme div[style*="background: rgba(10, 20, 40"],
+body.simple-theme div[style*="background: rgba(255, 255, 255, 0.0"],
+body.simple-theme div[style*="background: rgba(255, 255, 255, 0.1"] {
+  background: #f8fafc !important;
+  border-color: #e2e8f0 !important;
+  box-shadow: none !important;
   color: #0f172a !important;
-  text-shadow: none !important;
-  letter-spacing: normal !important;
-  font-weight: 700 !important;
 }
 
-body.simple-theme p,
-body.simple-theme label,
-body.simple-theme .info-val,
-body.simple-theme td,
-body.simple-theme th,
-body.simple-theme input,
-body.simple-theme textarea,
-body.simple-theme select {
-  font-family: 'Inter', sans-serif !important;
-  color: #334155 !important;
-  text-shadow: none !important;
-}
-
-body.simple-theme label {
+/* Spans with dark/semi-transparent backgrounds */
+body.simple-theme span[style*="rgba(0, 0, 0"],
+body.simple-theme span[style*="rgba(0,0,0"],
+body.simple-theme span[style*="background: #000"],
+body.simple-theme span[style*="background:#000"],
+body.simple-theme span[style*="background: rgb(0, 0, 0)"],
+body.simple-theme span[style*="background: rgba(255, 255, 255, 0.0"],
+body.simple-theme span[style*="background: rgba(255, 255, 255, 0.1"] {
+  background: #f1f5f9 !important;
+  border-color: #cbd5e1 !important;
   color: #1e293b !important;
-  font-weight: 600 !important;
 }
 
-body.simple-theme input,
-body.simple-theme textarea,
-body.simple-theme select {
+/* Gradient Hero Banners across all dashboards */
+body.simple-theme div[style*="linear-gradient"] {
+  background: #eff6ff !important;
+  border: 1px solid #bfdbfe !important;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.06) !important;
+}
+
+/* Role Selector Tabs (Login page) */
+body.simple-theme .role-tabs {
   background: #f1f5f9 !important;
   border: 1px solid #cbd5e1 !important;
+  padding: 4px !important;
+  border-radius: 10px !important;
+}
+
+body.simple-theme .tab-btn {
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.82rem !important;
+  font-weight: 600 !important;
+  color: #64748b !important;
+  border: 1px solid transparent !important;
+  background: transparent !important;
+  border-radius: 8px !important;
+  padding: 10px 12px !important;
+}
+
+body.simple-theme .tab-btn:hover {
   color: #0f172a !important;
-  border-radius: 6px !important;
+  background: #e2e8f0 !important;
 }
 
-body.simple-theme input:focus,
-body.simple-theme textarea:focus,
-body.simple-theme select:focus {
-  border-color: #2563eb !important;
-  background: #ffffff !important;
-  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
-}
-
-body.simple-theme .submit-btn,
-body.simple-theme .eval-btn {
+body.simple-theme .tab-btn.active,
+body.simple-theme .tab-btn.student-tab.active,
+body.simple-theme .tab-btn.internal-judge-tab.active,
+body.simple-theme .tab-btn.judge-tab.active,
+body.simple-theme .tab-btn.external-judge-tab.active,
+body.simple-theme .tab-btn.admin-tab.active {
   background: #2563eb !important;
   color: #ffffff !important;
-  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25) !important;
-  border: none !important;
-  font-family: 'Outfit', 'Inter', sans-serif !important;
-  font-size: 0.88rem !important;
-  font-weight: 700 !important;
+  border-color: #2563eb !important;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25) !important;
+}
+
+/* Google OAuth Button */
+body.simple-theme .google-oauth-btn {
+  background: #ffffff !important;
+  color: #1e293b !important;
+  border: 1.5px solid #cbd5e1 !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05) !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.85rem !important;
+}
+
+body.simple-theme .google-oauth-btn:hover {
+  background: #f8fafc !important;
+  border-color: #94a3b8 !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08) !important;
+  color: #0f172a !important;
+}
+
+/* Navigation Headers & Badges */
+body.simple-theme .nav-header {
+  font-family: 'Inter', sans-serif !important;
+  color: #1e293b !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+body.simple-theme .arcade-hud {
+  font-family: 'Inter', sans-serif !important;
+  color: #64748b !important;
+  border-bottom: 1px solid #e2e8f0 !important;
+}
+
+body.simple-theme .hud-yellow {
+  color: #2563eb !important;
+}
+
+body.simple-theme .blink-text {
+  color: #059669 !important;
+  animation: none !important;
+}
+
+body.simple-theme .student-hud-badge {
+  background: #f1f5f9 !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #1e293b !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.75rem !important;
+}
+
+/* Action Buttons */
+body.simple-theme .logout-btn,
+body.simple-theme .nav-back-btn {
+  background: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: #475569 !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.72rem !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04) !important;
   border-radius: 8px !important;
-  letter-spacing: 0.01em !important;
 }
 
-body.simple-theme .submit-btn:hover,
-body.simple-theme .eval-btn:hover {
-  background: #1d4ed8 !important;
-  transform: translateY(-1px) !important;
+body.simple-theme .logout-btn:hover,
+body.simple-theme .nav-back-btn:hover {
+  background: #f1f5f9 !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
 }
 
-body.simple-theme .role-badge,
+body.simple-theme .rubric-info-btn {
+  background: #eff6ff !important;
+  border: 1px solid #93c5fd !important;
+  color: #2563eb !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+body.simple-theme .rubric-info-btn:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+body.simple-theme .add-member-btn {
+  background: #eff6ff !important;
+  border: 1.5px dashed #3b82f6 !important;
+  color: #1d4ed8 !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+body.simple-theme .remove-member-btn {
+  background: #fef2f2 !important;
+  border: 1px solid #fca5a5 !important;
+  color: #dc2626 !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+/* Theme Toggle Button */
+body.simple-theme .theme-toggle-btn {
+  background: #ffffff !important;
+  color: #2563eb !important;
+  border: 1.5px solid #2563eb !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.75rem !important;
+  font-weight: 600 !important;
+  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12) !important;
+  border-radius: 20px !important;
+}
+
+body.simple-theme .theme-toggle-btn:hover {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.25) !important;
+}
+
+/* Role Badges & Status Pills */
+body.simple-theme .role-badge {
+  background: #eff6ff !important;
+  color: #1d4ed8 !important;
+  border: 1px solid #bfdbfe !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
+}
+
 body.simple-theme .status-pill {
   font-family: 'Inter', sans-serif !important;
   font-weight: 600 !important;
@@ -1680,55 +1832,262 @@ body.simple-theme .status-pill.status-completed {
   border: 1px solid #bbf7d0 !important;
 }
 
-body.simple-theme .eval-table th {
-  background: #f1f5f9 !important;
+body.simple-theme .lock-badge.locked {
+  background: #fee2e2 !important;
+  color: #b91c1c !important;
+  border: 1px solid #fca5a5 !important;
+  animation: none !important;
+}
+
+body.simple-theme .lock-badge.unlocked {
+  background: #dcfce7 !important;
+  color: #15803d !important;
+  border: 1px solid #bbf7d0 !important;
+}
+
+/* Headings & Text Elements */
+body.simple-theme h1, 
+body.simple-theme h2, 
+body.simple-theme h3,
+body.simple-theme h4,
+body.simple-theme .section-title,
+body.simple-theme .team-name,
+body.simple-theme .victory-title {
+  font-family: 'Outfit', 'Inter', sans-serif !important;
   color: #0f172a !important;
-  border-bottom: 2px solid #cbd5e1 !important;
+  text-shadow: none !important;
+  letter-spacing: normal !important;
+  font-weight: 700 !important;
+}
+
+body.simple-theme p,
+body.simple-theme label,
+body.simple-theme .info-val,
+body.simple-theme td,
+body.simple-theme th {
+  font-family: 'Inter', sans-serif !important;
+  color: #334155 !important;
+  text-shadow: none !important;
+}
+
+body.simple-theme label {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+body.simple-theme .info-label {
+  color: #64748b !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 600 !important;
+}
+
+body.simple-theme .highlight-title {
+  color: #1e40af !important;
+}
+
+/* High Contrast Adaptations for Neon / Pale text inside light theme */
+body.simple-theme span[style*="color: #00ffcc"],
+body.simple-theme span[style*="color:#00ffcc"],
+body.simple-theme div[style*="color: #00ffcc"],
+body.simple-theme div[style*="color:#00ffcc"],
+body.simple-theme p[style*="color: #00ffcc"],
+body.simple-theme strong[style*="color: #00ffcc"],
+body.simple-theme label[style*="color: #00ffcc"],
+body.simple-theme h3[style*="color: #00ffcc"] {
+  color: #0284c7 !important;
+}
+
+body.simple-theme span[style*="color: #fdff00"],
+body.simple-theme span[style*="color:#fdff00"],
+body.simple-theme div[style*="color: #fdff00"],
+body.simple-theme div[style*="color:#fdff00"],
+body.simple-theme p[style*="color: #fdff00"],
+body.simple-theme strong[style*="color: #fdff00"],
+body.simple-theme label[style*="color: #fdff00"],
+body.simple-theme h3[style*="color: #fdff00"] {
+  color: #b45309 !important;
+}
+
+body.simple-theme span[style*="color: #ccc"],
+body.simple-theme div[style*="color: #ccc"],
+body.simple-theme p[style*="color: #ccc"],
+body.simple-theme span[style*="color: #bbb"],
+body.simple-theme div[style*="color: #bbb"],
+body.simple-theme p[style*="color: #bbb"],
+body.simple-theme span[style*="color: #aaa"],
+body.simple-theme div[style*="color: #aaa"],
+body.simple-theme p[style*="color: #aaa"] {
+  color: #475569 !important;
+}
+
+body.simple-theme span[style*="color: #fff"],
+body.simple-theme span[style*="color: #ffffff"],
+body.simple-theme div[style*="color: #fff"],
+body.simple-theme div[style*="color: #ffffff"] {
+  color: #0f172a !important;
+}
+
+/* Keep Primary Submit & Eval buttons white text */
+body.simple-theme .submit-btn,
+body.simple-theme .eval-btn,
+body.simple-theme .tab-btn.active,
+body.simple-theme .theme-toggle-btn:hover {
+  color: #ffffff !important;
+}
+
+/* Form Inputs, Selects, and Textareas */
+body.simple-theme input,
+body.simple-theme textarea,
+body.simple-theme select,
+body.simple-theme .retro-select {
+  background: #ffffff !important;
+  border: 1.5px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  border-radius: 8px !important;
+  font-family: 'Inter', sans-serif !important;
+  box-shadow: none !important;
+}
+
+body.simple-theme input:focus,
+body.simple-theme textarea:focus,
+body.simple-theme select:focus,
+body.simple-theme .retro-select:focus {
+  border-color: #2563eb !important;
+  background: #ffffff !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+body.simple-theme .retro-select option {
+  background: #ffffff !important;
+  color: #0f172a !important;
+}
+
+/* Primary Action Buttons */
+body.simple-theme .submit-btn,
+body.simple-theme .eval-btn {
+  background: #2563eb !important;
+  color: #ffffff !important;
+  box-shadow: 0 4px 10px rgba(37, 99, 235, 0.25) !important;
+  border: none !important;
+  font-family: 'Inter', sans-serif !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+  border-radius: 8px !important;
+  letter-spacing: normal !important;
+}
+
+body.simple-theme .submit-btn:hover,
+body.simple-theme .eval-btn:hover {
+  background: #1d4ed8 !important;
+  color: #ffffff !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Evaluation Tables */
+body.simple-theme .eval-table {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body.simple-theme .eval-table th {
+  background: #f8fafc !important;
+  color: #0f172a !important;
+  border-bottom: 2px solid #e2e8f0 !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 700 !important;
 }
 
 body.simple-theme .eval-table td {
-  border-bottom: 1px solid #e2e8f0 !important;
-}
-
-body.simple-theme .arcade-hud {
-  font-family: 'Inter', sans-serif !important;
-  color: #64748b !important;
-  border-bottom: 1px solid #e2e8f0 !important;
-}
-
-body.simple-theme .hud-yellow {
-  color: #2563eb !important;
-}
-
-body.simple-theme .tab-btn {
-  font-family: 'Inter', sans-serif !important;
-  font-size: 0.85rem !important;
-  font-weight: 600 !important;
-  color: #64748b !important;
-  border: 1px solid #cbd5e1 !important;
-  background: #f8fafc !important;
-  border-radius: 6px !important;
-}
-
-body.simple-theme .tab-btn.active {
-  background: #2563eb !important;
-  color: #ffffff !important;
-  border-color: #2563eb !important;
-}
-
-body.simple-theme .theme-toggle-btn {
   background: #ffffff !important;
-  color: #2563eb !important;
-  border: 1px solid #2563eb !important;
-  font-family: 'Inter', sans-serif !important;
-  font-size: 0.78rem !important;
-  font-weight: 600 !important;
-  box-shadow: 0 2px 5px rgba(37, 99, 235, 0.1) !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  color: #334155 !important;
 }
 
-body.simple-theme .theme-toggle-btn:hover {
-  background: #2563eb !important;
-  color: #ffffff !important;
+body.simple-theme .eval-table tr:hover td {
+  background: #f8fafc !important;
+}
+
+body.simple-theme .criterion-name {
+  color: #0f172a !important;
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+}
+
+body.simple-theme .criterion-desc {
+  color: #64748b !important;
+}
+
+body.simple-theme .max-marks-cell {
+  color: #2563eb !important;
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+}
+
+body.simple-theme .eval-score-input {
+  background: #ffffff !important;
+  border: 2px solid #cbd5e1 !important;
+  color: #0f172a !important;
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+  box-shadow: none !important;
+}
+
+body.simple-theme .eval-score-input:focus {
+  border-color: #2563eb !important;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15) !important;
+}
+
+/* Total Score Box */
+body.simple-theme .total-score-box {
+  background: #eff6ff !important;
+  border: 2px solid #93c5fd !important;
+  box-shadow: 0 4px 15px rgba(37, 99, 235, 0.1) !important;
+}
+
+body.simple-theme .total-label {
+  color: #1e3a8a !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 700 !important;
+}
+
+body.simple-theme .total-value {
+  color: #1d4ed8 !important;
+  font-family: 'Outfit', 'Inter', sans-serif !important;
+  font-weight: 800 !important;
+  text-shadow: none !important;
+}
+
+/* Modals */
+body.simple-theme .modal-overlay {
+  background: rgba(15, 23, 42, 0.5) !important;
+  backdrop-filter: blur(4px) !important;
+}
+
+body.simple-theme .modal-card {
+  background: #ffffff !important;
+  border: 1px solid #e2e8f0 !important;
+  color: #0f172a !important;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.15) !important;
+}
+
+body.simple-theme .criteria-card {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
+}
+
+body.simple-theme .criteria-header label {
+  color: #0f172a !important;
+  font-family: 'Inter', sans-serif !important;
+  font-weight: 700 !important;
+}
+
+body.simple-theme .max-mark-badge {
+  background: #eff6ff !important;
+  color: #2563eb !important;
+  border: 1px solid #bfdbfe !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+body.simple-theme .score-box {
+  background: #f8fafc !important;
+  border: 1px solid #e2e8f0 !important;
 }
 
 /* ==========================================

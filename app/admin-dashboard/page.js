@@ -33,6 +33,7 @@ import {
   exportFinalistTeamsAndMembersExcel,
   exportFinalistTeamsAndMembersCSV
 } from '@/lib/excelExport';
+import ThemeToggle from '@/app/components/ThemeToggle';
 import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
 import {
   FINAL_ROUND_TEAMS,
@@ -1234,6 +1235,7 @@ export default function AdminDashboardPage() {
             <div className="student-hud-badge">
               <span className="ghost pink-ghost" style={{ width: '14px', height: '14px', display: 'inline-block' }}></span> ADMIN USER: <span>{adminUser}</span>
             </div>
+            <ThemeToggle />
             <button type="button" className="logout-btn" onClick={handleLogout}>
               🚪 LOG OUT
             </button>

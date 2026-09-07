@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { EXTERNAL_ROUND_3_JUDGE_IDS, FINAL_ROUND_JUDGE_IDS, ROUND_2_JUDGE_IDS } from '@/lib/judgeProfiles';
+import ThemeToggle from '@/app/components/ThemeToggle';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -398,9 +399,7 @@ export default function LoginPage() {
 
         {/* Theme Toggle Bar */}
         <div className="theme-toggle-bar">
-          <button type="button" className="theme-toggle-btn" onClick={toggleTheme}>
-            {themeMode === 'simple' ? '🕹️ SWITCH TO ARCADE THEME' : '🌗 CONVERT TO SIMPLE THEME'}
-          </button>
+          <ThemeToggle />
         </div>
 
         {/* Role Selection Tabs */}

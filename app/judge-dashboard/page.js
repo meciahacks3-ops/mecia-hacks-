@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import RubricsModal from '@/app/components/RubricsModal';
+import ThemeToggle from '@/app/components/ThemeToggle';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { parseEvaluationRecord, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
@@ -320,6 +321,7 @@ export default function JudgeDashboardPage() {
                 📋 VIEW RUBRICS
               </button>
             )}
+            <ThemeToggle />
             <button type="button" className="logout-btn" onClick={handleLogout}>
               🚪 LOG OUT
             </button>
