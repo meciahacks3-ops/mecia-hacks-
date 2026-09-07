@@ -1335,6 +1335,62 @@ body.simple-theme {
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
 }
 
+/* Universal Typography Switch according to Theme:
+   In Light Theme, replace ALL retro pixel fonts (Press Start 2P, Silkscreen)
+   with modern, crisp Inter & Outfit sans-serif fonts */
+body.simple-theme,
+body.simple-theme *,
+body.simple-theme *::before,
+body.simple-theme *::after {
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  letter-spacing: normal !important;
+  text-shadow: none !important;
+}
+
+/* Headings, Titles, Prominent Badges, Buttons, and Stat Counters use Outfit in Light Theme */
+body.simple-theme h1, 
+body.simple-theme h2, 
+body.simple-theme h3,
+body.simple-theme h4,
+body.simple-theme h5,
+body.simple-theme h6,
+body.simple-theme .section-title,
+body.simple-theme .team-name,
+body.simple-theme .victory-title,
+body.simple-theme .role-badge,
+body.simple-theme .status-pill,
+body.simple-theme .lock-badge,
+body.simple-theme .submit-btn,
+body.simple-theme .eval-btn,
+body.simple-theme .tab-btn,
+body.simple-theme .theme-toggle-btn,
+body.simple-theme .logout-btn,
+body.simple-theme .nav-back-btn,
+body.simple-theme .judge-nav-btn,
+body.simple-theme .total-score-box,
+body.simple-theme .total-label,
+body.simple-theme .total-value,
+body.simple-theme .criterion-name,
+body.simple-theme .max-marks-cell,
+body.simple-theme .max-mark-badge,
+body.simple-theme .block-title,
+body.simple-theme .highlight-title {
+  font-family: 'Outfit', 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+}
+
+/* Elevate ultra-small retro font sizes to standard readable sans-serif sizes in Light Theme */
+body.simple-theme [style*="fontSize: '0.5"],
+body.simple-theme [style*="fontSize: '0.6"],
+body.simple-theme [style*="fontSize:'0.5"],
+body.simple-theme [style*="fontSize:'0.6"],
+body.simple-theme [style*="font-size: 0.5"],
+body.simple-theme [style*="font-size: 0.6"],
+body.simple-theme [style*="font-size:0.5"],
+body.simple-theme [style*="font-size:0.6"] {
+  font-size: 0.76rem !important;
+  line-height: 1.4 !important;
+}
+
 body.simple-theme::before,
 body.simple-theme::after {
   display: none !important;
