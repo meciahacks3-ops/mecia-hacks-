@@ -20,6 +20,7 @@ export default function JudgeDashboardPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [trackFilter, setTrackFilter] = useState('ALL'); // 'ALL', 'Software', 'Hybrid', 'Hardware'
   const [statusFilter, setStatusFilter] = useState('ALL'); // 'ALL', 'EVALUATED', 'PENDING'
+  const [panelScope, setPanelScope] = useState('MY_ASSIGNED'); // 'MY_ASSIGNED', 'ALL'
 
   useEffect(() => {
     const savedJudgeEmail = sessionStorage.getItem('judgeEmail');
@@ -184,17 +185,23 @@ export default function JudgeDashboardPage() {
   const isFinalRoundJudge = isMentorJudge;
   const judgeProfile = getJudgeProfile(judgeEmail);
 
-  // Pool of teams:
-  // External Jury (FM001-FM007) and Internal Jury (MM001-MM010) see ALL teams without panel restrictions.
-  // Legacy judges fall back to assigned teams if assigned, otherwise all teams.
-  const availableTeams = (isExternalRound3Judge || isMentorJudge)
+  // Teams specifically assigned to this judge panel
+  const myAssignedTeams = teams.filter(t => (t.assignedJudge || '').trim().toUpperCase() === cleanJudgeUpper);
+  const myAssignedFinalistCount = myAssignedTeams.filter(t => t.isFinalist).length;
+  const hasMyAssigned = myAssignedTeams.length > 0;
+
+  // For External Jury (FM), they evaluate all finalists
+  // For Internal Jury (MM), if they have assigned teams, allow toggling between 'MY_ASSIGNED' (default) and 'ALL'
+  const effectiveScope = isExternalRound3Judge
+    ? 'ALL'
+    : (panelScope === 'MY_ASSIGNED' && hasMyAssigned ? 'MY_ASSIGNED' : (hasMyAssigned ? panelScope : 'ALL'));
+
+  const availableTeams = (isExternalRound3Judge || effectiveScope === 'ALL')
     ? teams
-    : teams.filter(t => {
-        if (!t.assignedJudge) return true;
-        return t.assignedJudge.toLowerCase().trim() === judgeEmail.toLowerCase().trim();
-      });
+    : myAssignedTeams;
 
   const finalistTeams = availableTeams.filter(t => t.isFinalist);
+  const allFinalistTeams = teams.filter(t => t.isFinalist);
 
   // Sorting: Finalists sorted by Track (Software, Hybrid, Hardware), then Rank, then Team ID
   const sortedTeams = [...availableTeams].sort((a, b) => {
@@ -349,9 +356,11 @@ export default function JudgeDashboardPage() {
                 </h3>
                 <p style={{ margin: '6px 0 0 0', color: '#ccc', fontSize: '0.76rem', lineHeight: '1.5' }}>
                   {isExternalRound3Judge
-                    ? `Open Grand Finale access: All ${finalistTeams.length} qualified finalist teams are open to your jury panel (${judgeEmail.toUpperCase()}). You can evaluate and score any team across all 5 official evaluation rubrics (50 marks max).`
+                    ? `Open Grand Finale access: All ${allFinalistTeams.length} qualified finalist teams are open to your jury panel (${judgeEmail.toUpperCase()}). You can evaluate and score any team across all 5 official evaluation rubrics (50 marks max).`
                     : isMentorJudge
-                    ? `Open Mentorship access: All ${finalistTeams.length} qualified finalist teams are open to your mentor panel (${judgeEmail.toUpperCase()}) for Phase 1 and Phase 2 feedback.`
+                    ? (effectiveScope === 'MY_ASSIGNED'
+                        ? `Panel Mentorship: Reviewing your ${myAssignedFinalistCount} assigned finalist ${myAssignedFinalistCount === 1 ? 'team' : 'teams'} for Phase 1 & 2 feedback (${judgeEmail.toUpperCase()}). Switch to "ALL FINALISTS" anytime to view other teams.`
+                        : `Open Mentorship access: Viewing all ${allFinalistTeams.length} qualified finalist teams for your mentor panel (${judgeEmail.toUpperCase()}). Teams assigned to your panel are marked with a yellow badge.`)
                     : `Evaluating qualified finalist teams. All finalist teams are available to evaluate.`}
                 </p>
               </div>
@@ -359,6 +368,20 @@ export default function JudgeDashboardPage() {
 
             {/* Quick Live Stats */}
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '12px', flexWrap: 'wrap' }}>
+              {isMentorJudge && hasMyAssigned && (
+                <span style={{
+                  background: effectiveScope === 'MY_ASSIGNED' ? 'rgba(253, 255, 0, 0.2)' : 'rgba(0, 0, 0, 0.65)',
+                  border: '1.5px solid #fdff00',
+                  color: '#fdff00',
+                  padding: '4px 10px',
+                  borderRadius: '6px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.58rem',
+                  fontWeight: 'bold'
+                }}>
+                  ⭐ ASSIGNED TO THIS PANEL: {myAssignedFinalistCount}
+                </span>
+              )}
               <span style={{
                 background: 'rgba(0, 0, 0, 0.65)',
                 border: '1px solid #00ffcc',
@@ -369,7 +392,7 @@ export default function JudgeDashboardPage() {
                 fontSize: '0.58rem',
                 fontWeight: 'bold'
               }}>
-                🏆 TOTAL FINALISTS: {finalistTeams.length}
+                🏆 TOTAL FINALISTS: {allFinalistTeams.length}
               </span>
               <span style={{
                 background: 'rgba(0, 0, 0, 0.65)',
@@ -399,42 +422,89 @@ export default function JudgeDashboardPage() {
           </div>
 
           <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              onClick={() => setFinalistsOnlyFilter(true)}
-              style={{
-                background: finalistsOnlyFilter ? '#fdff00' : 'rgba(0,0,0,0.6)',
-                color: finalistsOnlyFilter ? '#000' : '#888',
-                border: '1.5px solid #fdff00',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                fontFamily: 'Press Start 2P, monospace',
-                fontSize: '0.58rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: finalistsOnlyFilter ? '0 0 10px rgba(253, 255, 0, 0.4)' : 'none'
-              }}
-            >
-              🏆 FINALISTS ONLY ({finalistTeams.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setFinalistsOnlyFilter(false)}
-              style={{
-                background: !finalistsOnlyFilter ? '#00ffcc' : 'rgba(0,0,0,0.6)',
-                color: !finalistsOnlyFilter ? '#000' : '#888',
-                border: '1.5px solid #00ffcc',
-                padding: '8px 12px',
-                borderRadius: '6px',
-                fontFamily: 'Press Start 2P, monospace',
-                fontSize: '0.58rem',
-                fontWeight: 'bold',
-                cursor: 'pointer',
-                boxShadow: !finalistsOnlyFilter ? '0 0 10px rgba(0, 255, 204, 0.4)' : 'none'
-              }}
-            >
-              ALL TEAMS ({availableTeams.length})
-            </button>
+            {isMentorJudge && hasMyAssigned && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPanelScope('MY_ASSIGNED');
+                    setFinalistsOnlyFilter(true);
+                  }}
+                  style={{
+                    background: effectiveScope === 'MY_ASSIGNED' ? '#fdff00' : 'rgba(0,0,0,0.6)',
+                    color: effectiveScope === 'MY_ASSIGNED' ? '#000' : '#888',
+                    border: '1.5px solid #fdff00',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.58rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: effectiveScope === 'MY_ASSIGNED' ? '0 0 10px rgba(253, 255, 0, 0.4)' : 'none'
+                  }}
+                >
+                  ⭐ MY ASSIGNED ({myAssignedFinalistCount})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPanelScope('ALL')}
+                  style={{
+                    background: effectiveScope === 'ALL' ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                    color: effectiveScope === 'ALL' ? '#000' : '#888',
+                    border: '1.5px solid #00ffcc',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.58rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: effectiveScope === 'ALL' ? '0 0 10px rgba(0, 255, 204, 0.4)' : 'none'
+                  }}
+                >
+                  🌐 ALL FINALISTS ({allFinalistTeams.length})
+                </button>
+              </>
+            )}
+            {(!isMentorJudge || !hasMyAssigned) && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setFinalistsOnlyFilter(true)}
+                  style={{
+                    background: finalistsOnlyFilter ? '#fdff00' : 'rgba(0,0,0,0.6)',
+                    color: finalistsOnlyFilter ? '#000' : '#888',
+                    border: '1.5px solid #fdff00',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.58rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: finalistsOnlyFilter ? '0 0 10px rgba(253, 255, 0, 0.4)' : 'none'
+                  }}
+                >
+                  🏆 FINALISTS ONLY ({finalistTeams.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setFinalistsOnlyFilter(false)}
+                  style={{
+                    background: !finalistsOnlyFilter ? '#00ffcc' : 'rgba(0,0,0,0.6)',
+                    color: !finalistsOnlyFilter ? '#000' : '#888',
+                    border: '1.5px solid #00ffcc',
+                    padding: '8px 12px',
+                    borderRadius: '6px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.58rem',
+                    fontWeight: 'bold',
+                    cursor: 'pointer',
+                    boxShadow: !finalistsOnlyFilter ? '0 0 10px rgba(0, 255, 204, 0.4)' : 'none'
+                  }}
+                >
+                  ALL TEAMS ({availableTeams.length})
+                </button>
+              </>
+            )}
           </div>
         </div>
 
@@ -561,12 +631,14 @@ export default function JudgeDashboardPage() {
               {isMentorJudge ? 'STAGE 3: INTERNAL JURY PANEL' : isExternalRound3Judge ? 'ROUND 3: EXTERNAL JURY PANEL' : 'STAGE 3: FINAL ROUND EVALUATION PANEL'}
             </span>
           </div>
-          <h2>{isExternalRound3Judge ? 'ROUND 3: ALL FINALIST TEAMS' : isMentorJudge ? 'ALL FINALIST TEAMS FOR FEEDBACK' : 'FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})</h2>
+          <h2>{isExternalRound3Judge ? 'ROUND 3: ALL FINALIST TEAMS' : isMentorJudge ? (effectiveScope === 'MY_ASSIGNED' ? 'MY ASSIGNED FINALIST TEAMS FOR FEEDBACK' : 'ALL FINALIST TEAMS FOR FEEDBACK') : 'FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})</h2>
           <p>
             {isExternalRound3Judge
               ? `Open evaluation: All 49 qualified finalist teams are open to all judges. You can evaluate and score any finalist team across all 5 official evaluation rubrics (50 marks max).`
               : isMentorJudge
-              ? `Open feedback: All 49 qualified finalist teams are open to all internal judges. You can view or add Phase 1 and Phase 2 feedback for any finalist team.`
+              ? (effectiveScope === 'MY_ASSIGNED'
+                  ? `Showing ${displayedAssignedTeams.length} finalist teams assigned specifically to panel ${judgeEmail.toUpperCase()}. Click on any team to enter Phase 1 and Phase 2 qualitative feedback.`
+                  : `Showing all ${displayedAssignedTeams.length} finalist teams. Teams allocated to panel ${judgeEmail.toUpperCase()} are highlighted with a special yellow badge.`)
               : (finalistsOnlyFilter
                   ? `Review Final Round qualified submissions and assign scores.`
                   : `Viewing all teams in the hackathon portal.`)}
@@ -762,6 +834,49 @@ export default function JudgeDashboardPage() {
                             </span>
                           </div>
                         )}
+
+                        {/* Assigned Judge Panel Badge */}
+                        <div style={{ marginTop: '8px', display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                          {(t.assignedJudge || '').trim().toUpperCase() === cleanJudgeUpper ? (
+                            <span style={{
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.6rem',
+                              color: '#000',
+                              background: '#fdff00',
+                              border: '1.5px solid #fdff00',
+                              padding: '4px 8px',
+                              borderRadius: '6px',
+                              fontWeight: 'bold',
+                              boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
+                            }}>
+                              ⭐ ASSIGNED TO YOUR PANEL ({cleanJudgeUpper})
+                            </span>
+                          ) : (t.assignedJudge && t.assignedJudge !== 'Unassigned') ? (
+                            <span style={{
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.58rem',
+                              color: '#bbb',
+                              background: 'rgba(255, 255, 255, 0.06)',
+                              border: '1px solid #555',
+                              padding: '4px 8px',
+                              borderRadius: '6px'
+                            }}>
+                              🏛️ Assigned Panel: {t.assignedJudge}
+                            </span>
+                          ) : (
+                            <span style={{
+                              fontFamily: 'Press Start 2P, monospace',
+                              fontSize: '0.58rem',
+                              color: '#ff6688',
+                              background: 'rgba(255, 0, 85, 0.1)',
+                              border: '1px solid rgba(255, 0, 85, 0.3)',
+                              padding: '4px 8px',
+                              borderRadius: '6px'
+                            }}>
+                              ⚠️ Unassigned
+                            </span>
+                          )}
+                        </div>
 
                         {!isFinalRoundJudge && (
                           <div style={{ marginTop: '8px' }}>

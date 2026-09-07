@@ -21,6 +21,7 @@ function JudgeEvaluationContent() {
   const [projectTitle, setProjectTitle] = useState('');
   const [projectDesc, setProjectDesc] = useState('');
   const [timeSlot, setTimeSlot] = useState('TBA');
+  const [assignedJudge, setAssignedJudge] = useState('');
 
   // Rubric scores (Round 2 Evaluation Sheet - Max 10 marks per section)
   const [c1, setC1] = useState(0); // System Architecture & Technical Readiness (Max 10)
@@ -78,11 +79,14 @@ function JudgeEvaluationContent() {
       // 1. Fetch team metadata (only team ID, title, description - personal details hidden)
       const { data: teamData } = await supabase
         .from('teams')
-        .select('id, team_name, team_id_no, project_title, main_idea')
+        .select('id, team_name, team_id_no, project_title, main_idea, assigned_judge')
         .ilike('team_name', name)
         .maybeSingle();
 
       if (teamData) {
+        if (teamData.assigned_judge) {
+          setAssignedJudge(teamData.assigned_judge);
+        }
         let parsedTeamId = teamData.team_id_no && teamData.team_id_no.trim() !== 'N/A' ? teamData.team_id_no.trim() : '';
         if (!parsedTeamId && teamData.main_idea && teamData.main_idea.includes('Team ID:')) {
           const match = teamData.main_idea.match(/Team ID:\s*([^\]\n|]+)/i);
@@ -623,6 +627,51 @@ function JudgeEvaluationContent() {
                   </span>
                 </div>
               )}
+              <div>
+                <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>🏛️ ASSIGNED PANEL: </span>
+                {assignedJudge && assignedJudge.trim().toUpperCase() !== 'UNASSIGNED' ? (
+                  assignedJudge.trim().toUpperCase() === cleanJudgeUpper ? (
+                    <span style={{
+                      background: 'rgba(0, 255, 204, 0.2)',
+                      color: '#00ffcc',
+                      border: '1.5px solid #00ffcc',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.7rem',
+                      fontWeight: 'bold',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '4px'
+                    }}>
+                      ⭐ YOUR PANEL ({assignedJudge.trim().toUpperCase()})
+                    </span>
+                  ) : (
+                    <span style={{
+                      background: 'rgba(253, 255, 0, 0.15)',
+                      color: '#fdff00',
+                      border: '1px solid #fdff00',
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.7rem'
+                    }}>
+                      {assignedJudge.trim().toUpperCase()}
+                    </span>
+                  )
+                ) : (
+                  <span style={{
+                    background: 'rgba(255, 0, 85, 0.15)',
+                    color: '#ff0055',
+                    border: '1px solid #ff0055',
+                    padding: '3px 8px',
+                    borderRadius: '4px',
+                    fontSize: '0.72rem'
+                  }}>
+                    ⚠️ Unassigned
+                  </span>
+                )}
+              </div>
               <div>
                 <span style={{ color: '#00ffcc', fontSize: '0.82rem', fontWeight: 'bold' }}>💡 PROJECT TITLE: </span>
                 <span style={{ color: '#ffffff', fontWeight: 'bold', fontSize: '0.92rem' }}>{projectTitle || 'N/A'}</span>

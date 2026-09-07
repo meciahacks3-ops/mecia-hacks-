@@ -904,7 +904,12 @@ function switchAdminTab(tabId) {
 async function assignJudgeToTeam(teamId) {
   const selectEl = document.getElementById(`judge-select-${teamId}`);
   if (!selectEl) return;
-  const judgeEmail = selectEl.value;
+  let judgeEmail = (selectEl.value || '').trim();
+  if (judgeEmail && judgeEmail.toLowerCase() !== 'unassigned') {
+    judgeEmail = judgeEmail.toUpperCase();
+  } else {
+    judgeEmail = 'Unassigned';
+  }
 
   const teams = getTeamsData();
   const team = teams.find(t => t.id === teamId);
@@ -1094,6 +1099,12 @@ async function renderAdminTables() {
         const tr = document.createElement('tr');
         const isAssigned = t.assignedJudge && t.assignedJudge !== 'Unassigned';
         const parsedTeamId = t.teamIdNo || t.teamId || 'N/A';
+        const normJudge = (t.assignedJudge || '').trim().toUpperCase();
+        const mmPanels = ['MM001','MM002','MM003','MM004','MM005','MM006','MM007','MM008','MM009','MM010'];
+        const fmPanels = ['FM001','FM002','FM003','FM004','FM005','FM006','FM007'];
+        const jmPanels = ['JM001','JM002','JM003','JM004','JM005','JM006','JM007','JM008','JM009','JM010','JM011'];
+        const isCustomJudge = normJudge && normJudge !== 'UNASSIGNED' && !mmPanels.includes(normJudge) && !fmPanels.includes(normJudge) && !jmPanels.includes(normJudge);
+
         tr.innerHTML = `
           <td style="text-align:center;">
             <span style="display:inline-block; background:rgba(253,255,0,0.15); color:#fdff00; border:1.5px solid #fdff00; border-radius:6px; padding:3px 6px; font-family:'Press Start 2P', monospace; font-size:0.65rem; font-weight:bold;">
@@ -1107,18 +1118,17 @@ async function renderAdminTables() {
             ${isAssigned ? `<span className="status-pill status-completed" style="background:rgba(0,255,204,0.15); color:#00ffcc; padding:4px 8px; border-radius:4px; font-size:0.7rem;">✅ ASSIGNED TO ${t.assignedJudge}</span><br><br>` : `<span className="status-pill status-pending" style="background:rgba(255,0,85,0.15); color:#ff0055; padding:4px 8px; border-radius:4px; font-size:0.7rem;">⚠️ UNASSIGNED</span><br><br>`}
             <div style="font-size:0.6rem; color:#00ffcc; margin-bottom:4px; font-family:'Press Start 2P', monospace;">ID: ${parsedTeamId}</div>
             <select id="judge-select-${t.id}" class="retro-select admin-judge-select">
-              <option value="Unassigned" ${!t.assignedJudge || t.assignedJudge === 'Unassigned' ? 'selected' : ''}>Unassigned</option>
-              <option value="JM001" ${t.assignedJudge === 'JM001' ? 'selected' : ''}>JM001</option>
-              <option value="JM002" ${t.assignedJudge === 'JM002' ? 'selected' : ''}>JM002</option>
-              <option value="JM003" ${t.assignedJudge === 'JM003' ? 'selected' : ''}>JM003</option>
-              <option value="JM004" ${t.assignedJudge === 'JM004' ? 'selected' : ''}>JM004</option>
-              <option value="JM005" ${t.assignedJudge === 'JM005' ? 'selected' : ''}>JM005</option>
-              <option value="JM006" ${t.assignedJudge === 'JM006' ? 'selected' : ''}>JM006</option>
-              <option value="JM007" ${t.assignedJudge === 'JM007' ? 'selected' : ''}>JM007</option>
-              <option value="JM008" ${t.assignedJudge === 'JM008' ? 'selected' : ''}>JM008</option>
-              <option value="JM009" ${t.assignedJudge === 'JM009' ? 'selected' : ''}>JM009</option>
-              <option value="JM010" ${t.assignedJudge === 'JM010' ? 'selected' : ''}>JM010</option>
-              <option value="JM011" ${t.assignedJudge === 'JM011' ? 'selected' : ''}>JM011</option>
+              <option value="Unassigned" ${!normJudge || normJudge === 'UNASSIGNED' ? 'selected' : ''}>Unassigned</option>
+              <optgroup label="⭐ Final Round Internal Panels (MM001 - MM010)">
+                ${mmPanels.map(id => `<option value="${id}" ${normJudge === id ? 'selected' : ''}>${id}</option>`).join('')}
+              </optgroup>
+              <optgroup label="🏛️ Final Round External Panels (FM001 - FM007)">
+                ${fmPanels.map(id => `<option value="${id}" ${normJudge === id ? 'selected' : ''}>${id}</option>`).join('')}
+              </optgroup>
+              <optgroup label="── Round-2 Panels (JM001 - JM011) ──">
+                ${jmPanels.map(id => `<option value="${id}" ${normJudge === id ? 'selected' : ''}>${id}</option>`).join('')}
+              </optgroup>
+              ${isCustomJudge ? `<option value="${t.assignedJudge}" selected>${t.assignedJudge}</option>` : ''}
             </select>
           </td>
           <td style="text-align:center;">
@@ -1152,7 +1162,9 @@ async function renderAdminTables() {
         c4 = evalEntry.c4;
         c5 = evalEntry.c5;
         remarks = evalEntry.remarks || 'Scored';
-        if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
+        if ((!judge || judge === 'Unassigned') && evalEntry.judgeEmail) {
+          judge = evalEntry.judgeEmail;
+        }
       }
 
       let projectType = (t.project_type || t.projectType || '').trim();
@@ -1395,7 +1407,9 @@ function exportSpecialLeaderboardExcel() {
       c4 = evalEntry.c4;
       c5 = evalEntry.c5 || 0;
       remarks = evalEntry.remarks || "Scored";
-      if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
+      if ((!judge || judge === 'Unassigned') && evalEntry.judgeEmail) {
+        judge = evalEntry.judgeEmail;
+      }
     }
 
     let pType = 'Hardware';

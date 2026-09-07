@@ -400,17 +400,21 @@ export default function AdminDashboardPage() {
       }
     }
 
+    if (finalJudge && finalJudge.toLowerCase() !== 'unassigned') {
+      finalJudge = finalJudge.trim().toUpperCase();
+    } else {
+      finalJudge = 'Unassigned';
+    }
+
     setAssigningTeamId(teamId);
 
     try {
-      const { error, updatedMainIdea } = await saveTeamAssignment(
+      const { error, finalJudge: savedJudge } = await saveTeamAssignment(
         supabase,
         teamId,
         teamName,
         {
-          assignedJudge: finalJudge,
-          timeSlot: currentTeam?.timeSlot || 'TBA',
-          rawMainIdea: currentTeam?.rawMainIdea || ''
+          assignedJudge: finalJudge
         }
       );
 
@@ -421,17 +425,18 @@ export default function AdminDashboardPage() {
         return;
       }
 
+      const activeJudge = savedJudge || finalJudge;
+
       setTeams(prev => prev.map(t => t.id === teamId ? {
         ...t,
-        assignedJudge: finalJudge,
-        rawMainIdea: updatedMainIdea
+        assignedJudge: activeJudge
       } : t));
 
-      setJudgeSelections(prev => ({ ...prev, [teamId]: finalJudge }));
-      alert(`✅ Updated "${teamName}":\n• Judge: ${finalJudge}`);
+      setJudgeSelections(prev => ({ ...prev, [teamId]: activeJudge }));
+      alert(`✅ Saved "${teamName}":\n• Judge Panel: ${activeJudge}`);
     } catch (err) {
       console.error("Save team error:", err);
-      alert(`Updated "${teamName}"!`);
+      alert(`Error updating "${teamName}": ` + (err.message || err));
     } finally {
       setAssigningTeamId(null);
     }
@@ -444,7 +449,13 @@ export default function AdminDashboardPage() {
       return;
     }
 
-    const targetJudge = bulkJudgeChoice;
+    let targetJudge = bulkJudgeChoice;
+    if (targetJudge && targetJudge.toLowerCase() !== 'unassigned') {
+      targetJudge = targetJudge.trim().toUpperCase();
+    } else {
+      targetJudge = 'Unassigned';
+    }
+
     const isUnassign = targetJudge === 'Unassigned';
     const confirmPrompt = isUnassign
       ? `Are you sure you want to UNASSIGN the ${selectedTeamIds.length} selected team(s)?\n\nThey will disappear from the judges portal until re-assigned.`
@@ -460,20 +471,21 @@ export default function AdminDashboardPage() {
       for (const teamId of selectedTeamIds) {
         const currentTeam = teams.find(t => t.id === teamId);
         if (currentTeam) {
-          const { error, updatedMainIdea } = await saveTeamAssignment(
+          const { error, finalJudge: savedJudge } = await saveTeamAssignment(
             supabase,
             teamId,
             currentTeam.teamName,
             {
-              assignedJudge: targetJudge,
-              timeSlot: currentTeam.timeSlot || 'TBA',
-              rawMainIdea: currentTeam.rawMainIdea || ''
+              assignedJudge: targetJudge
             }
           );
           if (!error) {
             successCount++;
-            setTeams(prev => prev.map(t => t.id === teamId ? { ...t, assignedJudge: targetJudge, rawMainIdea: updatedMainIdea } : t));
-            setJudgeSelections(prev => ({ ...prev, [teamId]: targetJudge }));
+            const activeJudge = savedJudge || targetJudge;
+            setTeams(prev => prev.map(t => t.id === teamId ? { ...t, assignedJudge: activeJudge } : t));
+            setJudgeSelections(prev => ({ ...prev, [teamId]: activeJudge }));
+          } else {
+            console.error(`Error assigning team ${currentTeam.teamName}:`, error);
           }
         }
       }
@@ -625,7 +637,7 @@ export default function AdminDashboardPage() {
         let isScored = false;
         let score = 0;
         let c1 = '-', c2 = '-', c3 = '-', c4 = '-', c5 = '-', remarks = 'Pending';
-        let judge = t.assignedJudge || 'Unassigned';
+        let judge = (t.assignedJudge && t.assignedJudge !== 'Unassigned') ? t.assignedJudge : (evalEntry?.judgeEmail || 'Unassigned');
 
         if (evalEntry) {
           isScored = true;
@@ -636,7 +648,6 @@ export default function AdminDashboardPage() {
           c4 = evalEntry.c4;
           c5 = evalEntry.c5;
           remarks = evalEntry.remarks || 'Scored';
-          if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
         }
 
         const pType = t.projectType || parseProjectTypeFromTeam(t);
@@ -1868,8 +1879,12 @@ export default function AdminDashboardPage() {
                           const judgeProfilesList = Object.values(JUDGE_PROFILES);
                           const validJudgeIds = judgeProfilesList.map(p => p.id);
 
-                          const selectedJudgeVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
-                          const isCustomJudge = selectedJudgeVal === 'CUSTOM' || (!validJudgeIds.includes(selectedJudgeVal) && selectedJudgeVal !== 'Unassigned');
+                          const rawJudgeVal = judgeSelections[t.id] !== undefined ? judgeSelections[t.id] : t.assignedJudge;
+                          const normJudgeVal = (rawJudgeVal && rawJudgeVal !== 'Unassigned' && rawJudgeVal !== 'CUSTOM')
+                            ? String(rawJudgeVal).trim().toUpperCase()
+                            : (rawJudgeVal || 'Unassigned');
+                          const isCustomJudge = normJudgeVal === 'CUSTOM' || (!validJudgeIds.includes(normJudgeVal) && normJudgeVal !== 'Unassigned');
+                          const selectedJudgeVal = isCustomJudge ? 'CUSTOM' : normJudgeVal;
                           const isAssignedJudge = t.assignedJudge && t.assignedJudge !== 'Unassigned';
 
 
@@ -2099,7 +2114,7 @@ export default function AdminDashboardPage() {
             let isScored = false;
             let score = 0;
             let c1 = '-', c2 = '-', c3 = '-', c4 = '-', c5 = '-', remarks = 'Evaluation pending';
-            let judge = t.assignedJudge || 'Unassigned';
+            let judge = (t.assignedJudge && t.assignedJudge !== 'Unassigned') ? t.assignedJudge : (evalEntry?.judgeEmail || 'Unassigned');
 
             if (evalEntry) {
               isScored = true;
@@ -2110,7 +2125,6 @@ export default function AdminDashboardPage() {
               c4 = evalEntry.c4;
               c5 = evalEntry.c5;
               remarks = evalEntry.remarks || 'Scored';
-              if (evalEntry.judgeEmail) judge = evalEntry.judgeEmail;
             }
 
             return {
