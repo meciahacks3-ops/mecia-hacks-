@@ -19,12 +19,19 @@ export default function ProjectSubmissionPage() {
 
   // Team leader state
   const [teamName, setTeamName] = useState('');
+  const [originalTeamName, setOriginalTeamName] = useState('');
   const [teamIdNo, setTeamIdNo] = useState('');
   const [leaderName, setLeaderName] = useState('');
   const [leaderEmail, setLeaderEmail] = useState('');
   const [leaderId, setLeaderId] = useState('');
   const [leaderPhone, setLeaderPhone] = useState('');
   const [leaderBranch, setLeaderBranch] = useState('Computer Engineering (CE)');
+
+  // Dedicated Team Name Edit state
+  const [isEditingTeamName, setIsEditingTeamName] = useState(false);
+  const [tempTeamName, setTempTeamName] = useState('');
+  const [isSavingTeamName, setIsSavingTeamName] = useState(false);
+  const [teamNameSuccessMsg, setTeamNameSuccessMsg] = useState('');
 
   // Team members state
   const [members, setMembers] = useState([
@@ -84,7 +91,11 @@ export default function ProjectSubmissionPage() {
             setAssignedJudge('');
           }
 
-          if (teamData.team_name) setTeamName(teamData.team_name);
+          if (teamData.team_name) {
+            setTeamName(teamData.team_name);
+            setOriginalTeamName(teamData.team_name);
+            setTempTeamName(teamData.team_name);
+          }
           if (teamData.leader_name) setLeaderName(teamData.leader_name);
           if (teamData.leader_email) setLeaderEmail(teamData.leader_email);
           if (teamData.leader_id) setLeaderId(teamData.leader_id);
@@ -232,6 +243,81 @@ export default function ProjectSubmissionPage() {
     setMembers(updated);
   };
 
+  const handleSaveTeamName = async () => {
+    const trimmed = (tempTeamName || '').trim();
+    if (!trimmed) {
+      alert("⚠️ Team Name cannot be empty. Please enter a valid Team Name.");
+      return;
+    }
+    if (!existingTeamId) {
+      alert("⚠️ No registered team found to update.");
+      return;
+    }
+    if (trimmed === teamName) {
+      setIsEditingTeamName(false);
+      return;
+    }
+
+    setIsSavingTeamName(true);
+    try {
+      const oldName = teamName;
+      // 1. Update teams table
+      const { error: teamErr } = await supabase
+        .from('teams')
+        .update({ team_name: trimmed })
+        .eq('id', existingTeamId);
+
+      if (teamErr) {
+        console.error("Team name update error:", teamErr);
+        alert("Database Update Notice: " + teamErr.message);
+        setIsSavingTeamName(false);
+        return;
+      }
+
+      // 2. Cascade update to evaluation tables if oldName existed
+      if (oldName) {
+        try {
+          await supabase
+            .from('evaluations')
+            .update({ team_name: trimmed })
+            .ilike('team_name', oldName);
+        } catch (e) {
+          console.warn("Cascade evaluations notice:", e);
+        }
+
+        try {
+          await supabase
+            .from('internal_evaluations')
+            .update({ team_name: trimmed })
+            .ilike('team_name', oldName);
+        } catch (e) {
+          console.warn("Cascade internal_evaluations notice:", e);
+        }
+
+        try {
+          await supabase
+            .from('external_evaluations')
+            .update({ team_name: trimmed })
+            .ilike('team_name', oldName);
+        } catch (e) {
+          console.warn("Cascade external_evaluations notice:", e);
+        }
+      }
+
+      setTeamName(trimmed);
+      setOriginalTeamName(trimmed);
+      setIsEditingTeamName(false);
+      setTeamNameSuccessMsg(`Team name successfully updated to "${trimmed}"!`);
+      setTimeout(() => setTeamNameSuccessMsg(''), 6000);
+      alert(`✅ Success: Team Name has been updated to "${trimmed}"!`);
+    } catch (err) {
+      console.error("Exception updating team name:", err);
+      alert("Error updating team name. Please try again.");
+    } finally {
+      setIsSavingTeamName(false);
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
 
@@ -295,12 +381,27 @@ export default function ProjectSubmissionPage() {
     try {
       if (existingTeamId) {
         // Update existing registration
+        const oldName = originalTeamName || teamName;
+        const newName = teamName.trim();
         const { error: updateErr } = await supabase
           .from('teams')
           .update(insertPayload)
           .eq('id', existingTeamId);
 
         if (!updateErr) {
+          if (oldName && oldName.toLowerCase() !== newName.toLowerCase()) {
+            try {
+              await supabase.from('evaluations').update({ team_name: newName }).ilike('team_name', oldName);
+            } catch (e) {}
+            try {
+              await supabase.from('internal_evaluations').update({ team_name: newName }).ilike('team_name', oldName);
+            } catch (e) {}
+            try {
+              await supabase.from('external_evaluations').update({ team_name: newName }).ilike('team_name', oldName);
+            } catch (e) {}
+          }
+          setOriginalTeamName(newName);
+          setTempTeamName(newName);
           await supabase.from('team_members').delete().eq('team_id', existingTeamId);
           const membersToInsert = validMembers.slice(0, 3);
           if (membersToInsert.length > 0) {
@@ -495,27 +596,52 @@ export default function ProjectSubmissionPage() {
                   ? 'Your previously submitted registration is missing an official Team ID. Please enter your Team ID Number below and click "💾 UPDATE & SAVE CHANGES".'
                   : isEditing 
                     ? '✏️ EDITING MODE ACTIVE: Modify any details below and click "💾 UPDATE & SAVE CHANGES".' 
-                    : '🔒 VIEW MODE: Your team details have been loaded. Click "✏️ EDIT REGISTRATION DETAILS" to make changes.'}
+                    : '🔒 VIEW MODE: Your team details have been loaded. Click "✏️ EDIT TEAM NAME" to change your team name, or "✏️ EDIT REGISTRATION DETAILS" for other details.'}
               </div>
             </div>
-            <button
-              type="button"
-              onClick={() => setIsEditing(!isEditing)}
-              style={{
-                background: isEditing ? '#ff0055' : '#fdff00',
-                color: isEditing ? '#fff' : '#000',
-                border: '2px solid ' + (isEditing ? '#ff0055' : '#fdff00'),
-                borderRadius: '8px',
-                padding: '10px 18px',
-                fontFamily: 'Press Start 2P, monospace',
-                fontSize: '0.62rem',
-                cursor: 'pointer',
-                whiteSpace: 'nowrap',
-                boxShadow: '0 0 10px rgba(253, 255, 0, 0.4)'
-              }}
-            >
-              {isEditing ? '🔒 LOCK VIEW' : '✏️ EDIT REGISTRATION DETAILS'}
-            </button>
+            <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+              {!isEditing && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setTempTeamName(teamName);
+                    setIsEditingTeamName(true);
+                  }}
+                  style={{
+                    background: 'rgba(253, 255, 0, 0.15)',
+                    color: '#fdff00',
+                    border: '2px solid #fdff00',
+                    borderRadius: '8px',
+                    padding: '10px 16px',
+                    fontFamily: 'Press Start 2P, monospace',
+                    fontSize: '0.62rem',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
+                    boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
+                  }}
+                >
+                  ✏️ EDIT TEAM NAME
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => setIsEditing(!isEditing)}
+                style={{
+                  background: isEditing ? '#ff0055' : '#00ffcc',
+                  color: isEditing ? '#fff' : '#000',
+                  border: '2px solid ' + (isEditing ? '#ff0055' : '#00ffcc'),
+                  borderRadius: '8px',
+                  padding: '10px 18px',
+                  fontFamily: 'Press Start 2P, monospace',
+                  fontSize: '0.62rem',
+                  cursor: 'pointer',
+                  whiteSpace: 'nowrap',
+                  boxShadow: isEditing ? '0 0 10px rgba(255, 0, 85, 0.4)' : '0 0 10px rgba(0, 255, 204, 0.4)'
+                }}
+              >
+                {isEditing ? '🔒 LOCK VIEW' : '✏️ EDIT REGISTRATION DETAILS'}
+              </button>
+            </div>
           </div>
         )}
 
@@ -530,12 +656,168 @@ export default function ProjectSubmissionPage() {
             marginBottom: '32px'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px', borderBottom: '2px dashed rgba(33, 33, 255, 0.5)', paddingBottom: '20px', marginBottom: '24px' }}>
-              <div>
+              <div style={{ flex: '1 1 300px' }}>
                 <span className="role-badge" style={{ background: '#00ffcc', color: '#000', marginBottom: '8px', display: 'inline-block' }}>✅ REGISTRATION CONFIRMED</span>
-                <h2 style={{ color: '#fdff00', fontSize: '1.4rem', margin: '4px 0', fontFamily: 'Press Start 2P, monospace', textShadow: '0 0 10px rgba(253, 255, 0, 0.5)' }}>{teamName}</h2>
-                <p style={{ color: '#aaa', fontSize: '0.82rem', margin: 0 }}>Registered Project Entry • Mecia Hack 3.0</p>
+
+                {isEditingTeamName ? (
+                  <div style={{
+                    marginTop: '8px',
+                    padding: '14px 16px',
+                    background: 'rgba(0,0,0,0.85)',
+                    border: '2px solid #fdff00',
+                    borderRadius: '10px',
+                    boxShadow: '0 0 18px rgba(253, 255, 0, 0.35)',
+                    maxWidth: '560px'
+                  }}>
+                    <label style={{ display: 'block', color: '#fdff00', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', marginBottom: '8px' }}>
+                      ✏️ EDIT TEAM NAME:
+                    </label>
+                    <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                      <input
+                        type="text"
+                        value={tempTeamName}
+                        onChange={(e) => setTempTeamName(e.target.value)}
+                        placeholder="Enter new team name"
+                        disabled={isSavingTeamName}
+                        style={{
+                          flex: '1 1 220px',
+                          background: '#0d0e1b',
+                          border: '1.5px solid #00ffcc',
+                          color: '#fdff00',
+                          padding: '10px 14px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.78rem',
+                          borderRadius: '6px',
+                          outline: 'none'
+                        }}
+                        autoFocus
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault();
+                            handleSaveTeamName();
+                          } else if (e.key === 'Escape') {
+                            setTempTeamName(teamName);
+                            setIsEditingTeamName(false);
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        disabled={isSavingTeamName}
+                        onClick={handleSaveTeamName}
+                        style={{
+                          background: '#00ffcc',
+                          color: '#000',
+                          border: 'none',
+                          borderRadius: '6px',
+                          padding: '10px 16px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.62rem',
+                          cursor: isSavingTeamName ? 'wait' : 'pointer',
+                          fontWeight: 'bold',
+                          boxShadow: '0 0 10px rgba(0, 255, 204, 0.4)'
+                        }}
+                      >
+                        {isSavingTeamName ? '💾 SAVING...' : '💾 SAVE'}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={isSavingTeamName}
+                        onClick={() => {
+                          setTempTeamName(teamName);
+                          setIsEditingTeamName(false);
+                        }}
+                        style={{
+                          background: 'transparent',
+                          color: '#ff0055',
+                          border: '1.5px solid #ff0055',
+                          borderRadius: '6px',
+                          padding: '10px 14px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.62rem',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ✕ CANCEL
+                      </button>
+                    </div>
+                    <div style={{ color: '#aaa', fontSize: '0.66rem', marginTop: '8px' }}>
+                      Tip: Press <strong style={{ color: '#00ffcc' }}>Enter</strong> to save, or <strong style={{ color: '#ff0055' }}>Escape</strong> to cancel.
+                    </div>
+                  </div>
+                ) : (
+                  <div>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+                      <h2 style={{ color: '#fdff00', fontSize: '1.4rem', margin: '4px 0', fontFamily: 'Press Start 2P, monospace', textShadow: '0 0 10px rgba(253, 255, 0, 0.5)' }}>
+                        {teamName}
+                      </h2>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setTempTeamName(teamName);
+                          setIsEditingTeamName(true);
+                        }}
+                        title="Click to edit your Team Name"
+                        style={{
+                          background: 'rgba(253, 255, 0, 0.15)',
+                          color: '#fdff00',
+                          border: '1.5px solid #fdff00',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px',
+                          boxShadow: '0 0 8px rgba(253, 255, 0, 0.3)'
+                        }}
+                      >
+                        ✏️ EDIT TEAM NAME
+                      </button>
+                    </div>
+                    <p style={{ color: '#aaa', fontSize: '0.82rem', margin: '4px 0 0 0' }}>Registered Project Entry • Mecia Hack 3.0</p>
+                  </div>
+                )}
+
+                {teamNameSuccessMsg && (
+                  <div style={{
+                    marginTop: '10px',
+                    padding: '8px 12px',
+                    background: 'rgba(0, 255, 204, 0.15)',
+                    border: '1px solid #00ffcc',
+                    borderRadius: '6px',
+                    color: '#00ffcc',
+                    fontSize: '0.74rem',
+                    display: 'inline-block'
+                  }}>
+                    ✅ {teamNameSuccessMsg}
+                  </div>
+                )}
               </div>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
+                {!isEditingTeamName && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempTeamName(teamName);
+                      setIsEditingTeamName(true);
+                    }}
+                    style={{
+                      background: 'rgba(253, 255, 0, 0.2)',
+                      color: '#fdff00',
+                      border: '2px solid #fdff00',
+                      borderRadius: '8px',
+                      padding: '12px 18px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.62rem',
+                      cursor: 'pointer',
+                      boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
+                    }}
+                  >
+                    ✏️ EDIT TEAM NAME
+                  </button>
+                )}
                 <button
                   type="button"
                   onClick={() => setIsEditing(true)}
@@ -839,6 +1121,41 @@ export default function ProjectSubmissionPage() {
                 👤 TEAM & LEADER DETAILS
               </h3>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+                <div style={{
+                  background: '#000',
+                  border: '1.5px solid rgba(253, 255, 0, 0.4)',
+                  padding: '12px 16px',
+                  borderRadius: '8px',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>TEAM NAME</div>
+                    <div style={{ color: '#fdff00', fontWeight: 'bold', fontSize: '0.95rem' }}>{teamName}</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setTempTeamName(teamName);
+                      setIsEditingTeamName(true);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    style={{
+                      background: '#fdff00',
+                      color: '#000',
+                      border: 'none',
+                      borderRadius: '4px',
+                      padding: '5px 10px',
+                      fontFamily: 'Press Start 2P, monospace',
+                      fontSize: '0.55rem',
+                      cursor: 'pointer',
+                      fontWeight: 'bold'
+                    }}
+                  >
+                    ✏️ EDIT
+                  </button>
+                </div>
                 <div style={{ background: '#000', border: `1px solid ${!isTeamIdValid ? '#ff0055' : 'rgba(255, 255, 255, 0.1)'}`, padding: '12px 16px', borderRadius: '8px' }}>
                   <div style={{ fontSize: '0.65rem', color: '#8888aa', marginBottom: '4px' }}>TEAM ID NUMBER</div>
                   <div style={{ color: !isTeamIdValid ? '#ff0055' : '#fdff00', fontWeight: 'bold', fontSize: '0.95rem' }}>
@@ -1060,7 +1377,7 @@ export default function ProjectSubmissionPage() {
               <h3 className="section-title"><span className="pacman-bullet"></span> 1. TEAM LEADER DETAILS (COMPULSORY)</h3>
               <div className="leader-grid">
                 <div className="form-group">
-                  <label htmlFor="team-name">Team Name <span style={{ color: '#ff0055' }}>*</span></label>
+                  <label htmlFor="team-name">Team Name <span style={{ color: '#00ffcc' }}>* (Editable)</span></label>
                   <input
                     type="text"
                     id="team-name"
@@ -1069,6 +1386,9 @@ export default function ProjectSubmissionPage() {
                     value={teamName}
                     onChange={(e) => setTeamName(e.target.value)}
                   />
+                  <span style={{ color: '#00ffcc', fontSize: '0.62rem', marginTop: '4px', display: 'block' }}>
+                    💡 Students can freely edit the team name.
+                  </span>
                 </div>
                 <div className="form-group">
                   <label htmlFor="team-id-no">
