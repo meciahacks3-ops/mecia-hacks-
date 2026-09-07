@@ -754,7 +754,7 @@ function JudgeEvaluationContent() {
                     <span className="pacman-bullet"></span> 💬 MENTORS: TWO-PHASE TEAM FEEDBACK
                   </h3>
                   <p style={{ color: '#ccc', fontSize: '0.78rem', marginTop: '6px', margin: 0, lineHeight: '1.5' }}>
-                    Logged in as Mentor <strong>{judgeEmail.toUpperCase()}</strong>. Record qualitative mentorship critique and observations for <strong>Phase 1</strong>. {IS_PHASE_2_LOCKED ? <span style={{ color: '#ff6688', fontWeight: 'bold' }}>Phase 2 feedback is currently locked by administration.</span> : 'Phase 2 feedback is active.'}
+                    Logged in as Mentor <strong>{judgeEmail.toUpperCase()}</strong>. Record qualitative mentorship critique and observations for {IS_PHASE_2_LOCKED ? <strong>Phase 1</strong> : <strong>Phase 1 &amp; Phase 2</strong>}. {IS_PHASE_2_LOCKED ? <span style={{ color: '#ff6688', fontWeight: 'bold' }}>Phase 2 feedback is currently locked by administration.</span> : <span style={{ color: '#00ffcc', fontWeight: 'bold' }}>Phase 2 feedback is active and unlocked!</span>}
                   </p>
                 </div>
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
@@ -854,10 +854,10 @@ function JudgeEvaluationContent() {
                     fontSize: '0.6rem',
                     fontWeight: 'bold',
                     cursor: 'pointer',
-                    boxShadow: activeFeedbackTab === 'phase2' ? '0 0 10px rgba(255, 51, 102, 0.3)' : 'none'
+                    boxShadow: activeFeedbackTab === 'phase2' ? (IS_PHASE_2_LOCKED ? '0 0 10px rgba(255, 51, 102, 0.3)' : '0 0 10px rgba(255, 102, 204, 0.4)') : 'none'
                   }}
                 >
-                  🔒 PHASE 2 (LOCKED)
+                  {IS_PHASE_2_LOCKED ? '🔒 PHASE 2 (LOCKED)' : '🚀 PHASE 2 (ACTIVE)'}
                 </button>
               </div>
 

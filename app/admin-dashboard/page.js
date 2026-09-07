@@ -3559,10 +3559,21 @@ export default function AdminDashboardPage() {
                                                   &ldquo;{evalEntry.remarks}&rdquo;
                                                 </div>
                                               ) : null}
-                                              {IS_PHASE_2_LOCKED && (
+                                              {evalEntry?.phase2Feedback && (
+                                                <div style={{ fontSize: '0.74rem', color: '#ff66cc', fontStyle: 'italic', maxWidth: '380px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                  <span style={{ fontWeight: 'bold' }}>🚀 P2:</span> &ldquo;{evalEntry.phase2Feedback}&rdquo;
+                                                </div>
+                                              )}
+                                              {IS_PHASE_2_LOCKED ? (
                                                 <span style={{ fontSize: '0.58rem', color: '#ff88a3', fontFamily: 'Press Start 2P, monospace' }}>
                                                   🔒 P2 LOCKED
                                                 </span>
+                                              ) : (
+                                                !evalEntry?.phase2Feedback && (
+                                                  <span style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace' }}>
+                                                    🚀 P2 UNLOCKED
+                                                  </span>
+                                                )
                                               )}
                                             </div>
                                           )}
@@ -4183,10 +4194,21 @@ export default function AdminDashboardPage() {
                                                  &ldquo;{evalEntry.remarks}&rdquo;
                                                </div>
                                              ) : null}
-                                             {IS_PHASE_2_LOCKED && (
+                                             {evalEntry?.phase2Feedback && (
+                                               <div style={{ fontSize: '0.72rem', color: '#ff66cc', fontStyle: 'italic', maxWidth: '280px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                                                 <span style={{ fontWeight: 'bold' }}>🚀 P2:</span> &ldquo;{evalEntry.phase2Feedback}&rdquo;
+                                               </div>
+                                             )}
+                                             {IS_PHASE_2_LOCKED ? (
                                                <span style={{ fontSize: '0.58rem', color: '#ff88a3', fontFamily: 'Press Start 2P, monospace' }}>
                                                  🔒 P2 LOCKED
                                                </span>
+                                             ) : (
+                                               !evalEntry?.phase2Feedback && (
+                                                 <span style={{ fontSize: '0.58rem', color: '#ff66cc', fontFamily: 'Press Start 2P, monospace' }}>
+                                                   🚀 P2 UNLOCKED
+                                                 </span>
+                                               )
                                              )}
                                            </div>
                                          )}

@@ -359,8 +359,12 @@ export default function JudgeDashboardPage() {
                     ? `Open Grand Finale access: All ${allFinalistTeams.length} qualified finalist teams are open to your jury panel (${judgeEmail.toUpperCase()}). You can evaluate and score any team across all 5 official evaluation rubrics (50 marks max).`
                     : isMentorJudge
                     ? (effectiveScope === 'MY_ASSIGNED'
-                        ? `Panel Mentorship: Reviewing your ${myAssignedFinalistCount} assigned finalist ${myAssignedFinalistCount === 1 ? 'team' : 'teams'} for Phase 1 feedback (${judgeEmail.toUpperCase()}). Phase 2 feedback is currently locked by administration. Switch to "ALL FINALISTS" anytime to view other teams.`
-                        : `Open Mentorship access: Viewing all ${allFinalistTeams.length} qualified finalist teams for your mentor panel (${judgeEmail.toUpperCase()}). Phase 1 feedback is active (Phase 2 locked). Teams assigned to your panel are marked with a yellow badge.`)
+                        ? (IS_PHASE_2_LOCKED
+                            ? `Panel Mentorship: Reviewing your ${myAssignedFinalistCount} assigned finalist ${myAssignedFinalistCount === 1 ? 'team' : 'teams'} for Phase 1 feedback (${judgeEmail.toUpperCase()}). Phase 2 feedback is currently locked by administration. Switch to "ALL FINALISTS" anytime to view other teams.`
+                            : `Panel Mentorship: Reviewing your ${myAssignedFinalistCount} assigned finalist ${myAssignedFinalistCount === 1 ? 'team' : 'teams'} for Phase 1 & Phase 2 feedback (${judgeEmail.toUpperCase()}). Phase 2 feedback is active and unlocked! Switch to "ALL FINALISTS" anytime to view other teams.`)
+                        : (IS_PHASE_2_LOCKED
+                            ? `Open Mentorship access: Viewing all ${allFinalistTeams.length} qualified finalist teams for your mentor panel (${judgeEmail.toUpperCase()}). Phase 1 feedback is active (Phase 2 locked). Teams assigned to your panel are marked with a yellow badge.`
+                            : `Open Mentorship access: Viewing all ${allFinalistTeams.length} qualified finalist teams for your mentor panel (${judgeEmail.toUpperCase()}). Phase 1 and Phase 2 feedback are active and unlocked! Teams assigned to your panel are marked with a yellow badge.`))
                     : `Evaluating qualified finalist teams. All finalist teams are available to evaluate.`}
                 </p>
               </div>
@@ -382,11 +386,11 @@ export default function JudgeDashboardPage() {
                   ⭐ ASSIGNED TO THIS PANEL: {myAssignedFinalistCount}
                 </span>
               )}
-              {isMentorJudge && IS_PHASE_2_LOCKED && (
+              {isMentorJudge && (
                 <span style={{
-                  background: 'rgba(255, 51, 102, 0.15)',
-                  border: '1.5px solid #ff3366',
-                  color: '#ff6688',
+                  background: IS_PHASE_2_LOCKED ? 'rgba(255, 51, 102, 0.15)' : 'rgba(255, 102, 204, 0.15)',
+                  border: IS_PHASE_2_LOCKED ? '1.5px solid #ff3366' : '1.5px solid #ff66cc',
+                  color: IS_PHASE_2_LOCKED ? '#ff6688' : '#ff66cc',
                   padding: '4px 10px',
                   borderRadius: '6px',
                   fontFamily: 'Press Start 2P, monospace',
@@ -396,7 +400,7 @@ export default function JudgeDashboardPage() {
                   alignItems: 'center',
                   gap: '6px'
                 }}>
-                  🔒 PHASE 2 LOCKED (PHASE 1 ACTIVE)
+                  {IS_PHASE_2_LOCKED ? '🔒 PHASE 2 LOCKED (PHASE 1 ACTIVE)' : '🚀 PHASE 2 UNLOCKED & ACTIVE'}
                 </span>
               )}
               <span style={{
@@ -654,8 +658,12 @@ export default function JudgeDashboardPage() {
               ? `Open evaluation: All ${FINAL_ROUND_STATS.totalTeams} qualified finalist teams are open to all judges. You can evaluate and score any finalist team across all 5 official evaluation rubrics (50 marks max).`
               : isMentorJudge
               ? (effectiveScope === 'MY_ASSIGNED'
-                  ? `Showing ${displayedAssignedTeams.length} finalist teams assigned specifically to panel ${judgeEmail.toUpperCase()}. Click on any team to enter Phase 1 qualitative feedback (Phase 2 is currently locked).`
-                  : `Showing all ${displayedAssignedTeams.length} finalist teams. Phase 1 feedback is active (Phase 2 is locked). Teams allocated to panel ${judgeEmail.toUpperCase()} are highlighted with a special yellow badge.`)
+                  ? (IS_PHASE_2_LOCKED
+                      ? `Showing ${displayedAssignedTeams.length} finalist teams assigned specifically to panel ${judgeEmail.toUpperCase()}. Click on any team to enter Phase 1 qualitative feedback (Phase 2 is currently locked).`
+                      : `Showing ${displayedAssignedTeams.length} finalist teams assigned specifically to panel ${judgeEmail.toUpperCase()}. Click on any team to enter Phase 1 and Phase 2 qualitative feedback.`)
+                  : (IS_PHASE_2_LOCKED
+                      ? `Showing all ${displayedAssignedTeams.length} finalist teams. Phase 1 feedback is active (Phase 2 is locked). Teams allocated to panel ${judgeEmail.toUpperCase()} are highlighted with a special yellow badge.`
+                      : `Showing all ${displayedAssignedTeams.length} finalist teams. Phase 1 and Phase 2 feedback are active and unlocked! Teams allocated to panel ${judgeEmail.toUpperCase()} are highlighted with a special yellow badge.`))
               : (finalistsOnlyFilter
                   ? `Review Final Round qualified submissions and assign scores.`
                   : `Viewing all teams in the hackathon portal.`)}
@@ -1056,6 +1064,14 @@ export default function JudgeDashboardPage() {
                                   <span style={{ fontSize: '0.85rem' }}>🔒</span>
                                   <span style={{ color: '#ff88a3', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace' }}>
                                     PHASE 2 FEEDBACK: LOCKED (OPENS FOR FINAL SPRINT)
+                                  </span>
+                                </div>
+                              )}
+                              {!IS_PHASE_2_LOCKED && !evalEntry.phase2Feedback && (
+                                <div style={{ background: 'rgba(255, 102, 204, 0.08)', borderLeft: '3px solid #ff66cc', padding: '6px 12px', borderRadius: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                  <span style={{ fontSize: '0.85rem' }}>⏳</span>
+                                  <span style={{ color: '#ff66cc', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace' }}>
+                                    PHASE 2 FEEDBACK: PENDING SUBMISSION
                                   </span>
                                 </div>
                               )}
