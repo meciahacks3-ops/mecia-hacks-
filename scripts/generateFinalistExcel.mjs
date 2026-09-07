@@ -35,9 +35,9 @@ const sheet1Rows = [
   ['MECIA HACKS 3.0 — OFFICIAL FINALIST TEAMS ROSTER'],
   [
     `TOTAL FINALIST TEAMS: ${FINAL_ROUND_TEAMS.length}`,
-    'SOFTWARE: 30',
-    'HYBRID: 15',
-    'HARDWARE: 4',
+    `SOFTWARE: ${FINAL_ROUND_TEAMS.filter(t => (t.track || '').toLowerCase() === 'software').length}`,
+    `HYBRID: ${FINAL_ROUND_TEAMS.filter(t => (t.track || '').toLowerCase() === 'hybrid').length}`,
+    `HARDWARE: ${FINAL_ROUND_TEAMS.filter(t => (t.track || '').toLowerCase() === 'hardware').length}`,
     `TOTAL PARTICIPANTS: ${FINAL_ROUND_TEAMS.reduce((sum, t) => sum + (t.totalMembers || (1 + (t.members?.length || 0))), 0)}`
   ],
   [],
@@ -147,7 +147,7 @@ const sheet3Headers = [
 ];
 
 const sheet3Rows = [
-  ['MECIA HACKS 3.0 — ALL FINALIST PARTICIPANTS ROSTER (189 PARTICIPANTS)'],
+  [`MECIA HACKS 3.0 — ALL FINALIST PARTICIPANTS ROSTER (${FINAL_ROUND_TEAMS.reduce((sum, t) => sum + (t.totalMembers || (1 + (t.members?.length || 0))), 0)} PARTICIPANTS)`],
   [],
   sheet3Headers
 ];
@@ -201,10 +201,11 @@ ws3['!cols'] = [
   { wch: 28 },  // Branch
   { wch: 32 }   // Lab Location
 ];
-XLSX.utils.book_append_sheet(wb, ws3, 'All 189 Participants');
+const totalParticipantsCount = FINAL_ROUND_TEAMS.reduce((sum, t) => sum + (t.totalMembers || (1 + (t.members?.length || 0))), 0);
+XLSX.utils.book_append_sheet(wb, ws3, `All ${totalParticipantsCount} Participants`);
 
 // -------------------------------------------------------------
-// Sheet 4: Software Finalists (Top 30)
+// Sheet 4: Software Finalists
 // -------------------------------------------------------------
 function buildTrackSheet(trackName, filterFn) {
   const teams = FINAL_ROUND_TEAMS.filter(filterFn);
@@ -261,14 +262,18 @@ function buildTrackSheet(trackName, filterFn) {
   return ws;
 }
 
+const softCount = FINAL_ROUND_TEAMS.filter(t => (t.track || '').toLowerCase() === 'software').length;
+const hybCount = FINAL_ROUND_TEAMS.filter(t => (t.track || '').toLowerCase() === 'hybrid').length;
+const hardCount = FINAL_ROUND_TEAMS.filter(t => (t.track || '').toLowerCase() === 'hardware').length;
+
 const wsSoftware = buildTrackSheet('Software Track', t => (t.track || '').toLowerCase() === 'software');
-XLSX.utils.book_append_sheet(wb, wsSoftware, 'Software Track (30)');
+XLSX.utils.book_append_sheet(wb, wsSoftware, `Software Track (${softCount})`);
 
 const wsHybrid = buildTrackSheet('Hybrid Track', t => (t.track || '').toLowerCase() === 'hybrid');
-XLSX.utils.book_append_sheet(wb, wsHybrid, 'Hybrid Track (15)');
+XLSX.utils.book_append_sheet(wb, wsHybrid, `Hybrid Track (${hybCount})`);
 
 const wsHardware = buildTrackSheet('Hardware Track', t => (t.track || '').toLowerCase() === 'hardware');
-XLSX.utils.book_append_sheet(wb, wsHardware, 'Hardware Track (4)');
+XLSX.utils.book_append_sheet(wb, wsHardware, `Hardware Track (${hardCount})`);
 
 // Write XLSX to disk
 const xlsxPath = path.join(rootDir, 'MECIA_HACKS_3.0_Finalist_Teams_Members.xlsx');

@@ -514,7 +514,7 @@ export default function AdminDashboardPage() {
     }
 
     const confirmMsg = `⚠️ UNASSIGN ALL ${finalistTeamsList.length} FINALISTS?\n\n` +
-      `This will set assigned_judge to 'Unassigned' for all 49 qualified finalists.\n` +
+      `This will set assigned_judge to 'Unassigned' for all ${finalistTeamsList.length} qualified finalists.\n` +
       `Judges will see 0 assigned teams on their portal until you re-assign them.\n\n` +
       `Are you sure you want to proceed?`;
 
@@ -602,7 +602,12 @@ export default function AdminDashboardPage() {
   };
 
   const selectTopRound3SpecialPreset = (sortedList) => {
-    const soft = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'software').slice(0, 30).map(t => t.id);
+    const finalistIds = sortedList.filter(t => t.isFinalist).map(t => t.id);
+    if (finalistIds.length > 0) {
+      setSelectedRound3TeamIds(Array.from(new Set(finalistIds)));
+      return;
+    }
+    const soft = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'software').slice(0, 31).map(t => t.id);
     const hyb = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'hybrid').slice(0, 15).map(t => t.id);
     const hard = sortedList.filter(t => (t.projectType || '').toLowerCase() === 'hardware').map(t => t.id);
     setSelectedRound3TeamIds(Array.from(new Set([...soft, ...hyb, ...hard])));
@@ -620,7 +625,7 @@ export default function AdminDashboardPage() {
         return;
       }
       const filename = exportTop30Soft15HybAllHardExcel(teams, evaluations);
-      alert(`✅ Special Leaderboard Excel Workbook Generated!\n\nFile: ${filename}\n\nSheets Included:\n• Summary & Combined Roster (49 Teams)\n• Top 30 Software Projects\n• Top 15 Hybrid Projects\n• All Hardware Projects`);
+      alert(`✅ Special Leaderboard Excel Workbook Generated!\n\nFile: ${filename}\n\nSheets Included:\n• Summary & Combined Roster (${FINAL_ROUND_STATS.totalTeams} Teams)\n• Top ${FINAL_ROUND_STATS.softwareTeams} Software Projects\n• Top ${FINAL_ROUND_STATS.hybridTeams} Hybrid Projects\n• All Hardware Projects`);
     } catch (err) {
       console.error("Special leaderboard export error:", err);
       alert("Error generating special leaderboard Excel workbook: " + err.message);
@@ -1252,8 +1257,8 @@ export default function AdminDashboardPage() {
           <h2>HACKATHON FINAL ROUND CONTROL</h2>
           <p>
             {scopeFilter === 'finalists'
-              ? 'Focusing on the 49 Qualified Finalist Teams (30 Software • 15 Hybrid • 4 Hardware • 189 Participants). Allocate final round slots, panels, and scores.'
-              : 'Managing all 121 registered teams archive. Allocate presentation time slots, assign judge panels, and monitor evaluations.'}
+              ? `Focusing on the ${finalistTeams.length || FINAL_ROUND_STATS.totalTeams} Qualified Finalist Teams (${FINAL_ROUND_STATS.softwareTeams} Software • ${FINAL_ROUND_STATS.hybridTeams} Hybrid • ${FINAL_ROUND_STATS.hardwareTeams} Hardware • ${FINAL_ROUND_STATS.totalParticipants} Participants). Allocate final round slots, panels, and scores.`
+              : 'Managing all registered teams archive. Allocate presentation time slots, assign judge panels, and monitor evaluations.'}
           </p>
         </div>
 
@@ -1286,11 +1291,11 @@ export default function AdminDashboardPage() {
                     fontSize: '0.55rem',
                     fontWeight: 'bold'
                   }}>
-                    49 TEAMS ADVANCED
+                    {finalistTeams.length || FINAL_ROUND_STATS.totalTeams} TEAMS ADVANCED
                   </span>
                 </div>
                 <p style={{ margin: '6px 0 0 0', color: '#ccc', fontSize: '0.78rem' }}>
-                  Portal is currently focused on the 49 qualified finalist teams (30 Software • 15 Hybrid • 4 Hardware • 189 Participants).
+                  Portal is currently focused on the {finalistTeams.length || FINAL_ROUND_STATS.totalTeams} qualified finalist teams ({FINAL_ROUND_STATS.softwareTeams} Software • {FINAL_ROUND_STATS.hybridTeams} Hybrid • {FINAL_ROUND_STATS.hardwareTeams} Hardware • {FINAL_ROUND_STATS.totalParticipants} Participants).
                 </p>
               </div>
             </div>
@@ -1313,7 +1318,7 @@ export default function AdminDashboardPage() {
                   boxShadow: scopeFilter === 'finalists' ? '0 0 14px rgba(253, 255, 0, 0.4)' : 'none'
                 }}
               >
-                🏆 49 FINALISTS (ACTIVE)
+                🏆 {finalistTeams.length || FINAL_ROUND_STATS.totalTeams} FINALISTS (ACTIVE)
               </button>
               <button
                 type="button"
@@ -1364,7 +1369,7 @@ export default function AdminDashboardPage() {
                   fontWeight: 'bold'
                 }}
               >
-                ALL 49 FINALISTS
+                ALL {finalistTeams.length || FINAL_ROUND_STATS.totalTeams} FINALISTS
               </button>
               <button
                 type="button"
@@ -1497,7 +1502,7 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={handleUnassignAllFinalists}
                   disabled={isUnassigningFinalists}
-                  title="Unassign all 49 qualified finalist teams from judges so you can re-allocate them"
+                  title="Unassign all qualified finalist teams from judges so you can re-allocate them"
                   style={{
                     background: 'rgba(255, 0, 85, 0.2)',
                     color: '#ff3366',
@@ -1511,7 +1516,7 @@ export default function AdminDashboardPage() {
                     boxShadow: '0 0 8px rgba(255, 51, 102, 0.3)'
                   }}
                 >
-                  {isUnassigningFinalists ? '⏳ UNASSIGNING...' : '⚡ UNASSIGN 49 FINALISTS'}
+                  {isUnassigningFinalists ? '⏳ UNASSIGNING...' : `⚡ UNASSIGN ${finalistTeams.length || FINAL_ROUND_STATS.totalTeams} FINALISTS`}
                 </button>
               </div>
             </div>
@@ -2587,7 +2592,7 @@ export default function AdminDashboardPage() {
                         boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)'
                       }}
                     >
-                      ⭐ TOP 30 SOFT + 15 HYB + ALL HARD (49)
+                      ⭐ ALL QUALIFIED FINALISTS ({finalistTeams.length || FINAL_ROUND_STATS.totalTeams})
                     </button>
                     <button
                       type="button"

@@ -6,7 +6,7 @@ import { supabase } from '@/lib/supabase';
 import { findRegisteredTeam } from '@/lib/teamUtils';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
-import { isFinalRoundTeam, getFinalRoundTeamInfo } from '@/lib/finalRoundTeams';
+import { isFinalRoundTeam, getFinalRoundTeamInfo, FINAL_ROUND_STATS } from '@/lib/finalRoundTeams';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
 export default function ProjectSubmissionPage() {
@@ -887,7 +887,7 @@ export default function ProjectSubmissionPage() {
                       </div>
                     </div>
                     <p style={{ color: '#fff', fontSize: '0.86rem', lineHeight: '1.6', margin: '0 0 16px 0' }}>
-                      Your team <strong style={{ color: '#00ffcc' }}>{teamName}</strong> has officially qualified as one of the <strong>49 Finalist Teams</strong> for the Final Round of Mecia Hack 3.0! Please ensure your entire team reports to your allocated judge panel and venue during your presentation time slot.
+                      Your team <strong style={{ color: '#00ffcc' }}>{teamName}</strong> has officially qualified as one of the <strong>{FINAL_ROUND_STATS.totalTeams} Finalist Teams</strong> for the Final Round of Mecia Hack 3.0! Please ensure your entire team reports to your allocated judge panel and venue during your presentation time slot.
                     </p>
                     <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap' }}>
                       <div style={{ background: 'rgba(0,0,0,0.6)', border: '1.5px solid #00ffcc', padding: '10px 14px', borderRadius: '8px' }}>
@@ -933,7 +933,7 @@ export default function ProjectSubmissionPage() {
                     🏁 ROUND 2 COMPLETED
                   </span>
                   <p style={{ color: '#ccc', fontSize: '0.84rem', marginTop: '10px', lineHeight: '1.5', margin: '10px 0 0 0' }}>
-                    Thank you for participating and presenting in Round 2 of Mecia Hack 3.0! The 49 finalist teams have been selected for the Final Round. We deeply appreciate your participation, and digital certificates of participation will be awarded to all teams.
+                    Thank you for participating and presenting in Round 2 of Mecia Hack 3.0! The {FINAL_ROUND_STATS.totalTeams} finalist teams have been selected for the Final Round. We deeply appreciate your participation, and digital certificates of participation will be awarded to all teams.
                   </p>
                 </div>
               );

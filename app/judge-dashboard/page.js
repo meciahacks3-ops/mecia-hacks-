@@ -8,7 +8,7 @@ import ThemeToggle from '@/app/components/ThemeToggle';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { parseEvaluationRecord, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
-import { isFinalRoundTeam, getFinalRoundTeamInfo, getTeamLabLocation } from '@/lib/finalRoundTeams';
+import { isFinalRoundTeam, getFinalRoundTeamInfo, getTeamLabLocation, FINAL_ROUND_STATS } from '@/lib/finalRoundTeams';
 
 export default function JudgeDashboardPage() {
   const router = useRouter();
@@ -651,7 +651,7 @@ export default function JudgeDashboardPage() {
           <h2>{isExternalRound3Judge ? 'ROUND 3: ALL FINALIST TEAMS' : isMentorJudge ? (effectiveScope === 'MY_ASSIGNED' ? 'MY ASSIGNED FINALIST TEAMS FOR FEEDBACK' : 'ALL FINALIST TEAMS FOR FEEDBACK') : 'FINAL ROUND TEAMS'} ({displayedAssignedTeams.length})</h2>
           <p>
             {isExternalRound3Judge
-              ? `Open evaluation: All 49 qualified finalist teams are open to all judges. You can evaluate and score any finalist team across all 5 official evaluation rubrics (50 marks max).`
+              ? `Open evaluation: All ${FINAL_ROUND_STATS.totalTeams} qualified finalist teams are open to all judges. You can evaluate and score any finalist team across all 5 official evaluation rubrics (50 marks max).`
               : isMentorJudge
               ? (effectiveScope === 'MY_ASSIGNED'
                   ? `Showing ${displayedAssignedTeams.length} finalist teams assigned specifically to panel ${judgeEmail.toUpperCase()}. Click on any team to enter Phase 1 qualitative feedback (Phase 2 is currently locked).`

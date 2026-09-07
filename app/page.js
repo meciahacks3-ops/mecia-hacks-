@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { supabase } from '@/lib/supabase';
 import { EXTERNAL_ROUND_3_JUDGE_IDS, FINAL_ROUND_JUDGE_IDS, ROUND_2_JUDGE_IDS } from '@/lib/judgeProfiles';
+import { FINAL_ROUND_STATS } from '@/lib/finalRoundTeams';
 import ThemeToggle from '@/app/components/ThemeToggle';
 
 export default function LoginPage() {
@@ -372,7 +373,7 @@ export default function LoginPage() {
             🏆 FINAL ROUND IS NOW LIVE!
           </div>
           <div style={{ color: '#00ffcc', fontSize: '0.62rem', fontFamily: 'Press Start 2P, monospace', marginTop: '6px' }}>
-            49 TEAMS QUALIFIED • 30 SOFT • 15 HYB • 4 HARD
+            {FINAL_ROUND_STATS.totalTeams} TEAMS QUALIFIED • {FINAL_ROUND_STATS.softwareTeams} SOFT • {FINAL_ROUND_STATS.hybridTeams} HYB • {FINAL_ROUND_STATS.hardwareTeams} HARD
           </div>
           <p style={{ margin: '6px 0 0 0', color: '#ccc', fontSize: '0.74rem' }}>
             Students: Sign in to check your Final Round qualification status and presentation slot.

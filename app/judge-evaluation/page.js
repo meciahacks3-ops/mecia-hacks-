@@ -8,7 +8,7 @@ import ThemeToggle from '@/app/components/ThemeToggle';
 import { getJudgeProfile } from '@/lib/judgeProfiles';
 import { parseTimeSlotFromTeam, getTimeSlotInfo } from '@/lib/timeSlotUtils';
 import { parseEvaluationRecord, formatPhaseFeedback, parsePhaseFeedback, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
-import { isFinalRoundTeam, getFinalRoundTeamInfo, getTeamLabLocation } from '@/lib/finalRoundTeams';
+import { isFinalRoundTeam, getFinalRoundTeamInfo, getTeamLabLocation, FINAL_ROUND_STATS } from '@/lib/finalRoundTeams';
 
 function JudgeEvaluationContent() {
   const router = useRouter();
@@ -618,7 +618,7 @@ function JudgeEvaluationContent() {
                   color: '#ff8888',
                   fontSize: '0.78rem'
                 }}>
-                  ⚠️ Notice: This team is not listed in the 49 Final Round Qualifiers. Final round evaluations are intended for the 49 qualified finalist teams.
+                  ⚠️ Notice: This team is not listed in the {FINAL_ROUND_STATS.totalTeams} Final Round Qualifiers. Final round evaluations are intended for the {FINAL_ROUND_STATS.totalTeams} qualified finalist teams.
                 </div>
               )}
 
