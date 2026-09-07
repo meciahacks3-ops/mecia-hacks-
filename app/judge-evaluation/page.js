@@ -47,17 +47,31 @@ function JudgeEvaluationContent() {
   const isExternalRound3Judge = cleanJudgeUpper.startsWith('FM');
   const isFinalRoundJudge = isMentorJudge;
 
+  const maxCriterionScore = isExternalRound3Judge ? 20 : 10;
+
   const isInvalid = (val) => {
     if (val === '' || val === null || val === undefined) return false;
     const num = Number(val);
-    return isNaN(num) || num < 0 || num > 10;
+    return isNaN(num) || num < 0 || num > maxCriterionScore;
   };
 
   const hasInvalidMarks = isInvalid(c1) || isInvalid(c2) || isInvalid(c3) || isInvalid(c4) || isInvalid(c5);
 
+  const numC1 = Math.min(maxCriterionScore, Math.max(0, parseFloat(c1) || 0));
+  const numC2 = Math.min(maxCriterionScore, Math.max(0, parseFloat(c2) || 0));
+  const numC3 = Math.min(maxCriterionScore, Math.max(0, parseFloat(c3) || 0));
+  const numC4 = Math.min(maxCriterionScore, Math.max(0, parseFloat(c4) || 0));
+  const numC5 = Math.min(maxCriterionScore, Math.max(0, parseFloat(c5) || 0));
+
+  // Round 3 Scoring: C1 (35%), C2 (25%), C3 (20%), C4 (10%), C5 (10%)
+  const weightedTotal = Math.round((numC1 * 1.75 + numC2 * 1.25 + numC3 * 1.0 + numC4 * 0.5 + numC5 * 0.5) * 10) / 10;
+  const rawTotal = Math.round((numC1 + numC2 + numC3 + numC4 + numC5) * 10) / 10;
+
   const totalScore = hasInvalidMarks
     ? 'INVALID'
-    : Math.min(50, Math.max(0, (parseInt(c1) || 0) + (parseInt(c2) || 0) + (parseInt(c3) || 0) + (parseInt(c4) || 0) + (parseInt(c5) || 0)));
+    : (isExternalRound3Judge
+        ? weightedTotal
+        : Math.min(50, Math.max(0, numC1 + numC2 + numC3 + numC4 + numC5)));
 
   useEffect(() => {
     const savedJudgeEmail = sessionStorage.getItem('judgeEmail');
@@ -252,7 +266,7 @@ function JudgeEvaluationContent() {
     }
 
     if (!isFinalRoundJudge && hasInvalidMarks) {
-      alert("⚠️ Invalid Marks: Scores for each criterion must be between 0 and 10.");
+      alert(`⚠️ Invalid Marks: Scores for each criterion must be between 0 and ${maxCriterionScore}.`);
       return;
     }
 
@@ -300,24 +314,28 @@ function JudgeEvaluationContent() {
           updated_at: new Date()
         };
       } else {
-        const numC1 = parseInt(c1) || 0;
-        const numC2 = parseInt(c2) || 0;
-        const numC3 = parseInt(c3) || 0;
-        const numC4 = parseInt(c4) || 0;
-        const numC5 = parseInt(c5) || 0;
+        const maxScore = isExternalRound3Judge ? 20 : 10;
+        const scoreC1 = Math.min(maxScore, Math.max(0, parseFloat(c1) || 0));
+        const scoreC2 = Math.min(maxScore, Math.max(0, parseFloat(c2) || 0));
+        const scoreC3 = Math.min(maxScore, Math.max(0, parseFloat(c3) || 0));
+        const scoreC4 = Math.min(maxScore, Math.max(0, parseFloat(c4) || 0));
+        const scoreC5 = Math.min(maxScore, Math.max(0, parseFloat(c5) || 0));
 
-        const cleanRemarks = remarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim();
-        const formattedRemarks = `[C5 Implementation: ${numC5}/10] ${cleanRemarks}`.trim();
-        const calculatedTotal = numC1 + numC2 + numC3 + numC4 + numC5;
+        const cleanRemarks = remarks.replace(/\[C5(?:\s+[^\]]+)?:\s*\d+(?:\/(?:10|20))?\]\s*/gi, '').trim();
+        const formattedRemarks = isExternalRound3Judge
+          ? `[C5 Presentation & Demo: ${scoreC5}/20] ${cleanRemarks}`.trim()
+          : `[C5 Implementation: ${scoreC5}/10] ${cleanRemarks}`.trim();
+
+        const calculatedTotal = isExternalRound3Judge ? weightedTotal : (scoreC1 + scoreC2 + scoreC3 + scoreC4 + scoreC5);
         const totalNum = totalScore === 'INVALID' ? 0 : calculatedTotal;
 
         evalPayload = {
           team_name: teamName,
           judge_email: cleanJudge,
-          c1_innovation: numC1,
-          c2_execution: numC2,
-          c3_feasibility: numC3,
-          c4_presentation: numC4,
+          c1_innovation: scoreC1,
+          c2_execution: scoreC2,
+          c3_feasibility: scoreC3,
+          c4_presentation: scoreC4,
           total_score: totalNum,
           remarks: formattedRemarks,
           updated_at: new Date()
@@ -348,13 +366,13 @@ function JudgeEvaluationContent() {
       // If External Jury (FM001-FM007), also save directly to dedicated external_evaluations table
       if (isExternalRound3Judge) {
         try {
-          const numC1 = parseInt(c1) || 0;
-          const numC2 = parseInt(c2) || 0;
-          const numC3 = parseInt(c3) || 0;
-          const numC4 = parseInt(c4) || 0;
-          const numC5 = parseInt(c5) || 0;
-          const cleanRemarks = remarks.replace(/\[C5(?:\s+Implementation)?:\s*\d+(?:\/10)?\]\s*/gi, '').trim();
-          const calculatedTotal = numC1 + numC2 + numC3 + numC4 + numC5;
+          const scoreC1 = Math.min(20, Math.max(0, parseFloat(c1) || 0));
+          const scoreC2 = Math.min(20, Math.max(0, parseFloat(c2) || 0));
+          const scoreC3 = Math.min(20, Math.max(0, parseFloat(c3) || 0));
+          const scoreC4 = Math.min(20, Math.max(0, parseFloat(c4) || 0));
+          const scoreC5 = Math.min(20, Math.max(0, parseFloat(c5) || 0));
+          const cleanRemarks = remarks.replace(/\[C5(?:\s+[^\]]+)?:\s*\d+(?:\/(?:10|20))?\]\s*/gi, '').trim();
+          const calculatedTotal = weightedTotal;
           const totalNum = totalScore === 'INVALID' ? 0 : calculatedTotal;
 
           const externalPayload = {
@@ -363,11 +381,11 @@ function JudgeEvaluationContent() {
             judge_email: cleanJudge,
             judge_name: judgeProfile?.namesText || cleanJudge,
             judge_group: judgeProfile?.group || null,
-            c1_innovation: numC1,
-            c2_execution: numC2,
-            c3_feasibility: numC3,
-            c4_presentation: numC4,
-            c5_implementation: numC5,
+            c1_innovation: scoreC1,
+            c2_execution: scoreC2,
+            c3_feasibility: scoreC3,
+            c4_presentation: scoreC4,
+            c5_implementation: scoreC5,
             total_score: totalNum,
             remarks: cleanRemarks,
             updated_at: new Date()
@@ -507,7 +525,24 @@ function JudgeEvaluationContent() {
             </div>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+            <button
+              type="button"
+              onClick={() => { setSelectedRubricCategory(null); setShowRubrics(true); }}
+              style={{
+                background: 'rgba(0, 255, 204, 0.15)',
+                color: '#00ffcc',
+                border: '1.5px solid #00ffcc',
+                borderRadius: '8px',
+                padding: '8px 12px',
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.58rem',
+                cursor: 'pointer'
+              }}
+              title="Click to view full scoring rubrics and performance standards"
+            >
+              {isExternalRound3Judge ? '📋 VIEW ROUND 3 RUBRICS' : '📋 VIEW RUBRICS'}
+            </button>
             <ThemeToggle />
             <button type="button" className="logout-btn" onClick={handleLogout}>
               🚪 LOG OUT
@@ -518,6 +553,7 @@ function JudgeEvaluationContent() {
         <RubricsModal
           isOpen={showRubrics}
           categoryIndex={selectedRubricCategory}
+          defaultRound={isExternalRound3Judge ? 3 : 2}
           onClose={() => setShowRubrics(false)}
         />
 
@@ -1128,178 +1164,471 @@ function JudgeEvaluationContent() {
                   <table className="eval-table">
                     <thead>
                       <tr>
-                        <th style={{ width: '32%' }}>Evaluation Criterion</th>
-                        <th>Description</th>
-                        <th style={{ width: '15%', textAlign: 'center' }}>Max Marks</th>
-                        <th style={{ width: '20%', textAlign: 'center' }}>Score (0-10)</th>
+                        <th style={{ width: '32%' }}>Evaluation Criterion {isExternalRound3Judge ? '(Round 3 Rubrics)' : ''}</th>
+                        <th>Description & Guidelines</th>
+                        <th style={{ width: '16%', textAlign: 'center' }}>Weight & Max</th>
+                        <th style={{ width: '22%', textAlign: 'center' }}>Score {isExternalRound3Judge ? '(0–20)' : '(0–10)'}</th>
                       </tr>
                     </thead>
                     <tbody>
-                      <tr>
-                        <td className="criterion-name">
-                          1. System Architecture & Technical Readiness
-                          <div>
-                            <button
-                              type="button"
-                              className="rubric-info-btn"
-                              onClick={() => { setSelectedRubricCategory(0); setShowRubrics(true); }}
-                            >
-                              ℹ️ Rubric Details
-                            </button>
-                          </div>
-                        </td>
-                        <td className="criterion-desc">Clear block/circuit diagrams, tech stack setup, component selection, software/hardware architecture logic.</td>
-                        <td className="max-marks-cell">10</td>
-                        <td className="score-input-cell">
-                          <input
-                            type="number"
-                            min="0"
-                            max="10"
-                            placeholder="0 - 10"
-                            required
-                            disabled={isLocked}
-                            style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
-                            className={`eval-score-input ${isInvalid(c1) ? 'invalid-input' : ''}`}
-                            value={c1}
-                            onChange={(e) => setC1(e.target.value)}
-                          />
-                          {isInvalid(c1) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="criterion-name">
-                          2. Interface/Circuit / Prototype Scope
-                          <div>
-                            <button
-                              type="button"
-                              className="rubric-info-btn"
-                              onClick={() => { setSelectedRubricCategory(1); setShowRubrics(true); }}
-                            >
-                              ℹ️ Rubric Details
-                            </button>
-                          </div>
-                        </td>
-                        <td className="criterion-desc">Wireframes, responsive layouts, or circuit schematics; pin definitions, sensor/actuator interfaces, communication protocols.</td>
-                        <td className="max-marks-cell">10</td>
-                        <td className="score-input-cell">
-                          <input
-                            type="number"
-                            min="0"
-                            max="10"
-                            placeholder="0 - 10"
-                            required
-                            disabled={isLocked}
-                            style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
-                            className={`eval-score-input ${isInvalid(c2) ? 'invalid-input' : ''}`}
-                            value={c2}
-                            onChange={(e) => setC2(e.target.value)}
-                          />
-                          {isInvalid(c2) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="criterion-name">
-                          3. Data, API / Hardware Component Availability
-                          <div>
-                            <button
-                              type="button"
-                              className="rubric-info-btn"
-                              onClick={() => { setSelectedRubricCategory(2); setShowRubrics(true); }}
-                            >
-                              ℹ️ Rubric Details
-                            </button>
-                          </div>
-                        </td>
-                        <td className="criterion-desc">Datasets identified/collected, schema designed, external APIs verified, or physical sensors/MCUs on hand.</td>
-                        <td className="max-marks-cell">10</td>
-                        <td className="score-input-cell">
-                          <input
-                            type="number"
-                            min="0"
-                            max="10"
-                            placeholder="0 - 10"
-                            required
-                            disabled={isLocked}
-                            style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
-                            className={`eval-score-input ${isInvalid(c3) ? 'invalid-input' : ''}`}
-                            value={c3}
-                            onChange={(e) => setC3(e.target.value)}
-                          />
-                          {isInvalid(c3) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="criterion-name">
-                          4. Execution Feasibility & Timeline
-                          <div>
-                            <button
-                              type="button"
-                              className="rubric-info-btn"
-                              onClick={() => { setSelectedRubricCategory(3); setShowRubrics(true); }}
-                            >
-                              ℹ️ Rubric Details
-                            </button>
-                          </div>
-                        </td>
-                        <td className="criterion-desc">Practical scope for the 24-hour hackathon, clear milestones, dependency awareness, contingency planning.</td>
-                        <td className="max-marks-cell">10</td>
-                        <td className="score-input-cell">
-                          <input
-                            type="number"
-                            min="0"
-                            max="10"
-                            placeholder="0 - 10"
-                            required
-                            disabled={isLocked}
-                            style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
-                            className={`eval-score-input ${isInvalid(c4) ? 'invalid-input' : ''}`}
-                            value={c4}
-                            onChange={(e) => setC4(e.target.value)}
-                          />
-                          {isInvalid(c4) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
-                        </td>
-                      </tr>
-                      <tr>
-                        <td className="criterion-name">
-                          5. Implementation Details
-                          <div>
-                            <button
-                              type="button"
-                              className="rubric-info-btn"
-                              onClick={() => { setSelectedRubricCategory(4); setShowRubrics(true); }}
-                            >
-                              ℹ️ Rubric Details
-                            </button>
-                          </div>
-                        </td>
-                        <td className="criterion-desc">Granular breakdown of build steps, module-wise execution plan, pinouts, and technical task assignments.</td>
-                        <td className="max-marks-cell">10</td>
-                        <td className="score-input-cell">
-                          <input
-                            type="number"
-                            min="0"
-                            max="10"
-                            placeholder="0 - 10"
-                            required
-                            disabled={isLocked}
-                            style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
-                            className={`eval-score-input ${isInvalid(c5) ? 'invalid-input' : ''}`}
-                            value={c5}
-                            onChange={(e) => setC5(e.target.value)}
-                          />
-                          {isInvalid(c5) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
-                        </td>
-                      </tr>
+                      {isExternalRound3Judge ? (
+                        <>
+                          {/* CRITERION 1: WORKING MVP (35%) */}
+                          <tr>
+                            <td className="criterion-name">
+                              1. Working MVP & Functional Execution
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
+                                <span style={{
+                                  background: 'rgba(253, 255, 0, 0.15)',
+                                  color: '#fdff00',
+                                  border: '1px solid #fdff00',
+                                  borderRadius: '4px',
+                                  padding: '1px 6px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  Weight: 35%
+                                </span>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(0); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">
+                              Fully functional live demo, real-time data flow, sensor-to-software execution, hardware stability.
+                            </td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>
+                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
+                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>35% Weight</div>
+                            </td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                placeholder="0 - 20"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c1) ? 'invalid-input' : ''}`}
+                                value={c1}
+                                onChange={(e) => setC1(e.target.value)}
+                              />
+                              {isInvalid(c1) ? (
+                                <span className="invalid-badge">❌ INVALID (0-20)</span>
+                              ) : (
+                                <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
+                                  +{((parseFloat(c1) || 0) * 1.75).toFixed(1)} / 35 pts
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* CRITERION 2: TECHNICAL COMPLEXITY & INTEGRATION (25%) */}
+                          <tr>
+                            <td className="criterion-name">
+                              2. Technical Complexity & Hardware/Software Integration
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
+                                <span style={{
+                                  background: 'rgba(253, 255, 0, 0.15)',
+                                  color: '#fdff00',
+                                  border: '1px solid #fdff00',
+                                  borderRadius: '4px',
+                                  padding: '1px 6px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  Weight: 25%
+                                </span>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(1); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">
+                              Code quality, hardware assembly, firmware stability, protocol integration e.g., MQTT/HTTP/Bluetooth.
+                            </td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>
+                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
+                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>25% Weight</div>
+                            </td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                placeholder="0 - 20"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c2) ? 'invalid-input' : ''}`}
+                                value={c2}
+                                onChange={(e) => setC2(e.target.value)}
+                              />
+                              {isInvalid(c2) ? (
+                                <span className="invalid-badge">❌ INVALID (0-20)</span>
+                              ) : (
+                                <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
+                                  +{((parseFloat(c2) || 0) * 1.25).toFixed(1)} / 25 pts
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* CRITERION 3: INNOVATION & PROBLEM IMPACT (20%) */}
+                          <tr>
+                            <td className="criterion-name">
+                              3. Innovation & Problem Impact
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
+                                <span style={{
+                                  background: 'rgba(253, 255, 0, 0.15)',
+                                  color: '#fdff00',
+                                  border: '1px solid #fdff00',
+                                  borderRadius: '4px',
+                                  padding: '1px 6px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  Weight: 20%
+                                </span>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(2); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">
+                              Uniqueness of approach, real-world utility, efficiency improvement over existing solutions.
+                            </td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>
+                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
+                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>20% Weight</div>
+                            </td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                placeholder="0 - 20"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c3) ? 'invalid-input' : ''}`}
+                                value={c3}
+                                onChange={(e) => setC3(e.target.value)}
+                              />
+                              {isInvalid(c3) ? (
+                                <span className="invalid-badge">❌ INVALID (0-20)</span>
+                              ) : (
+                                <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
+                                  +{((parseFloat(c3) || 0) * 1.0).toFixed(1)} / 20 pts
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* CRITERION 4: UI/UX, INDUSTRIAL DESIGN & FORM FACTOR (10%) */}
+                          <tr>
+                            <td className="criterion-name">
+                              4. UI/UX, Industrial Design & Form Factor
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
+                                <span style={{
+                                  background: 'rgba(253, 255, 0, 0.15)',
+                                  color: '#fdff00',
+                                  border: '1px solid #fdff00',
+                                  borderRadius: '4px',
+                                  padding: '1px 6px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  Weight: 10%
+                                </span>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(3); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">
+                              Intuitive software UI/UX, neat circuit wiring, physical casing/enclosure design, user safety.
+                            </td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>
+                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
+                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>10% Weight</div>
+                            </td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                placeholder="0 - 20"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c4) ? 'invalid-input' : ''}`}
+                                value={c4}
+                                onChange={(e) => setC4(e.target.value)}
+                              />
+                              {isInvalid(c4) ? (
+                                <span className="invalid-badge">❌ INVALID (0-20)</span>
+                              ) : (
+                                <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
+                                  +{((parseFloat(c4) || 0) * 0.5).toFixed(1)} / 10 pts
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+
+                          {/* CRITERION 5: PRESENTATION, PITCH & LIVE DEMO (10%) */}
+                          <tr>
+                            <td className="criterion-name">
+                              5. Presentation, Pitch & Live Technical Demo
+                              <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
+                                <span style={{
+                                  background: 'rgba(253, 255, 0, 0.15)',
+                                  color: '#fdff00',
+                                  border: '1px solid #fdff00',
+                                  borderRadius: '4px',
+                                  padding: '1px 6px',
+                                  fontSize: '0.68rem',
+                                  fontWeight: 'bold'
+                                }}>
+                                  Weight: 10%
+                                </span>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(4); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">
+                              Clarity of live demo, structured pitch, team collaboration, depth of technical Q&A responses.
+                            </td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>
+                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
+                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>10% Weight</div>
+                            </td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="20"
+                                placeholder="0 - 20"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c5) ? 'invalid-input' : ''}`}
+                                value={c5}
+                                onChange={(e) => setC5(e.target.value)}
+                              />
+                              {isInvalid(c5) ? (
+                                <span className="invalid-badge">❌ INVALID (0-20)</span>
+                              ) : (
+                                <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
+                                  +{((parseFloat(c5) || 0) * 0.5).toFixed(1)} / 10 pts
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        </>
+                      ) : (
+                        <>
+                          {/* LEGACY ROUND 2 ROWS (Max 10 each) */}
+                          <tr>
+                            <td className="criterion-name">
+                              1. System Architecture & Technical Readiness
+                              <div>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(0); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">Clear block/circuit diagrams, tech stack setup, component selection, software/hardware architecture logic.</td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>10 Marks</td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                placeholder="0 - 10"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c1) ? 'invalid-input' : ''}`}
+                                value={c1}
+                                onChange={(e) => setC1(e.target.value)}
+                              />
+                              {isInvalid(c1) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="criterion-name">
+                              2. Interface/Circuit / Prototype Scope
+                              <div>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(1); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">Wireframes, responsive layouts, or circuit schematics; pin definitions, sensor/actuator interfaces, communication protocols.</td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>10 Marks</td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                placeholder="0 - 10"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c2) ? 'invalid-input' : ''}`}
+                                value={c2}
+                                onChange={(e) => setC2(e.target.value)}
+                              />
+                              {isInvalid(c2) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="criterion-name">
+                              3. Data, API / Hardware Component Availability
+                              <div>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(2); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">Datasets identified/collected, schema designed, external APIs verified, or physical sensors/MCUs on hand.</td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>10 Marks</td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                placeholder="0 - 10"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c3) ? 'invalid-input' : ''}`}
+                                value={c3}
+                                onChange={(e) => setC3(e.target.value)}
+                              />
+                              {isInvalid(c3) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="criterion-name">
+                              4. Execution Feasibility & Timeline
+                              <div>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(3); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">Practical scope for the 24-hour hackathon, clear milestones, dependency awareness, contingency planning.</td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>10 Marks</td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                placeholder="0 - 10"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c4) ? 'invalid-input' : ''}`}
+                                value={c4}
+                                onChange={(e) => setC4(e.target.value)}
+                              />
+                              {isInvalid(c4) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
+                            </td>
+                          </tr>
+                          <tr>
+                            <td className="criterion-name">
+                              5. Implementation Details
+                              <div>
+                                <button
+                                  type="button"
+                                  className="rubric-info-btn"
+                                  onClick={() => { setSelectedRubricCategory(4); setShowRubrics(true); }}
+                                >
+                                  ℹ️ Rubric Details
+                                </button>
+                              </div>
+                            </td>
+                            <td className="criterion-desc">Granular breakdown of build steps, module-wise execution plan, pinouts, and technical task assignments.</td>
+                            <td className="max-marks-cell" style={{ textAlign: 'center' }}>10 Marks</td>
+                            <td className="score-input-cell">
+                              <input
+                                type="number"
+                                min="0"
+                                max="10"
+                                placeholder="0 - 10"
+                                required
+                                disabled={isLocked}
+                                style={isLocked ? { opacity: 0.75, cursor: 'not-allowed', background: 'rgba(255, 255, 255, 0.05)', color: '#00ffcc', fontWeight: 'bold' } : {}}
+                                className={`eval-score-input ${isInvalid(c5) ? 'invalid-input' : ''}`}
+                                value={c5}
+                                onChange={(e) => setC5(e.target.value)}
+                              />
+                              {isInvalid(c5) && <span className="invalid-badge">❌ INVALID (0-10)</span>}
+                            </td>
+                          </tr>
+                        </>
+                      )}
                     </tbody>
                   </table>
                 </div>
 
                 {/* TOTAL SCORE DISPLAY BOX */}
                 <div className="total-score-box" style={hasInvalidMarks ? { borderColor: '#ff4d4d', boxShadow: '0 0 20px rgba(255, 77, 77, 0.4)' } : {}}>
-                  <span className="total-label">TOTAL EVALUATION SCORE:</span>
-                  <span className="total-value" style={hasInvalidMarks ? { color: '#ff4d4d', textShadow: '0 0 10px #ff4d4d' } : {}}>
-                    {hasInvalidMarks ? '⚠️ INVALID MARKS ENTERED' : `${totalScore} / 50`}
-                  </span>
+                  <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
+                    <span className="total-label">
+                      {isExternalRound3Judge ? '🏆 TOTAL OVERALL EVALUATION SCORE (100%):' : 'TOTAL EVALUATION SCORE:'}
+                    </span>
+                    <span className="total-value" style={hasInvalidMarks ? { color: '#ff4d4d', textShadow: '0 0 10px #ff4d4d' } : {}}>
+                      {hasInvalidMarks
+                        ? (isExternalRound3Judge ? '⚠️ INVALID MARKS (Must be 0–20)' : '⚠️ INVALID MARKS ENTERED')
+                        : (isExternalRound3Judge ? `${weightedTotal} / 100` : `${totalScore} / 50`)}
+                    </span>
+                    {isExternalRound3Judge && !hasInvalidMarks && (
+                      <div style={{ fontSize: '0.8rem', color: '#00ffcc', fontFamily: 'Outfit, sans-serif', marginTop: '4px' }}>
+                        Weighted Score: <strong style={{ color: '#fdff00' }}>{weightedTotal}%</strong> • Raw Marks Sum: <strong>{rawTotal} / 100</strong>
+                      </div>
+                    )}
+                  </div>
                 </div>
 
                 {/* REMARKS & FEEDBACK */}

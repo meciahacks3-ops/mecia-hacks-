@@ -301,26 +301,25 @@ export default function JudgeDashboardPage() {
             )}
           </div>
 
-          {/* Top Right Corner: View Rubrics (Round 2 only) & Logout Buttons */}
+          {/* Top Right Corner: View Rubrics & Logout Buttons */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            {!isFinalRoundJudge && (
-              <button
-                type="button"
-                onClick={() => setShowRubrics(true)}
-                style={{
-                  background: 'rgba(0, 255, 204, 0.15)',
-                  color: '#00ffcc',
-                  border: '1.5px solid #00ffcc',
-                  borderRadius: '8px',
-                  padding: '10px 14px',
-                  fontFamily: 'Press Start 2P, monospace',
-                  fontSize: '0.6rem',
-                  cursor: 'pointer'
-                }}
-              >
-                📋 VIEW RUBRICS
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={() => setShowRubrics(true)}
+              style={{
+                background: 'rgba(0, 255, 204, 0.15)',
+                color: '#00ffcc',
+                border: '1.5px solid #00ffcc',
+                borderRadius: '8px',
+                padding: '10px 14px',
+                fontFamily: 'Press Start 2P, monospace',
+                fontSize: '0.6rem',
+                cursor: 'pointer'
+              }}
+              title="Click to view official evaluation rubrics and scoring standards"
+            >
+              {isExternalRound3Judge ? '📋 VIEW ROUND 3 RUBRICS' : '📋 VIEW RUBRICS'}
+            </button>
             <ThemeToggle />
             <button type="button" className="logout-btn" onClick={handleLogout}>
               🚪 LOG OUT
@@ -328,7 +327,11 @@ export default function JudgeDashboardPage() {
           </div>
         </div>
 
-        <RubricsModal isOpen={showRubrics} onClose={() => setShowRubrics(false)} />
+        <RubricsModal
+          isOpen={showRubrics}
+          defaultRound={isExternalRound3Judge ? 3 : 2}
+          onClose={() => setShowRubrics(false)}
+        />
 
         {/* STAGE 3: FINAL ROUND ACTIVE BANNER */}
         <div style={{
@@ -816,7 +819,7 @@ export default function JudgeDashboardPage() {
                             )
                           ) : (
                             isScored ? (
-                              <span className="status-pill status-completed">SCORED ({scoreVal}/50)</span>
+                              <span className="status-pill status-completed">SCORED ({scoreVal}/{isExternalRound3Judge ? '100' : '50'})</span>
                             ) : (
                               <span className="status-pill status-pending">PENDING EVALUATION</span>
                             )
@@ -968,7 +971,7 @@ export default function JudgeDashboardPage() {
                           }}
                           title={isScored ? `Review or edit evaluation marks for ${t.teamName}` : `Evaluate ${t.teamName}`}
                         >
-                          {isScored ? `✏️ EDIT MARKS (${scoreVal}/50)` : '⭐ EVALUATE TEAM'}
+                          {isScored ? `✏️ EDIT MARKS (${scoreVal}/${isExternalRound3Judge ? '100' : '50'})` : '⭐ EVALUATE TEAM'}
                         </a>
                       ) : (
                         <a
@@ -1164,7 +1167,7 @@ export default function JudgeDashboardPage() {
                               ⭐ YOUR EVALUATION SCORE:
                             </span>
                             <span style={{ fontSize: '0.78rem', color: '#fdff00', fontWeight: 'bold', fontFamily: 'Press Start 2P, monospace' }}>
-                              {evalEntry.totalScore}/50 MARKS
+                              {evalEntry.totalScore}/100 MARKS
                             </span>
                           </div>
                           {evalEntry.remarks && (
