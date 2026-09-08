@@ -2654,3 +2654,29 @@ body.simple-theme .nav-back-btn:hover {
     padding: 4px 6px !important;
   }
 }
+
+/* 🌟 Live Leaderboard Glowing & Pulse Animations */
+@keyframes live-pulse {
+  0% { transform: scale(0.9); opacity: 0.7; box-shadow: 0 0 0 0 rgba(255, 0, 85, 0.7); }
+  70% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 0 8px rgba(255, 0, 85, 0); }
+  100% { transform: scale(0.9); opacity: 0.7; box-shadow: 0 0 0 0 rgba(255, 0, 85, 0); }
+}
+
+.live-pulse-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  background-color: #ff0055;
+  border-radius: 50%;
+  animation: live-pulse 1.6s infinite ease-in-out;
+  flex-shrink: 0;
+}
+
+@keyframes gold-podium-glow {
+  0%, 100% { box-shadow: 0 0 20px rgba(253, 255, 0, 0.35), inset 0 0 15px rgba(253, 255, 0, 0.15); }
+  50% { box-shadow: 0 0 35px rgba(253, 255, 0, 0.7), inset 0 0 25px rgba(253, 255, 0, 0.3); }
+}
+
+.gold-podium {
+  animation: gold-podium-glow 2.5s infinite ease-in-out;
+}

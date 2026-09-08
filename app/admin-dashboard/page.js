@@ -32,10 +32,19 @@ import {
   exportTop30Soft15HybAllHardExcel,
   exportFinalistTeamsAndMembersExcel,
   exportFinalistTeamsAndMembersCSV,
-  exportTeamLabLocationAndJudgesCSV
+  exportTeamLabLocationAndJudgesCSV,
+  exportFinalRoundLiveLeaderboardExcel,
+  exportFinalRoundLiveLeaderboardCSV
 } from '@/lib/excelExport';
 import ThemeToggle from '@/app/components/ThemeToggle';
-import { parseProjectTypeFromTeam, getProjectTypeInfo, parseEvaluationRecord, IS_PHASE_2_LOCKED } from '@/lib/teamUtils';
+import {
+  parseProjectTypeFromTeam,
+  getProjectTypeInfo,
+  parseEvaluationRecord,
+  IS_PHASE_2_LOCKED,
+  getTeamExternalEvaluations,
+  computeFinalRoundScoreForTeam
+} from '@/lib/teamUtils';
 import {
   FINAL_ROUND_TEAMS,
   FINAL_ROUND_STATS,
@@ -63,6 +72,9 @@ export default function AdminDashboardPage() {
 
   // Filter for Leaderboard Tab (Project Type: all, software, hybrid, hardware)
   const [leaderboardTypeFilter, setLeaderboardTypeFilter] = useState('all');
+  // Leaderboard Round Mode: 'final-round' (Live External Jury /100) vs 'round-2' (Historical /50)
+  const [leaderboardRoundMode, setLeaderboardRoundMode] = useState('final-round');
+  const [isRestartingLeaderboard, setIsRestartingLeaderboard] = useState(false);
 
   const [teams, setTeams] = useState([]);
   const [evaluations, setEvaluations] = useState([]);
@@ -348,7 +360,21 @@ export default function AdminDashboardPage() {
       fetchData();
     }, 3000);
 
-    return () => clearInterval(pollInterval);
+    // Supabase Realtime channel for instant push updates on judge evaluation submissions
+    const liveEvalsChannel = supabase
+      .channel('admin-dashboard-realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'external_evaluations' }, () => {
+        fetchData();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'evaluations' }, () => {
+        fetchData();
+      })
+      .subscribe();
+
+    return () => {
+      clearInterval(pollInterval);
+      supabase.removeChannel(liveEvalsChannel);
+    };
   }, []);
 
   const handleAddAllowedGmail = async (e) => {
@@ -1221,6 +1247,75 @@ export default function AdminDashboardPage() {
     } catch (err) {
       console.error("Finalist teams CSV export error:", err);
       alert("Error generating finalist teams CSV: " + err.message);
+    }
+  };
+
+  // 🔄 Restart Final Round Leaderboard (Clears external evaluations to reset to clean slate)
+  const handleRestartFinalRoundLeaderboard = async () => {
+    const confirmInput = window.prompt(
+      "⚠️ RESTART FINAL ROUND LEADERBOARD\n\n" +
+      "This will DELETE all marks submitted by External Judges (FM001–FM007) from the database and restart the Final Round leaderboard back to 0 evaluations (all 50 finalists pending).\n\n" +
+      "Type RESET to confirm:"
+    );
+
+    if (confirmInput !== 'RESET') {
+      if (confirmInput !== null) {
+        alert("Restart cancelled. You must type RESET in capital letters to confirm.");
+      }
+      return;
+    }
+
+    setIsRestartingLeaderboard(true);
+    try {
+      // 1. Delete from external_evaluations
+      const { error: extErr } = await supabase
+        .from('external_evaluations')
+        .delete()
+        .neq('id', '00000000-0000-0000-0000-000000000000');
+
+      if (extErr) {
+        console.warn("Notice deleting external_evaluations:", extErr);
+      }
+
+      // 2. Delete from evaluations where judge_email starts with FM
+      const { error: evalErr } = await supabase
+        .from('evaluations')
+        .delete()
+        .ilike('judge_email', 'FM%');
+
+      if (evalErr) {
+        console.warn("Notice deleting evaluations by FM judges:", evalErr);
+      }
+
+      await fetchData();
+      alert("✅ Final Round Leaderboard has been restarted!\n\nAll external judge marks have been reset to 0. All 50 finalist teams are now waiting for live jury marks.");
+    } catch (err) {
+      console.error("Error restarting final round leaderboard:", err);
+      alert("Error restarting leaderboard: " + err.message);
+    } finally {
+      setIsRestartingLeaderboard(false);
+    }
+  };
+
+  // 📊 Export Final Round Live Leaderboard (Excel .xlsx)
+  const handleExportFinalRoundExcel = (currentLeaderboardData) => {
+    try {
+      const fileName = exportFinalRoundLiveLeaderboardExcel(currentLeaderboardData);
+      alert(`✅ Final Round Live Leaderboard Excel Workbook Generated!\n\nFile: ${fileName}\n\nSheets Included:\n• Live Leaderboard (Overall)\n• Software Track\n• Hybrid Track\n• Hardware Track`);
+    } catch (err) {
+      console.error("Final Round Excel export error:", err);
+      alert("Error exporting Excel: " + err.message);
+    }
+  };
+
+  // 📄 Export Final Round Live Leaderboard (CSV)
+  const handleExportFinalRoundCSV = (currentLeaderboardData) => {
+    try {
+      const fileName = exportFinalRoundLiveLeaderboardCSV(currentLeaderboardData);
+      alert(`✅ Final Round Live Leaderboard CSV Generated!\n\nFile: ${fileName}`);
+    } catch (err) {
+      console.error("Final Round CSV export error:", err);
+      alert("Error exporting CSV: " + err.message);
     }
   };
 
@@ -3061,47 +3156,104 @@ export default function AdminDashboardPage() {
 
         {/* TAB 3: LIVE EVALUATION LEADERBOARD */}
         {activeTab === 'scores-tab' && (() => {
-          const sourceTeams = scopeFilter === 'finalists'
+          const isFinalRoundMode = leaderboardRoundMode === 'final-round';
+          const sourceTeams = isFinalRoundMode
             ? teams.filter(t => t.isFinalist && (finalistTrackFilter === 'all' || (t.projectType || '').toLowerCase() === finalistTrackFilter.toLowerCase()))
-            : teams;
+            : (scopeFilter === 'finalists'
+                ? teams.filter(t => t.isFinalist && (finalistTrackFilter === 'all' || (t.projectType || '').toLowerCase() === finalistTrackFilter.toLowerCase()))
+                : teams);
+
           const leaderboardData = sourceTeams.map(t => {
-            const evalEntry = evaluations.find(e => (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase());
-            let isScored = false;
-            let score = 0;
-            let c1 = '-', c2 = '-', c3 = '-', c4 = '-', c5 = '-', remarks = 'Evaluation pending';
-            let judge = (t.assignedJudge && t.assignedJudge !== 'Unassigned') ? t.assignedJudge : (evalEntry?.judgeEmail || 'Unassigned');
+            if (isFinalRoundMode) {
+              // Final Round: Dynamic scoring from External Jury evaluations (FM001-FM007)
+              const finalRoundScore = computeFinalRoundScoreForTeam(t, evaluations);
+              const judgeProfile = JUDGE_PROFILES[t.assignedJudge];
+              const panelDisplay = (t.assignedJudge && t.assignedJudge !== 'Unassigned')
+                ? (judgeProfile?.namesText ? `${t.assignedJudge} (${judgeProfile.namesText})` : t.assignedJudge)
+                : (finalRoundScore.judge || 'Awaiting Jury');
 
-            if (evalEntry) {
-              isScored = true;
-              score = Number(evalEntry.totalScore) || 0;
-              c1 = evalEntry.c1;
-              c2 = evalEntry.c2;
-              c3 = evalEntry.c3;
-              c4 = evalEntry.c4;
-              c5 = evalEntry.c5;
-              remarks = evalEntry.remarks || 'Scored';
+              return {
+                ...t,
+                projectType: t.projectType || parseProjectTypeFromTeam(t),
+                isScored: finalRoundScore.isScored,
+                score: finalRoundScore.score,
+                c1: finalRoundScore.c1,
+                c2: finalRoundScore.c2,
+                c3: finalRoundScore.c3,
+                c4: finalRoundScore.c4,
+                c5: finalRoundScore.c5,
+                remarks: finalRoundScore.remarks,
+                judge: panelDisplay,
+                evalCount: finalRoundScore.evalCount,
+                extEvals: finalRoundScore.extEvals
+              };
+            } else {
+              // Round 2 Historical scores
+              const evalEntry = evaluations.find(e => {
+                const isR2 = !(e.judgeEmail || '').toUpperCase().startsWith('FM') && !(e.judgeEmail || '').toUpperCase().startsWith('MM');
+                return isR2 && (e.teamName || '').trim().toLowerCase() === (t.teamName || '').trim().toLowerCase();
+              });
+              let isScored = false;
+              let score = 0;
+              let c1 = '-', c2 = '-', c3 = '-', c4 = '-', c5 = '-', remarks = 'Evaluation pending';
+              let judge = (t.assignedJudge && t.assignedJudge !== 'Unassigned') ? t.assignedJudge : (evalEntry?.judgeEmail || 'Unassigned');
+
+              if (evalEntry) {
+                isScored = true;
+                score = Number(evalEntry.totalScore) || 0;
+                c1 = evalEntry.c1;
+                c2 = evalEntry.c2;
+                c3 = evalEntry.c3;
+                c4 = evalEntry.c4;
+                c5 = evalEntry.c5;
+                remarks = evalEntry.remarks || 'Scored';
+              } else if (t.finalistInfo && t.finalistInfo.score !== undefined) {
+                isScored = true;
+                score = t.finalistInfo.score;
+                c1 = t.finalistInfo.c1;
+                c2 = t.finalistInfo.c2;
+                c3 = t.finalistInfo.c3;
+                c4 = t.finalistInfo.c4;
+                c5 = t.finalistInfo.c5;
+                remarks = 'Round 2 Qualified';
+                judge = t.finalistInfo.assignedJudge || judge;
+              }
+
+              return {
+                ...t,
+                projectType: t.projectType || parseProjectTypeFromTeam(t),
+                isScored,
+                score,
+                c1, c2, c3, c4, c5,
+                remarks,
+                judge
+              };
             }
-
-            return {
-              ...t,
-              projectType: t.projectType || parseProjectTypeFromTeam(t),
-              isScored,
-              score,
-              c1, c2, c3, c4, c5,
-              remarks,
-              judge
-            };
           }).sort((a, b) => {
-            if (a.isScored && b.isScored) return b.score - a.score;
+            if (a.isScored && b.isScored) {
+              if (b.score !== a.score) return b.score - a.score;
+              if ((b.c1 || 0) !== (a.c1 || 0)) return (b.c1 || 0) - (a.c1 || 0);
+              if ((b.c2 || 0) !== (a.c2 || 0)) return (b.c2 || 0) - (a.c2 || 0);
+              return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
+            }
             if (a.isScored && !b.isScored) return -1;
             if (!a.isScored && b.isScored) return 1;
-            return 0;
+            const trackOrder = { 'software': 1, 'hybrid': 2, 'hardware': 3 };
+            const aTrack = trackOrder[(a.projectType || '').toLowerCase()] || 4;
+            const bTrack = trackOrder[(b.projectType || '').toLowerCase()] || 4;
+            if (aTrack !== bTrack) return aTrack - bTrack;
+            return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
           });
 
           const totalLbCount = leaderboardData.length;
           const softwareLbCount = leaderboardData.filter(item => (item.projectType || '').toLowerCase() === 'software').length;
           const hybridLbCount = leaderboardData.filter(item => (item.projectType || '').toLowerCase() === 'hybrid').length;
           const hardwareLbCount = leaderboardData.filter(item => (item.projectType || '').toLowerCase() === 'hardware').length;
+
+          const scoredFinalistsCount = leaderboardData.filter(item => item.isScored).length;
+          const pendingFinalistsCount = totalLbCount - scoredFinalistsCount;
+          const finalRoundCompletionPct = totalLbCount > 0 ? Math.round((scoredFinalistsCount / totalLbCount) * 100) : 0;
+          const currentLeaderTeam = leaderboardData.find(item => item.isScored);
 
           const filteredByType = leaderboardData.filter(item => {
             if (leaderboardTypeFilter === 'all') return true;
@@ -3226,82 +3378,329 @@ export default function AdminDashboardPage() {
           return (
             <div className="admin-tab-content active">
               <div className="form-section">
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '16px' }}>
-                  <h3 className="section-title" style={{ margin: 0 }}>
-                    <span className="pacman-bullet"></span> LIVE EVALUATION LEADERBOARD (RANKED BY HIGHEST SCORE)
-                  </h3>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
-                    <button
-                      type="button"
-                      onClick={handleExportSpecialLeaderboardCSV}
-                      style={{
-                        background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
-                        color: '#000',
-                        border: '2px solid #00ffcc',
-                        borderRadius: '6px',
-                        padding: '8px 16px',
-                        fontFamily: 'Press Start 2P, monospace',
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '14px', marginBottom: '16px' }}>
+                  <div>
+                    <h3 className="section-title" style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                      <span className="pacman-bullet"></span>
+                      <span>LIVE EVALUATION LEADERBOARD</span>
+                      <span style={{
                         fontSize: '0.62rem',
+                        color: isFinalRoundMode ? '#fdff00' : '#00ffcc',
+                        fontFamily: 'Press Start 2P, monospace',
+                        background: isFinalRoundMode ? 'rgba(253, 255, 0, 0.15)' : 'rgba(0, 255, 204, 0.15)',
+                        border: `1px solid ${isFinalRoundMode ? '#fdff00' : '#00ffcc'}`,
+                        borderRadius: '4px',
+                        padding: '3px 8px'
+                      }}>
+                        {isFinalRoundMode ? '⚡ FINAL ROUND (100 PTS)' : '📜 ROUND 2 QUALIFIERS (50 PTS)'}
+                      </span>
+                    </h3>
+                    <div style={{ fontSize: '0.72rem', color: '#aaa', marginTop: '4px' }}>
+                      {isFinalRoundMode
+                        ? 'Live score rankings updated dynamically as External Jury Panels (FM001–FM007) evaluate finalist teams.'
+                        : 'Historical Round 2 scores evaluated by internal jury panels (JM001–JM011).'}
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                    {/* Live Sync Badge */}
+                    <div style={{
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: '6px',
+                      background: 'rgba(255, 0, 85, 0.12)',
+                      border: '1.5px solid #ff0055',
+                      borderRadius: '6px',
+                      padding: '6px 10px',
+                      fontSize: '0.58rem',
+                      fontFamily: 'Press Start 2P, monospace',
+                      color: '#ff6699',
+                      boxShadow: '0 0 10px rgba(255, 0, 85, 0.3)'
+                    }}>
+                      <span className="live-pulse-dot"></span>
+                      <span>LIVE SYNC ACTIVE</span>
+                    </div>
+
+                    {/* Round Mode Toggle */}
+                    <div style={{
+                      display: 'inline-flex',
+                      background: 'rgba(0, 0, 0, 0.4)',
+                      border: '1px solid #444',
+                      borderRadius: '6px',
+                      padding: '2px'
+                    }}>
+                      <button
+                        type="button"
+                        onClick={() => setLeaderboardRoundMode('final-round')}
+                        style={{
+                          background: isFinalRoundMode ? '#fdff00' : 'transparent',
+                          color: isFinalRoundMode ? '#000' : '#888',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 10px',
+                          fontSize: '0.58rem',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        ⚡ FINAL ROUND
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setLeaderboardRoundMode('round-2')}
+                        style={{
+                          background: !isFinalRoundMode ? '#00ffcc' : 'transparent',
+                          color: !isFinalRoundMode ? '#000' : '#888',
+                          border: 'none',
+                          borderRadius: '4px',
+                          padding: '6px 10px',
+                          fontSize: '0.58rem',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontWeight: 'bold',
+                          cursor: 'pointer'
+                        }}
+                      >
+                        📜 ROUND 2
+                      </button>
+                    </div>
+
+                    {/* Projector Fullscreen Page Button */}
+                    <a
+                      href="/leaderboard"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        background: 'linear-gradient(135deg, #ff00cc, #9900ff)',
+                        color: '#fff',
+                        border: '1.5px solid #ff00cc',
+                        borderRadius: '6px',
+                        padding: '7px 12px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.58rem',
                         fontWeight: 'bold',
                         cursor: 'pointer',
-                        boxShadow: '0 0 15px rgba(0, 255, 204, 0.4)',
+                        textDecoration: 'none',
+                        boxShadow: '0 0 12px rgba(255, 0, 204, 0.35)',
                         display: 'inline-flex',
                         alignItems: 'center',
                         gap: '6px'
                       }}
-                      title="Download CSV file for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
+                      title="Open dedicated live leaderboard presentation on full screen/projector"
                     >
-                      📊 EXPORT CSV (TOP 30S + 15H + HARD)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportSpecialLeaderboardExcel}
-                      style={{
-                        background: 'linear-gradient(135deg, #fdff00, #ffb852)',
-                        color: '#000',
-                        border: '2px solid #fdff00',
-                        borderRadius: '6px',
-                        padding: '8px 16px',
-                        fontFamily: 'Press Start 2P, monospace',
-                        fontSize: '0.62rem',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        boxShadow: '0 0 15px rgba(253, 255, 0, 0.4)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                      title="Download Excel (.xlsx) file for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
-                    >
-                      📥 DOWNLOAD EXCEL (TOP 30S + 15H + HARD)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleExportFinalistTeamsMembersExcel}
-                      style={{
-                        background: 'linear-gradient(135deg, #00ffcc, #0099ff)',
-                        color: '#000',
-                        border: '2px solid #00ffcc',
-                        borderRadius: '6px',
-                        padding: '8px 16px',
-                        fontFamily: 'Press Start 2P, monospace',
-                        fontSize: '0.62rem',
-                        fontWeight: 'bold',
-                        cursor: 'pointer',
-                        boxShadow: '0 0 15px rgba(0, 255, 204, 0.4)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                      title="Download Finalist Teams spreadsheet with Team ID, Team Name, Leader Name, and Member Names"
-                    >
-                      📋 TEAMS & MEMBERS (.XLSX)
-                    </button>
-                    <span className="status-pill status-completed" style={{ background: 'rgba(0, 255, 204, 0.15)', color: '#00ffcc', border: '1px solid #00ffcc', fontFamily: 'Press Start 2P, monospace', fontSize: '0.58rem', padding: '6px 12px' }}>
-                      🔴 LIVE REAL-TIME SYNC (3S POLL)
-                    </span>
+                      🖥️ PROJECTOR SCREEN
+                    </a>
+
+                    {/* Restart Final Round Leaderboard Button */}
+                    {isFinalRoundMode && (
+                      <button
+                        type="button"
+                        onClick={handleRestartFinalRoundLeaderboard}
+                        disabled={isRestartingLeaderboard}
+                        style={{
+                          background: 'rgba(255, 0, 85, 0.2)',
+                          color: '#ff6699',
+                          border: '1.5px solid #ff0055',
+                          borderRadius: '6px',
+                          padding: '7px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          fontWeight: 'bold',
+                          cursor: isRestartingLeaderboard ? 'not-allowed' : 'pointer',
+                          boxShadow: '0 0 10px rgba(255, 0, 85, 0.3)'
+                        }}
+                        title="Restart Final Round Leaderboard: Clears all external jury marks back to clean slate (all 50 pending)"
+                      >
+                        {isRestartingLeaderboard ? '⏳ RESTARTING...' : '🔄 RESTART LEADERBOARD'}
+                      </button>
+                    )}
+
+                    {/* Export Buttons */}
+                    {isFinalRoundMode ? (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() => handleExportFinalRoundCSV(leaderboardData)}
+                          style={{
+                            background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
+                            color: '#000',
+                            border: '1.5px solid #00ffcc',
+                            borderRadius: '6px',
+                            padding: '7px 12px',
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.58rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 0 10px rgba(0, 255, 204, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                          title="Export Final Round Live Leaderboard (.CSV)"
+                        >
+                          📊 EXPORT FINAL CSV
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleExportFinalRoundExcel(leaderboardData)}
+                          style={{
+                            background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                            color: '#000',
+                            border: '1.5px solid #fdff00',
+                            borderRadius: '6px',
+                            padding: '7px 12px',
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.58rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer',
+                            boxShadow: '0 0 10px rgba(253, 255, 0, 0.3)',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px'
+                          }}
+                          title="Export Final Round Live Leaderboard Multi-Sheet Excel (.XLSX)"
+                        >
+                          ⭐ EXPORT FINAL EXCEL
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <button
+                          type="button"
+                          onClick={handleExportSpecialLeaderboardCSV}
+                          style={{
+                            background: 'linear-gradient(135deg, #00ffcc, #00bb99)',
+                            color: '#000',
+                            border: '1.5px solid #00ffcc',
+                            borderRadius: '6px',
+                            padding: '7px 12px',
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.58rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          📊 EXPORT R2 CSV
+                        </button>
+                        <button
+                          type="button"
+                          onClick={handleExportSpecialLeaderboardExcel}
+                          style={{
+                            background: 'linear-gradient(135deg, #fdff00, #ffb852)',
+                            color: '#000',
+                            border: '1.5px solid #fdff00',
+                            borderRadius: '6px',
+                            padding: '7px 12px',
+                            fontFamily: 'Press Start 2P, monospace',
+                            fontSize: '0.58rem',
+                            fontWeight: 'bold',
+                            cursor: 'pointer'
+                          }}
+                        >
+                          📥 DOWNLOAD R2 EXCEL
+                        </button>
+                      </>
+                    )}
                   </div>
                 </div>
+
+                {/* FINAL ROUND LIVE STATS HUB */}
+                {isFinalRoundMode && (
+                  <div style={{
+                    background: 'linear-gradient(135deg, rgba(20, 25, 55, 0.85) 0%, rgba(10, 15, 35, 0.95) 100%)',
+                    border: '2px solid rgba(0, 255, 204, 0.35)',
+                    borderRadius: '12px',
+                    padding: '16px 20px',
+                    marginBottom: '20px',
+                    boxShadow: '0 0 25px rgba(0, 255, 204, 0.2)'
+                  }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '12px', marginBottom: '14px', borderBottom: '1px solid rgba(0, 255, 204, 0.2)', paddingBottom: '12px' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <span style={{ fontSize: '1.4rem' }}>🏆</span>
+                        <div>
+                          <h4 style={{ margin: 0, fontFamily: 'Press Start 2P, monospace', fontSize: '0.72rem', color: '#00ffcc', letterSpacing: '1px' }}>
+                            GRAND FINALE LIVE EVALUATION STATUS
+                          </h4>
+                          <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '3px' }}>
+                            External Jury Panels (FM001–FM007) • 5 Criteria (20 pts each) • Weighted Total: 100%
+                          </div>
+                        </div>
+                      </div>
+
+                      <div style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '8px',
+                        background: scoredFinalistsCount > 0 ? 'rgba(0, 255, 128, 0.15)' : 'rgba(255, 184, 82, 0.15)',
+                        border: `1.5px solid ${scoredFinalistsCount > 0 ? '#00ff80' : '#ffb852'}`,
+                        color: scoredFinalistsCount > 0 ? '#00ff80' : '#ffb852',
+                        padding: '6px 14px',
+                        borderRadius: '6px',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.6rem',
+                        fontWeight: 'bold'
+                      }}>
+                        <span>{scoredFinalistsCount > 0 ? `🟢 ${scoredFinalistsCount} EVALUATED` : '⏳ AWAITING JURY MARKS'}</span>
+                        <span>•</span>
+                        <span>{pendingFinalistsCount} PENDING</span>
+                      </div>
+                    </div>
+
+                    {/* KPI Cards Grid */}
+                    <div style={{
+                      display: 'grid',
+                      gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))',
+                      gap: '12px',
+                      marginBottom: '14px'
+                    }}>
+                      <div style={{ background: 'rgba(0, 255, 204, 0.08)', border: '1px solid rgba(0, 255, 204, 0.3)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#00ffcc', marginBottom: '4px' }}>
+                          FINALIST TEAMS
+                        </div>
+                        <div style={{ fontSize: '1.4rem', fontFamily: 'Press Start 2P, monospace', color: '#fff' }}>
+                          {totalLbCount}
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(0, 255, 128, 0.08)', border: '1px solid rgba(0, 255, 128, 0.4)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#00ff80', marginBottom: '4px' }}>
+                          JURY SCORED
+                        </div>
+                        <div style={{ fontSize: '1.4rem', fontFamily: 'Press Start 2P, monospace', color: '#00ff80' }}>
+                          {scoredFinalistsCount}
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(255, 184, 82, 0.08)', border: '1px solid rgba(255, 184, 82, 0.4)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#ffb852', marginBottom: '4px' }}>
+                          AWAITING MARKS
+                        </div>
+                        <div style={{ fontSize: '1.4rem', fontFamily: 'Press Start 2P, monospace', color: '#ffb852' }}>
+                          {pendingFinalistsCount}
+                        </div>
+                      </div>
+
+                      <div style={{ background: 'rgba(253, 255, 0, 0.08)', border: '1px solid rgba(253, 255, 0, 0.4)', borderRadius: '8px', padding: '12px', textAlign: 'center' }}>
+                        <div style={{ fontSize: '0.55rem', fontFamily: 'Press Start 2P, monospace', color: '#fdff00', marginBottom: '4px' }}>
+                          CURRENT LEADER
+                        </div>
+                        <div style={{ fontSize: '0.82rem', fontWeight: 'bold', color: '#fdff00', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                          {currentLeaderTeam ? `${currentLeaderTeam.teamName} (${currentLeaderTeam.score}/100)` : 'None Scored Yet'}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div style={{ background: 'rgba(255, 255, 255, 0.1)', borderRadius: '6px', height: '8px', overflow: 'hidden' }}>
+                      <div style={{
+                        width: `${finalRoundCompletionPct}%`,
+                        height: '100%',
+                        background: 'linear-gradient(90deg, #00ffcc, #fdff00)',
+                        transition: 'width 0.4s ease'
+                      }} />
+                    </div>
+                  </div>
+                )}
 
                 {/* ROUND 3 MEMBER CALCULATOR & FINALISTS HUB */}
                 <div style={{
@@ -3836,28 +4235,53 @@ export default function AdminDashboardPage() {
                     gap: '8px',
                     flexWrap: 'wrap'
                   }}>
-                    <button
-                      type="button"
-                      onClick={handleExportSpecialLeaderboardCSV}
-                      style={{
-                        background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(253, 255, 0, 0.2))',
-                        color: '#00ffcc',
-                        border: '1.5px solid #00ffcc',
-                        borderRadius: '6px',
-                        padding: '6px 12px',
-                        fontFamily: 'Press Start 2P, monospace',
-                        fontSize: '0.58rem',
-                        cursor: 'pointer',
-                        fontWeight: 'bold',
-                        boxShadow: '0 0 8px rgba(0, 255, 204, 0.25)',
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                      title="Download CSV file for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
-                    >
-                      📊 EXPORT TOP 30S + 15H + HARD CSV
-                    </button>
+                    {isFinalRoundMode ? (
+                      <button
+                        type="button"
+                        onClick={() => handleExportFinalRoundCSV(displayedLeaderboard)}
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(253, 255, 0, 0.2))',
+                          color: '#00ffcc',
+                          border: '1.5px solid #00ffcc',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          boxShadow: '0 0 8px rgba(0, 255, 204, 0.25)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                        title="Export current filtered Final Round leaderboard as CSV"
+                      >
+                        📊 EXPORT DISPLAYED CSV
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleExportSpecialLeaderboardCSV}
+                        style={{
+                          background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.2), rgba(253, 255, 0, 0.2))',
+                          color: '#00ffcc',
+                          border: '1.5px solid #00ffcc',
+                          borderRadius: '6px',
+                          padding: '6px 12px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.58rem',
+                          cursor: 'pointer',
+                          fontWeight: 'bold',
+                          boxShadow: '0 0 8px rgba(0, 255, 204, 0.25)',
+                          display: 'inline-flex',
+                          alignItems: 'center',
+                          gap: '6px'
+                        }}
+                        title="Download CSV file for Top 30 Software, Top 15 Hybrid, and All Hardware teams"
+                      >
+                        📊 EXPORT TOP 30S + 15H + HARD CSV
+                      </button>
+                    )}
                     <div style={{
                       display: 'flex',
                       alignItems: 'center',
@@ -3894,13 +4318,26 @@ export default function AdminDashboardPage() {
                         <th style={{ width: '16%' }}>Team Name</th>
                         <th style={{ width: '15%' }}>Total Members</th>
                         <th style={{ width: '10%', textAlign: 'center' }}>Project Type</th>
-                        <th style={{ width: '15%' }}>Assigned Judge</th>
-                        <th style={{ textAlign: 'center' }}>Arch (10)</th>
-                        <th style={{ textAlign: 'center' }}>Scope (10)</th>
-                        <th style={{ textAlign: 'center' }}>Avail (10)</th>
-                        <th style={{ textAlign: 'center' }}>Timeline (10)</th>
-                        <th style={{ textAlign: 'center' }}>Impl (10)</th>
-                        <th style={{ textAlign: 'center', width: '8%' }}>Total (50)</th>
+                        <th style={{ width: '15%' }}>{isFinalRoundMode ? 'External Jury' : 'Assigned Judge'}</th>
+                        {isFinalRoundMode ? (
+                          <>
+                            <th style={{ textAlign: 'center' }} title="Innovation & Originality (Max 20)">Inno (20)</th>
+                            <th style={{ textAlign: 'center' }} title="Technical Architecture & Execution (Max 20)">Arch (20)</th>
+                            <th style={{ textAlign: 'center' }} title="Feasibility & Scalability (Max 20)">Feas (20)</th>
+                            <th style={{ textAlign: 'center' }} title="Design, UX & Polish (Max 20)">UI/UX (20)</th>
+                            <th style={{ textAlign: 'center' }} title="Presentation & Q&A (Max 20)">Pitch (20)</th>
+                            <th style={{ textAlign: 'center', width: '9%' }}>Final (100)</th>
+                          </>
+                        ) : (
+                          <>
+                            <th style={{ textAlign: 'center' }}>Arch (10)</th>
+                            <th style={{ textAlign: 'center' }}>Scope (10)</th>
+                            <th style={{ textAlign: 'center' }}>Avail (10)</th>
+                            <th style={{ textAlign: 'center' }}>Timeline (10)</th>
+                            <th style={{ textAlign: 'center' }}>Impl (10)</th>
+                            <th style={{ textAlign: 'center', width: '8%' }}>Total (50)</th>
+                          </>
+                        )}
                         <th style={{ width: '6%' }}>Status</th>
                       </tr>
                     </thead>
@@ -4068,18 +4505,32 @@ export default function AdminDashboardPage() {
                                   <span>{typeInfo.label}</span>
                                 </span>
                               </td>
-                              <td>{item.judge}</td>
+                              <td>
+                                <div>{item.judge}</div>
+                                {isFinalRoundMode && item.evalCount > 1 && (
+                                  <div style={{
+                                    fontSize: '0.58rem',
+                                    color: '#00ffcc',
+                                    marginTop: '2px',
+                                    fontWeight: 'bold'
+                                  }}>
+                                    ⚡ {item.evalCount} evaluations averaged
+                                  </div>
+                                )}
+                              </td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c2}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c3}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c4}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c5}</td>
                               <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: item.isScored ? '#fdff00' : 'var(--text-muted)' }}>
-                                {item.isScored ? `${item.score} / 50` : '- / 50'}
+                                {item.isScored ? `${item.score} / ${isFinalRoundMode ? '100' : '50'}` : `- / ${isFinalRoundMode ? '100' : '50'}`}
                               </td>
                               <td>
                                 {item.isScored ? (
-                                  <span className="status-pill status-completed">SCORED</span>
+                                  <span className="status-pill status-completed" style={isFinalRoundMode ? { background: 'rgba(0, 255, 128, 0.2)', border: '1.5px solid #00ff80', color: '#00ff80' } : undefined}>
+                                    SCORED
+                                  </span>
                                 ) : (
                                   <span className="status-pill status-pending">PENDING</span>
                                 )}

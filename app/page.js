@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { supabase } from '@/lib/supabase';
 import { EXTERNAL_ROUND_3_JUDGE_IDS, FINAL_ROUND_JUDGE_IDS, ROUND_2_JUDGE_IDS } from '@/lib/judgeProfiles';
 import { FINAL_ROUND_STATS } from '@/lib/finalRoundTeams';
@@ -401,6 +402,34 @@ export default function LoginPage() {
         {/* Theme Toggle Bar */}
         <div className="theme-toggle-bar">
           <ThemeToggle />
+        </div>
+
+        {/* Live Leaderboard Link Button */}
+        <div style={{ textAlign: 'center', marginBottom: '16px' }}>
+          <Link
+            href="/leaderboard"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '8px',
+              width: '100%',
+              background: 'linear-gradient(135deg, rgba(0, 255, 204, 0.18), rgba(253, 255, 0, 0.15))',
+              border: '2px solid #00ffcc',
+              borderRadius: '8px',
+              padding: '10px 14px',
+              color: '#00ffcc',
+              fontFamily: 'Press Start 2P, monospace',
+              fontSize: '0.62rem',
+              fontWeight: 'bold',
+              textDecoration: 'none',
+              boxShadow: '0 0 15px rgba(0, 255, 204, 0.3)',
+              transition: 'all 0.2s'
+            }}
+          >
+            <span className="live-pulse-dot"></span>
+            <span>🏆 VIEW LIVE FINAL ROUND LEADERBOARD</span>
+          </Link>
         </div>
 
         {/* Role Selection Tabs */}
