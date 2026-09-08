@@ -3176,7 +3176,10 @@ export default function AdminDashboardPage() {
                 ...t,
                 projectType: t.projectType || parseProjectTypeFromTeam(t),
                 isScored: finalRoundScore.isScored,
-                score: finalRoundScore.score,
+                score: finalRoundScore.score,               // Combined Total / 150
+                totalScore: finalRoundScore.totalScore,     // Combined Total / 150
+                finalScore: finalRoundScore.finalScore,     // External Jury / 100
+                round2Score: finalRoundScore.round2Score,   // Round 2 / 50
                 c1: finalRoundScore.c1,
                 c2: finalRoundScore.c2,
                 c3: finalRoundScore.c3,
@@ -3232,6 +3235,8 @@ export default function AdminDashboardPage() {
           }).sort((a, b) => {
             if (a.isScored && b.isScored) {
               if (b.score !== a.score) return b.score - a.score;
+              if (isFinalRoundMode && (b.finalScore || 0) !== (a.finalScore || 0)) return (b.finalScore || 0) - (a.finalScore || 0);
+              if (isFinalRoundMode && (b.round2Score || 0) !== (a.round2Score || 0)) return (b.round2Score || 0) - (a.round2Score || 0);
               if ((b.c1 || 0) !== (a.c1 || 0)) return (b.c1 || 0) - (a.c1 || 0);
               if ((b.c2 || 0) !== (a.c2 || 0)) return (b.c2 || 0) - (a.c2 || 0);
               return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
@@ -3622,7 +3627,7 @@ export default function AdminDashboardPage() {
                             GRAND FINALE LIVE EVALUATION STATUS
                           </h4>
                           <div style={{ fontSize: '0.7rem', color: '#aaa', marginTop: '3px' }}>
-                            External Jury Panels (FM001–FM007) • 5 Criteria (20 pts each) • Weighted Total: 100%
+                            Round 2 (50 pts) + External Jury 5 Criteria (20 pts each, 100 pts) • Grand Total: 150 Marks
                           </div>
                         </div>
                       </div>
@@ -4321,12 +4326,14 @@ export default function AdminDashboardPage() {
                         <th style={{ width: '15%' }}>{isFinalRoundMode ? 'External Jury' : 'Assigned Judge'}</th>
                         {isFinalRoundMode ? (
                           <>
+                            <th style={{ textAlign: 'center', width: '7%', color: '#00ffcc' }} title="Round 2 Evaluation Marks (Max 50)">R2 (50)</th>
                             <th style={{ textAlign: 'center' }} title="Innovation & Originality (Max 20)">Inno (20)</th>
                             <th style={{ textAlign: 'center' }} title="Technical Architecture & Execution (Max 20)">Arch (20)</th>
                             <th style={{ textAlign: 'center' }} title="Feasibility & Scalability (Max 20)">Feas (20)</th>
                             <th style={{ textAlign: 'center' }} title="Design, UX & Polish (Max 20)">UI/UX (20)</th>
                             <th style={{ textAlign: 'center' }} title="Presentation & Q&A (Max 20)">Pitch (20)</th>
-                            <th style={{ textAlign: 'center', width: '9%' }}>Final (100)</th>
+                            <th style={{ textAlign: 'center', width: '8%', color: '#00ffcc' }} title="Final Round External Jury Marks (Max 100)">Final (100)</th>
+                            <th style={{ textAlign: 'center', width: '9%', color: '#fdff00' }} title="Grand Total: Round 2 (50) + Final Round (100) = 150 Marks">Total (150)</th>
                           </>
                         ) : (
                           <>
@@ -4344,7 +4351,7 @@ export default function AdminDashboardPage() {
                     <tbody>
                       {displayedLeaderboard.length === 0 ? (
                         <tr>
-                          <td colSpan="14" style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
+                          <td colSpan={isFinalRoundMode ? 16 : 14} style={{ textAlign: 'center', color: cleanQuery || leaderboardTypeFilter !== 'all' ? '#ff6699' : 'var(--text-muted)', padding: '32px 16px' }}>
                             No evaluations found matching the selected filter or search query.
                           </td>
                         </tr>
@@ -4518,13 +4525,23 @@ export default function AdminDashboardPage() {
                                   </div>
                                 )}
                               </td>
+                              {isFinalRoundMode && (
+                                <td style={{ textAlign: 'center', fontWeight: '700', color: '#00ffcc' }}>
+                                  {item.round2Score ?? '-'}
+                                </td>
+                              )}
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c1}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c2}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c3}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c4}</td>
                               <td style={{ textAlign: 'center', fontWeight: '700', color: 'var(--inky-cyan)' }}>{item.c5}</td>
+                              {isFinalRoundMode && (
+                                <td style={{ textAlign: 'center', fontWeight: '700', color: item.isScored ? '#00ffcc' : 'var(--text-muted)' }}>
+                                  {item.isScored ? `${item.finalScore}` : '-'}
+                                </td>
+                              )}
                               <td style={{ textAlign: 'center', fontWeight: '800', fontSize: '1.1rem', color: item.isScored ? '#fdff00' : 'var(--text-muted)' }}>
-                                {item.isScored ? `${item.score} / ${isFinalRoundMode ? '100' : '50'}` : `- / ${isFinalRoundMode ? '100' : '50'}`}
+                                {item.isScored ? `${item.score} / ${isFinalRoundMode ? '150' : '50'}` : `- / ${isFinalRoundMode ? '150' : '50'}`}
                               </td>
                               <td>
                                 {item.isScored ? (

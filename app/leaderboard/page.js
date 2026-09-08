@@ -182,7 +182,10 @@ export default function LiveLeaderboardPage() {
     return {
       ...t,
       isScored: finalScore.isScored,
-      score: finalScore.score,
+      score: finalScore.score,               // Combined Total / 150
+      totalScore: finalScore.totalScore,     // Combined Total / 150
+      finalScore: finalScore.finalScore,     // External Jury Final / 100
+      round2Score: finalScore.round2Score,   // Round 2 / 50
       c1: finalScore.c1,
       c2: finalScore.c2,
       c3: finalScore.c3,
@@ -195,10 +198,12 @@ export default function LiveLeaderboardPage() {
     };
   });
 
-  // Sort: Scored teams first by score descending (with C1, C2 tiebreakers), then pending teams by track & ID
+  // Sort: Scored teams first by total score descending (/150), with tiebreakers: finalScore (/100), round2Score (/50), C1, C2, then pending teams
   const sortedLeaderboard = [...rawLeaderboard].sort((a, b) => {
     if (a.isScored && b.isScored) {
       if (b.score !== a.score) return b.score - a.score;
+      if ((b.finalScore || 0) !== (a.finalScore || 0)) return (b.finalScore || 0) - (a.finalScore || 0);
+      if ((b.round2Score || 0) !== (a.round2Score || 0)) return (b.round2Score || 0) - (a.round2Score || 0);
       if ((b.c1 || 0) !== (a.c1 || 0)) return (b.c1 || 0) - (a.c1 || 0);
       if ((b.c2 || 0) !== (a.c2 || 0)) return (b.c2 || 0) - (a.c2 || 0);
       return (a.teamIdNo || '').localeCompare(b.teamIdNo || '');
@@ -382,7 +387,7 @@ export default function LiveLeaderboardPage() {
             margin: '0 auto',
             lineHeight: '1.5'
           }}>
-            Live scores entered by External Jury Panels (FM001–FM007) across Software, Hybrid & Hardware tracks.
+            Live scores entered by External Jury Panels (FM001–FM007). Grand Total: 150 Marks (Round 2: 50 Marks + Final Round: 100 Marks).
           </p>
 
           {/* KPI METRICS ROW */}
@@ -532,7 +537,10 @@ export default function LiveLeaderboardPage() {
                 fontFamily: 'Press Start 2P, monospace',
                 color: '#c0c0c0'
               }}>
-                {secondPlace.score} <span style={{ fontSize: '0.65rem', color: '#888' }}>/ 100</span>
+                {secondPlace.score} <span style={{ fontSize: '0.65rem', color: '#888' }}>/ 150</span>
+                <div style={{ fontSize: '0.62rem', color: '#aaa', marginTop: '6px', fontFamily: 'Inter, sans-serif' }}>
+                  R2: <strong>{secondPlace.round2Score}</strong>/50 • Final: <strong>{secondPlace.finalScore}</strong>/100
+                </div>
               </div>
             )}
           </div>
@@ -594,7 +602,10 @@ export default function LiveLeaderboardPage() {
                 color: '#fdff00',
                 textShadow: '0 0 15px rgba(253, 255, 0, 0.6)'
               }}>
-                {firstPlace.score} <span style={{ fontSize: '0.75rem', color: '#aaa' }}>/ 100</span>
+                {firstPlace.score} <span style={{ fontSize: '0.75rem', color: '#aaa' }}>/ 150</span>
+                <div style={{ fontSize: '0.65rem', color: '#fdff00', marginTop: '6px', fontFamily: 'Inter, sans-serif' }}>
+                  R2: <strong>{firstPlace.round2Score}</strong>/50 • Final: <strong>{firstPlace.finalScore}</strong>/100
+                </div>
               </div>
             )}
           </div>
@@ -653,7 +664,10 @@ export default function LiveLeaderboardPage() {
                 fontFamily: 'Press Start 2P, monospace',
                 color: '#cd7f32'
               }}>
-                {thirdPlace.score} <span style={{ fontSize: '0.65rem', color: '#888' }}>/ 100</span>
+                {thirdPlace.score} <span style={{ fontSize: '0.65rem', color: '#888' }}>/ 150</span>
+                <div style={{ fontSize: '0.62rem', color: '#aaa', marginTop: '6px', fontFamily: 'Inter, sans-serif' }}>
+                  R2: <strong>{thirdPlace.round2Score}</strong>/50 • Final: <strong>{thirdPlace.finalScore}</strong>/100
+                </div>
               </div>
             )}
           </div>
@@ -741,24 +755,26 @@ export default function LiveLeaderboardPage() {
                 fontSize: '0.58rem',
                 color: '#00ffcc'
               }}>
-                <th style={{ padding: '14px 10px', textAlign: 'center', width: '70px' }}>RANK</th>
-                <th style={{ padding: '14px 10px', textAlign: 'center', width: '90px' }}>TEAM ID</th>
-                <th style={{ padding: '14px 14px' }}>TEAM NAME & PROJECT</th>
-                <th style={{ padding: '14px 10px', textAlign: 'center' }}>TRACK</th>
-                <th style={{ padding: '14px 10px' }}>EXTERNAL JURY PANEL</th>
-                <th style={{ padding: '14px 8px', textAlign: 'center' }} title="Innovation & Originality (Max 20, 35% Weight)">INNO (20)</th>
-                <th style={{ padding: '14px 8px', textAlign: 'center' }} title="Technical Architecture & Complexity (Max 20, 25% Weight)">ARCH (20)</th>
-                <th style={{ padding: '14px 8px', textAlign: 'center' }} title="Practical Feasibility & Impact (Max 20, 20% Weight)">FEAS (20)</th>
-                <th style={{ padding: '14px 8px', textAlign: 'center' }} title="User Experience & Design (Max 20, 10% Weight)">UI/UX (20)</th>
-                <th style={{ padding: '14px 8px', textAlign: 'center' }} title="Presentation & Pitch Demo (Max 20, 10% Weight)">PITCH (20)</th>
-                <th style={{ padding: '14px 12px', textAlign: 'center', color: '#fdff00', width: '120px' }}>FINAL (100)</th>
-                <th style={{ padding: '14px 10px', textAlign: 'center', width: '100px' }}>STATUS</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', width: '60px' }}>RANK</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', width: '80px' }}>TEAM ID</th>
+                <th style={{ padding: '14px 12px' }}>TEAM NAME & PROJECT</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center' }}>TRACK</th>
+                <th style={{ padding: '14px 8px' }}>EXTERNAL JURY PANEL</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', color: '#00ffcc', width: '85px' }} title="Round 2 Evaluation Marks (Max 50)">ROUND 2 (50)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Innovation & Originality (Max 20, 35% Weight)">INNO (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Technical Architecture & Complexity (Max 20, 25% Weight)">ARCH (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Practical Feasibility & Impact (Max 20, 20% Weight)">FEAS (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="User Experience & Design (Max 20, 10% Weight)">UI/UX (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Presentation & Pitch Demo (Max 20, 10% Weight)">PITCH (20)</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', color: '#00ffcc', width: '95px' }} title="Final Round External Jury Marks (Max 100)">FINAL (100)</th>
+                <th style={{ padding: '14px 10px', textAlign: 'center', color: '#fdff00', width: '115px' }} title="Grand Total: Round 2 (50) + Final Round (100) = 150 Marks">TOTAL (150)</th>
+                <th style={{ padding: '14px 8px', textAlign: 'center', width: '90px' }}>STATUS</th>
               </tr>
             </thead>
             <tbody>
               {filteredLeaderboard.length === 0 ? (
                 <tr>
-                  <td colSpan="12" style={{ textAlign: 'center', padding: '40px 16px', color: '#888' }}>
+                  <td colSpan="14" style={{ textAlign: 'center', padding: '40px 16px', color: '#888' }}>
                     {loading ? 'Loading live leaderboard data...' : 'No finalist teams matching the criteria.'}
                   </td>
                 </tr>
@@ -867,6 +883,26 @@ export default function LiveLeaderboardPage() {
                         </div>
                       </td>
 
+                      {/* Round 2 Marks */}
+                      <td style={{ textAlign: 'center' }}>
+                        <span style={{
+                          display: 'inline-block',
+                          background: 'rgba(0, 255, 204, 0.12)',
+                          color: '#00ffcc',
+                          border: '1px solid rgba(0, 255, 204, 0.4)',
+                          borderRadius: '4px',
+                          padding: '3px 8px',
+                          fontFamily: 'Press Start 2P, monospace',
+                          fontSize: '0.72rem',
+                          fontWeight: 'bold'
+                        }}>
+                          {item.round2Score ?? '-'}
+                        </span>
+                        <span style={{ fontSize: '0.55rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                          / 50
+                        </span>
+                      </td>
+
                       {/* Criteria Scores */}
                       <td style={{ textAlign: 'center', color: '#00ffcc', fontWeight: 'bold', fontSize: '0.82rem' }}>
                         {item.c1}
@@ -884,7 +920,21 @@ export default function LiveLeaderboardPage() {
                         {item.c5}
                       </td>
 
-                      {/* Total Score */}
+                      {/* Final Round Score (100) */}
+                      <td style={{
+                        textAlign: 'center',
+                        fontFamily: 'Press Start 2P, monospace',
+                        fontSize: '0.85rem',
+                        fontWeight: 'bold',
+                        color: item.isScored ? '#00ffcc' : '#666'
+                      }}>
+                        {item.isScored ? `${item.finalScore}` : '-'}
+                        <span style={{ fontSize: '0.55rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                          {item.isScored ? '/ 100' : 'PENDING'}
+                        </span>
+                      </td>
+
+                      {/* Total Score (150) */}
                       <td style={{
                         textAlign: 'center',
                         fontFamily: 'Press Start 2P, monospace',
@@ -894,8 +944,8 @@ export default function LiveLeaderboardPage() {
                         textShadow: item.isScored ? '0 0 10px rgba(253, 255, 0, 0.4)' : 'none'
                       }}>
                         {item.isScored ? `${item.score}` : '-'}
-                        <span style={{ fontSize: '0.55rem', color: '#888', display: 'block' }}>
-                          {item.isScored ? '/ 100' : 'PENDING'}
+                        <span style={{ fontSize: '0.55rem', color: '#888', display: 'block', marginTop: '2px' }}>
+                          {item.isScored ? '/ 150' : 'PENDING'}
                         </span>
                       </td>
 
@@ -947,7 +997,7 @@ export default function LiveLeaderboardPage() {
           fontFamily: 'Press Start 2P, monospace',
           lineHeight: '1.8'
         }}>
-          <div>MECIA HACKS 3.0 • GRAND FINALE LEADERBOARD SYSTEM</div>
+          <div>MECIA HACKS 3.0 • GRAND FINALE LEADERBOARD SYSTEM (TOTAL 150 MARKS)</div>
           <div style={{ color: '#00ffcc', marginTop: '4px' }}>
             TOTAL QUALIFIED FINALISTS: {FINAL_ROUND_STATS.totalTeams} ({FINAL_ROUND_STATS.softwareTeams} SOFTWARE • {FINAL_ROUND_STATS.hybridTeams} HYBRID • {FINAL_ROUND_STATS.hardwareTeams} HARDWARE)
           </div>
