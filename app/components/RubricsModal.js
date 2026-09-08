@@ -5,9 +5,7 @@ import { useState, useEffect } from 'react';
 export const round3RubricCriteria = [
   {
     title: 'Working MVP & Functional Execution',
-    weight: '35%',
-    weightNum: 35,
-    maxMarks: '20 Marks (Weight: 35%)',
+    maxMarks: '20 Marks',
     description: 'Fully functional live demo, real-time data flow, sensor-to-software execution, hardware stability.',
     scores: [
       { range: '1–4 (Poor)', text: 'Minimal or non-functional prototype; core logic crashes or fails during live run; sensor/hardware components unpowered, disconnected, or unresponsive; unable to demonstrate basic execution flow.' },
@@ -19,9 +17,7 @@ export const round3RubricCriteria = [
   },
   {
     title: 'Technical Complexity & Hardware/Software Integration',
-    weight: '25%',
-    weightNum: 25,
-    maxMarks: '20 Marks (Weight: 25%)',
+    maxMarks: '20 Marks',
     description: 'Code quality, hardware assembly, firmware stability, protocol integration e.g., MQTT/HTTP/Bluetooth.',
     scores: [
       { range: '1–4 (Poor)', text: 'Trivial architecture; heavy reliance on pre-built templates without modification; disconnected hardware/software with mock data only; unstable firmware setup.' },
@@ -33,9 +29,7 @@ export const round3RubricCriteria = [
   },
   {
     title: 'Innovation & Problem Impact',
-    weight: '20%',
-    weightNum: 20,
-    maxMarks: '20 Marks (Weight: 20%)',
+    maxMarks: '20 Marks',
     description: 'Uniqueness of approach, real-world utility, efficiency improvement over existing solutions.',
     scores: [
       { range: '1–4 (Poor)', text: 'Conventional or derivative concept; minimal novelty; unclear real-world problem statement or negligible impact.' },
@@ -47,9 +41,7 @@ export const round3RubricCriteria = [
   },
   {
     title: 'UI/UX, Industrial Design & Form Factor',
-    weight: '10%',
-    weightNum: 10,
-    maxMarks: '20 Marks (Weight: 10%)',
+    maxMarks: '20 Marks',
     description: 'Intuitive software UI/UX, neat circuit wiring, physical casing/enclosure design, user safety.',
     scores: [
       { range: '1–4 (Poor)', text: 'Chaotic or broken UI; unorganized exposed wiring; no casing or structural support; hazardous electrical setup.' },
@@ -61,9 +53,7 @@ export const round3RubricCriteria = [
   },
   {
     title: 'Presentation, Pitch & Live Technical Demo',
-    weight: '10%',
-    weightNum: 10,
-    maxMarks: '20 Marks (Weight: 10%)',
+    maxMarks: '20 Marks',
     description: 'Clarity of live demo, structured pitch, team collaboration, depth of technical Q&A responses.',
     scores: [
       { range: '1–4 (Poor)', text: 'Disorganized presentation; inability to explain system architecture; failed demo with no explanation; team unable to answer jury questions.' },
@@ -165,10 +155,10 @@ export default function RubricsModal({ isOpen, onClose, categoryIndex = null, de
             <p style={{ margin: '4px 0 0 0', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
               {isSingle
                 ? (selectedRound === 3
-                    ? `Category ${categoryIndex + 1} Guidelines • Weight: ${currentCriteriaList[categoryIndex].weight} • Score Scale: 1–20`
+                    ? `Category ${categoryIndex + 1} Guidelines • Max 20 Marks • Score Scale: 1–20`
                     : `Category ${categoryIndex + 1} Guidelines • Max 10 Marks`)
                 : (selectedRound === 3
-                    ? 'Official External Jury Scoring Rubrics (5 Criteria • 1–20 Score Scale • Weighted Total = 100%)'
+                    ? 'Official External Jury Scoring Rubrics (5 Criteria • 1–20 Score Scale • Total = 100 Marks)'
                     : 'Round 2 Prototype Architecture & Readiness Matrix (Max 10 Marks Each • Total = 50 Marks)')}
             </p>
           </div>
@@ -212,7 +202,7 @@ export default function RubricsModal({ isOpen, onClose, categoryIndex = null, de
                 color: selectedRound === 3 ? '#fdff00' : 'var(--text-muted)'
               }}
             >
-              🏆 ROUND 3: GRAND FINALE RUBRICS (100% WEIGHTED)
+              🏆 ROUND 3: GRAND FINALE RUBRICS (100 MARKS TOTAL)
             </button>
             <button
               type="button"
@@ -316,16 +306,16 @@ export default function RubricsModal({ isOpen, onClose, categoryIndex = null, de
               marginTop: '12px'
             }}>
               <h4 style={{ margin: '0 0 8px 0', fontSize: '0.85rem', color: '#fdff00', fontFamily: 'Press Start 2P, monospace' }}>
-                📊 ROUND 3 WEIGHTED SCORING BREAKDOWN
+                📊 ROUND 3 EVALUATION SCORING BREAKDOWN
               </h4>
               <div style={{ fontSize: '0.78rem', color: '#e2e8f0', lineHeight: 1.5 }}>
-                <div>• <strong>Criterion 1 (Working MVP):</strong> 35% Weight <em>(Score × 1.75 = Max 35 pts)</em></div>
-                <div>• <strong>Criterion 2 (Technical Complexity & Integration):</strong> 25% Weight <em>(Score × 1.25 = Max 25 pts)</em></div>
-                <div>• <strong>Criterion 3 (Innovation & Problem Impact):</strong> 20% Weight <em>(Score × 1.00 = Max 20 pts)</em></div>
-                <div>• <strong>Criterion 4 (UI/UX, Design & Form Factor):</strong> 10% Weight <em>(Score × 0.50 = Max 10 pts)</em></div>
-                <div>• <strong>Criterion 5 (Presentation, Pitch & Live Demo):</strong> 10% Weight <em>(Score × 0.50 = Max 10 pts)</em></div>
+                <div>• <strong>Criterion 1 (Working MVP & Functional Execution):</strong> Max 20 Marks</div>
+                <div>• <strong>Criterion 2 (Technical Complexity & Integration):</strong> Max 20 Marks</div>
+                <div>• <strong>Criterion 3 (Innovation & Problem Impact):</strong> Max 20 Marks</div>
+                <div>• <strong>Criterion 4 (UI/UX, Design & Form Factor):</strong> Max 20 Marks</div>
+                <div>• <strong>Criterion 5 (Presentation, Pitch & Live Demo):</strong> Max 20 Marks</div>
                 <div style={{ marginTop: '6px', paddingTop: '6px', borderTop: '1px dashed rgba(255, 255, 255, 0.2)', color: '#00ffcc', fontWeight: 'bold' }}>
-                  🎯 Total Overall Evaluation Score = Weighted Sum of all 5 Criteria (Max: 100%)
+                  🎯 Total Overall Evaluation Score = Direct Sum of all 5 Criteria (Max: 100 Marks)
                 </div>
               </div>
             </div>

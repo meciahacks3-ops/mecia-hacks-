@@ -761,11 +761,11 @@ export default function LiveLeaderboardPage() {
                 <th style={{ padding: '14px 8px', textAlign: 'center' }}>TRACK</th>
                 <th style={{ padding: '14px 8px' }}>EXTERNAL JURY PANEL</th>
                 <th style={{ padding: '14px 8px', textAlign: 'center', color: '#00ffcc', width: '85px' }} title="Round 2 Evaluation Marks (Max 50)">ROUND 2 (50)</th>
-                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Innovation & Originality (Max 20, 35% Weight)">INNO (20)</th>
-                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Technical Architecture & Complexity (Max 20, 25% Weight)">ARCH (20)</th>
-                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Practical Feasibility & Impact (Max 20, 20% Weight)">FEAS (20)</th>
-                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="User Experience & Design (Max 20, 10% Weight)">UI/UX (20)</th>
-                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Presentation & Pitch Demo (Max 20, 10% Weight)">PITCH (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Working MVP & Functional Execution (Max 20)">MVP (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Technical Complexity & Integration (Max 20)">TECH (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Innovation & Problem Impact (Max 20)">INNO (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="UI/UX, Design & Form Factor (Max 20)">UI/UX (20)</th>
+                <th style={{ padding: '14px 6px', textAlign: 'center' }} title="Presentation & Pitch Demo (Max 20)">PITCH (20)</th>
                 <th style={{ padding: '14px 8px', textAlign: 'center', color: '#00ffcc', width: '95px' }} title="Final Round External Jury Marks (Max 100)">FINAL (100)</th>
                 <th style={{ padding: '14px 10px', textAlign: 'center', color: '#fdff00', width: '115px' }} title="Grand Total: Round 2 (50) + Final Round (100) = 150 Marks">TOTAL (150)</th>
                 <th style={{ padding: '14px 8px', textAlign: 'center', width: '90px' }}>STATUS</th>

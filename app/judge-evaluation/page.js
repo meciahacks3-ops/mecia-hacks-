@@ -64,15 +64,14 @@ function JudgeEvaluationContent() {
   const numC4 = Math.min(maxCriterionScore, Math.max(0, parseFloat(c4) || 0));
   const numC5 = Math.min(maxCriterionScore, Math.max(0, parseFloat(c5) || 0));
 
-  // Round 3 Scoring: C1 (35%), C2 (25%), C3 (20%), C4 (10%), C5 (10%)
-  const weightedTotal = Math.round((numC1 * 1.75 + numC2 * 1.25 + numC3 * 1.0 + numC4 * 0.5 + numC5 * 0.5) * 10) / 10;
-  const rawTotal = Math.round((numC1 + numC2 + numC3 + numC4 + numC5) * 10) / 10;
+  // Direct sum of marks: 5 criteria out of 20 = 100 Marks max (No percentage weightage conversion)
+  const totalMarksSum = Math.round((numC1 + numC2 + numC3 + numC4 + numC5) * 10) / 10;
 
   const totalScore = hasInvalidMarks
     ? 'INVALID'
     : (isExternalRound3Judge
-        ? weightedTotal
-        : Math.min(50, Math.max(0, numC1 + numC2 + numC3 + numC4 + numC5)));
+        ? Math.min(100, Math.max(0, totalMarksSum))
+        : Math.min(50, Math.max(0, totalMarksSum)));
 
   useEffect(() => {
     const savedJudgeEmail = sessionStorage.getItem('judgeEmail');
@@ -359,7 +358,7 @@ function JudgeEvaluationContent() {
           ? `[C5 Presentation & Demo: ${scoreC5}/20] ${cleanRemarks}`.trim()
           : `[C5 Implementation: ${scoreC5}/10] ${cleanRemarks}`.trim();
 
-        const calculatedTotal = isExternalRound3Judge ? weightedTotal : (scoreC1 + scoreC2 + scoreC3 + scoreC4 + scoreC5);
+        const calculatedTotal = scoreC1 + scoreC2 + scoreC3 + scoreC4 + scoreC5;
         const totalNum = totalScore === 'INVALID' ? 0 : calculatedTotal;
 
         evalPayload = {
@@ -405,7 +404,7 @@ function JudgeEvaluationContent() {
           const scoreC4 = Math.min(20, Math.max(0, parseFloat(c4) || 0));
           const scoreC5 = Math.min(20, Math.max(0, parseFloat(c5) || 0));
           const cleanRemarks = remarks.replace(/\[C5(?:\s+[^\]]+)?:\s*\d+(?:\/(?:10|20))?\]\s*/gi, '').trim();
-          const calculatedTotal = weightedTotal;
+          const calculatedTotal = scoreC1 + scoreC2 + scoreC3 + scoreC4 + scoreC5;
           const totalNum = totalScore === 'INVALID' ? 0 : calculatedTotal;
 
           const externalPayload = {
@@ -1336,28 +1335,28 @@ function JudgeEvaluationContent() {
                       <tr>
                         <th style={{ width: '32%' }}>Evaluation Criterion {isExternalRound3Judge ? '(Round 3 Rubrics)' : ''}</th>
                         <th>Description & Guidelines</th>
-                        <th style={{ width: '16%', textAlign: 'center' }}>Weight & Max</th>
+                        <th style={{ width: '16%', textAlign: 'center' }}>Max Marks</th>
                         <th style={{ width: '22%', textAlign: 'center' }}>Score {isExternalRound3Judge ? '(0–20)' : '(0–10)'}</th>
                       </tr>
                     </thead>
                     <tbody>
                       {isExternalRound3Judge ? (
                         <>
-                          {/* CRITERION 1: WORKING MVP (35%) */}
+                          {/* CRITERION 1: WORKING MVP (20 MARKS) */}
                           <tr>
                             <td className="criterion-name">
                               1. Working MVP & Functional Execution
                               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
                                 <span style={{
-                                  background: 'rgba(253, 255, 0, 0.15)',
-                                  color: '#fdff00',
-                                  border: '1px solid #fdff00',
+                                  background: 'rgba(0, 255, 204, 0.12)',
+                                  color: '#00ffcc',
+                                  border: '1px solid rgba(0, 255, 204, 0.4)',
                                   borderRadius: '4px',
                                   padding: '1px 6px',
                                   fontSize: '0.68rem',
                                   fontWeight: 'bold'
                                 }}>
-                                  Weight: 35%
+                                  Max: 20 Marks
                                 </span>
                                 <button
                                   type="button"
@@ -1372,8 +1371,7 @@ function JudgeEvaluationContent() {
                               Fully functional live demo, real-time data flow, sensor-to-software execution, hardware stability.
                             </td>
                             <td className="max-marks-cell" style={{ textAlign: 'center' }}>
-                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
-                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>35% Weight</div>
+                              <div style={{ fontWeight: 'bold', color: '#00ffcc' }}>20 Marks</div>
                             </td>
                             <td className="score-input-cell">
                               <input
@@ -1392,27 +1390,27 @@ function JudgeEvaluationContent() {
                                 <span className="invalid-badge">❌ INVALID (0-20)</span>
                               ) : (
                                 <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
-                                  +{((parseFloat(c1) || 0) * 1.75).toFixed(1)} / 35 pts
+                                  {(parseFloat(c1) || 0)} / 20 marks
                                 </div>
                               )}
                             </td>
                           </tr>
 
-                          {/* CRITERION 2: TECHNICAL COMPLEXITY & INTEGRATION (25%) */}
+                          {/* CRITERION 2: TECHNICAL COMPLEXITY & INTEGRATION (20 MARKS) */}
                           <tr>
                             <td className="criterion-name">
                               2. Technical Complexity & Hardware/Software Integration
                               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
                                 <span style={{
-                                  background: 'rgba(253, 255, 0, 0.15)',
-                                  color: '#fdff00',
-                                  border: '1px solid #fdff00',
+                                  background: 'rgba(0, 255, 204, 0.12)',
+                                  color: '#00ffcc',
+                                  border: '1px solid rgba(0, 255, 204, 0.4)',
                                   borderRadius: '4px',
                                   padding: '1px 6px',
                                   fontSize: '0.68rem',
                                   fontWeight: 'bold'
                                 }}>
-                                  Weight: 25%
+                                  Max: 20 Marks
                                 </span>
                                 <button
                                   type="button"
@@ -1427,8 +1425,7 @@ function JudgeEvaluationContent() {
                               Code quality, hardware assembly, firmware stability, protocol integration e.g., MQTT/HTTP/Bluetooth.
                             </td>
                             <td className="max-marks-cell" style={{ textAlign: 'center' }}>
-                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
-                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>25% Weight</div>
+                              <div style={{ fontWeight: 'bold', color: '#00ffcc' }}>20 Marks</div>
                             </td>
                             <td className="score-input-cell">
                               <input
@@ -1447,27 +1444,27 @@ function JudgeEvaluationContent() {
                                 <span className="invalid-badge">❌ INVALID (0-20)</span>
                               ) : (
                                 <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
-                                  +{((parseFloat(c2) || 0) * 1.25).toFixed(1)} / 25 pts
+                                  {(parseFloat(c2) || 0)} / 20 marks
                                 </div>
                               )}
                             </td>
                           </tr>
 
-                          {/* CRITERION 3: INNOVATION & PROBLEM IMPACT (20%) */}
+                          {/* CRITERION 3: INNOVATION & PROBLEM IMPACT (20 MARKS) */}
                           <tr>
                             <td className="criterion-name">
                               3. Innovation & Problem Impact
                               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
                                 <span style={{
-                                  background: 'rgba(253, 255, 0, 0.15)',
-                                  color: '#fdff00',
-                                  border: '1px solid #fdff00',
+                                  background: 'rgba(0, 255, 204, 0.12)',
+                                  color: '#00ffcc',
+                                  border: '1px solid rgba(0, 255, 204, 0.4)',
                                   borderRadius: '4px',
                                   padding: '1px 6px',
                                   fontSize: '0.68rem',
                                   fontWeight: 'bold'
                                 }}>
-                                  Weight: 20%
+                                  Max: 20 Marks
                                 </span>
                                 <button
                                   type="button"
@@ -1482,8 +1479,7 @@ function JudgeEvaluationContent() {
                               Uniqueness of approach, real-world utility, efficiency improvement over existing solutions.
                             </td>
                             <td className="max-marks-cell" style={{ textAlign: 'center' }}>
-                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
-                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>20% Weight</div>
+                              <div style={{ fontWeight: 'bold', color: '#00ffcc' }}>20 Marks</div>
                             </td>
                             <td className="score-input-cell">
                               <input
@@ -1502,27 +1498,27 @@ function JudgeEvaluationContent() {
                                 <span className="invalid-badge">❌ INVALID (0-20)</span>
                               ) : (
                                 <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
-                                  +{((parseFloat(c3) || 0) * 1.0).toFixed(1)} / 20 pts
+                                  {(parseFloat(c3) || 0)} / 20 marks
                                 </div>
                               )}
                             </td>
                           </tr>
 
-                          {/* CRITERION 4: UI/UX, INDUSTRIAL DESIGN & FORM FACTOR (10%) */}
+                          {/* CRITERION 4: UI/UX, INDUSTRIAL DESIGN & FORM FACTOR (20 MARKS) */}
                           <tr>
                             <td className="criterion-name">
                               4. UI/UX, Industrial Design & Form Factor
                               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
                                 <span style={{
-                                  background: 'rgba(253, 255, 0, 0.15)',
-                                  color: '#fdff00',
-                                  border: '1px solid #fdff00',
+                                  background: 'rgba(0, 255, 204, 0.12)',
+                                  color: '#00ffcc',
+                                  border: '1px solid rgba(0, 255, 204, 0.4)',
                                   borderRadius: '4px',
                                   padding: '1px 6px',
                                   fontSize: '0.68rem',
                                   fontWeight: 'bold'
                                 }}>
-                                  Weight: 10%
+                                  Max: 20 Marks
                                 </span>
                                 <button
                                   type="button"
@@ -1537,8 +1533,7 @@ function JudgeEvaluationContent() {
                               Intuitive software UI/UX, neat circuit wiring, physical casing/enclosure design, user safety.
                             </td>
                             <td className="max-marks-cell" style={{ textAlign: 'center' }}>
-                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
-                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>10% Weight</div>
+                              <div style={{ fontWeight: 'bold', color: '#00ffcc' }}>20 Marks</div>
                             </td>
                             <td className="score-input-cell">
                               <input
@@ -1557,27 +1552,27 @@ function JudgeEvaluationContent() {
                                 <span className="invalid-badge">❌ INVALID (0-20)</span>
                               ) : (
                                 <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
-                                  +{((parseFloat(c4) || 0) * 0.5).toFixed(1)} / 10 pts
+                                  {(parseFloat(c4) || 0)} / 20 marks
                                 </div>
                               )}
                             </td>
                           </tr>
 
-                          {/* CRITERION 5: PRESENTATION, PITCH & LIVE DEMO (10%) */}
+                          {/* CRITERION 5: PRESENTATION, PITCH & LIVE DEMO (20 MARKS) */}
                           <tr>
                             <td className="criterion-name">
                               5. Presentation, Pitch & Live Technical Demo
                               <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '6px' }}>
                                 <span style={{
-                                  background: 'rgba(253, 255, 0, 0.15)',
-                                  color: '#fdff00',
-                                  border: '1px solid #fdff00',
+                                  background: 'rgba(0, 255, 204, 0.12)',
+                                  color: '#00ffcc',
+                                  border: '1px solid rgba(0, 255, 204, 0.4)',
                                   borderRadius: '4px',
                                   padding: '1px 6px',
                                   fontSize: '0.68rem',
                                   fontWeight: 'bold'
                                 }}>
-                                  Weight: 10%
+                                  Max: 20 Marks
                                 </span>
                                 <button
                                   type="button"
@@ -1592,8 +1587,7 @@ function JudgeEvaluationContent() {
                               Clarity of live demo, structured pitch, team collaboration, depth of technical Q&A responses.
                             </td>
                             <td className="max-marks-cell" style={{ textAlign: 'center' }}>
-                              <div style={{ fontWeight: 'bold' }}>20 Marks</div>
-                              <div style={{ fontSize: '0.72rem', color: '#fdff00' }}>10% Weight</div>
+                              <div style={{ fontWeight: 'bold', color: '#00ffcc' }}>20 Marks</div>
                             </td>
                             <td className="score-input-cell">
                               <input
@@ -1612,7 +1606,7 @@ function JudgeEvaluationContent() {
                                 <span className="invalid-badge">❌ INVALID (0-20)</span>
                               ) : (
                                 <div style={{ fontSize: '0.72rem', color: '#00ffcc', fontWeight: 'bold', marginTop: '3px' }}>
-                                  +{((parseFloat(c5) || 0) * 0.5).toFixed(1)} / 10 pts
+                                  {(parseFloat(c5) || 0)} / 20 marks
                                 </div>
                               )}
                             </td>
@@ -1786,16 +1780,16 @@ function JudgeEvaluationContent() {
                 <div className="total-score-box" style={hasInvalidMarks ? { borderColor: '#ff4d4d', boxShadow: '0 0 20px rgba(255, 77, 77, 0.4)' } : {}}>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '4px' }}>
                     <span className="total-label">
-                      {isExternalRound3Judge ? '🏆 TOTAL OVERALL EVALUATION SCORE (100%):' : 'TOTAL EVALUATION SCORE:'}
+                      {isExternalRound3Judge ? '🏆 TOTAL EVALUATION MARKS (OUT OF 100):' : 'TOTAL EVALUATION SCORE:'}
                     </span>
                     <span className="total-value" style={hasInvalidMarks ? { color: '#ff4d4d', textShadow: '0 0 10px #ff4d4d' } : {}}>
                       {hasInvalidMarks
                         ? (isExternalRound3Judge ? '⚠️ INVALID MARKS (Must be 0–20)' : '⚠️ INVALID MARKS ENTERED')
-                        : (isExternalRound3Judge ? `${weightedTotal} / 100` : `${totalScore} / 50`)}
+                        : (isExternalRound3Judge ? `${totalScore} / 100` : `${totalScore} / 50`)}
                     </span>
                     {isExternalRound3Judge && !hasInvalidMarks && (
                       <div style={{ fontSize: '0.8rem', color: '#00ffcc', fontFamily: 'Outfit, sans-serif', marginTop: '4px' }}>
-                        Weighted Score: <strong style={{ color: '#fdff00' }}>{weightedTotal}%</strong> • Raw Marks Sum: <strong>{rawTotal} / 100</strong>
+                        Direct Marks Sum: <strong>{totalScore} / 100</strong> (5 Criteria × 20 Marks Each)
                       </div>
                     )}
                   </div>
